@@ -4,6 +4,7 @@ plugins {
     kotlin("plugin.jpa") version "1.9.25"
     id("org.springframework.boot") version "3.4.4"
     id("io.spring.dependency-management") version "1.1.7"
+    jacoco
 }
 
 group = "com.kollekt"
@@ -50,6 +51,56 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/com/kollekt/domain/**",
+                        "**/com/kollekt/repository/**",
+                        "**/com/kollekt/api/**",
+                        "**/com/kollekt/config/**",
+                        "**/com/kollekt/KollektApplication*",
+                    )
+                }
+            },
+        ),
+    )
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    classDirectories.setFrom(tasks.jacocoTestReport.get().classDirectories)
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.60".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
