@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+dist
+.git
+.gitignore
+.vscode
+.DS_Store
+**/build
+**/.gradle
+**/node_modules
