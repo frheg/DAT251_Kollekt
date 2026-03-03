@@ -1,39 +1,44 @@
+import { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Trophy, CheckCircle2, Calendar, Wallet, TrendingUp, AlertCircle } from 'lucide-react';
 import { Progress } from './ui/progress';
+import { api } from '../lib/api';
+import type { DashboardResponse } from '../lib/types';
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
-  // Mock data
+  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const response = await api.get<DashboardResponse>('/dashboard?memberName=Kasper');
+        setData(response);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
   const currentUser = {
-    name: 'Kasper',
-    xp: 2450,
-    level: 12,
-    rank: 2,
+    name: data?.currentUserName ?? 'Kasper',
+    xp: data?.currentUserXp ?? 0,
+    level: data?.currentUserLevel ?? 1,
+    rank: data?.currentUserRank ?? 1,
   };
 
-  const nextLevelXP = 2600;
   const progressToNextLevel = ((currentUser.xp % 200) / 200) * 100;
 
-  const upcomingTasks = [
-    { id: 1, title: 'Vaske bad', dueDate: 'I dag', assignee: 'Deg' },
-    { id: 2, title: 'Handle fellesting', dueDate: 'I morgen', assignee: 'Fredric' },
-    { id: 3, title: 'Tømme søppel', dueDate: '4. feb', assignee: 'Deg' },
-  ];
-
-  const upcomingEvents = [
-    { id: 1, title: 'Filmkveld', date: '5. feb', time: '19:00' },
-    { id: 2, title: 'Vors', date: '7. feb', time: '21:00' },
-  ];
-
-  const recentExpenses = [
-    { id: 1, description: 'Dopapir & kluter', amount: 156, paidBy: 'Fredric' },
-    { id: 2, description: 'Pizza til filmkveld', amount: 320, paidBy: 'Deg' },
-  ];
+  const upcomingTasks = data?.upcomingTasks ?? [];
+  const upcomingEvents = data?.upcomingEvents ?? [];
+  const recentExpenses = data?.recentExpenses ?? [];
 
   const alerts = [
     { id: 1, message: 'Tørketrommel må tømmes!', type: 'warning' },
@@ -46,7 +51,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <Card className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white p-6 border-0 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-white mb-1">Hei, {currentUser.name}! 👋</h2>
+            <h2 className="text-white mb-1">Hei, {currentUser.name}!</h2>
             <p className="text-blue-100 text-sm">Level {currentUser.level} • Rank #{currentUser.rank}</p>
           </div>
           <div className="text-right">
@@ -126,9 +131,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <p>{task.title}</p>
                 <p className="text-sm text-gray-600">{task.assignee}</p>
               </div>
-              <span className="text-sm text-gray-500">{task.dueDate}</span>
+              <span className="text-sm text-gray-500">{new Date(task.dueDate).toLocaleDateString('nb-NO')}</span>
             </div>
           ))}
+          {!loading && upcomingTasks.length === 0 && <p className="text-sm text-gray-500">Ingen kommende oppgaver</p>}
         </div>
       </Card>
 
@@ -146,10 +152,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <Calendar className="w-5 h-5 text-purple-600" />
               <div className="flex-1">
                 <p>{event.title}</p>
-                <p className="text-sm text-gray-600">{event.date} • {event.time}</p>
+                <p className="text-sm text-gray-600">{new Date(event.date).toLocaleDateString('nb-NO')} • {event.time.slice(0, 5)}</p>
               </div>
             </div>
           ))}
+          {!loading && upcomingEvents.length === 0 && <p className="text-sm text-gray-500">Ingen kommende events</p>}
         </div>
       </Card>
 
@@ -171,6 +178,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <span className="font-medium">{expense.amount} kr</span>
             </div>
           ))}
+          {!loading && recentExpenses.length === 0 && <p className="text-sm text-gray-500">Ingen registrerte utgifter</p>}
         </div>
       </Card>
     </div>
