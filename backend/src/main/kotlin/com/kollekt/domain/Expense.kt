@@ -1,10 +1,14 @@
 package com.kollekt.domain
 
 import jakarta.persistence.Column
+import jakarta.persistence.CollectionTable
+import jakarta.persistence.ElementCollection
 import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
 import jakarta.persistence.Table
 import java.time.LocalDate
 
@@ -18,5 +22,11 @@ data class Expense(
         @Column(nullable = true) val collectiveCode: String? = null,
         @Column(nullable = false) val category: String,
         @Column(nullable = false) val date: LocalDate,
-        @Column(nullable = false) val splitBetween: Int,
+        @ElementCollection(fetch = FetchType.EAGER)
+        @CollectionTable(
+                name = "expense_participants",
+                joinColumns = [JoinColumn(name = "expense_id")]
+        )
+        @Column(name = "member_name", nullable = false)
+        val participantNames: Set<String> = emptySet(),
 )

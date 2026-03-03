@@ -1,7 +1,7 @@
 package com.kollekt.config
 
 import com.kollekt.domain.*
-import com.kollekt.repository.*
+import com.kollekt.repository.AchievementRepository
 import org.springframework.boot.CommandLineRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -9,19 +9,7 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class DataSeeder {
     @Bean
-    fun seedData(
-            memberRepository: MemberRepository,
-            taskRepository: TaskRepository,
-            shoppingItemRepository: ShoppingItemRepository,
-            eventRepository: EventRepository,
-            chatMessageRepository: ChatMessageRepository,
-            expenseRepository: ExpenseRepository,
-            pantEntryRepository: PantEntryRepository,
-            achievementRepository: AchievementRepository,
-) = CommandLineRunner {
-        // Keep domain tables empty by default so new collectives always start clean.
-        // Repositories are intentionally kept as parameters for future optional sample data toggles.
-
+    fun seedData(achievementRepository: AchievementRepository) = CommandLineRunner {
         if (achievementRepository.count() == 0L) {
             achievementRepository.saveAll(
                     listOf(

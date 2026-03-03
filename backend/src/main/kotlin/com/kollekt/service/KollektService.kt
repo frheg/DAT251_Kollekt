@@ -20,6 +20,7 @@ class KollektService(
         private val eventRepository: EventRepository,
         private val chatMessageRepository: ChatMessageRepository,
         private val expenseRepository: ExpenseRepository,
+        private val settlementCheckpointRepository: SettlementCheckpointRepository,
         private val pantEntryRepository: PantEntryRepository,
         private val achievementRepository: AchievementRepository,
         private val redisTemplate: RedisTemplate<String, Any>,
@@ -250,6 +251,18 @@ class KollektService(
     @Transactional
     fun createExpense(request: CreateExpenseRequest): ExpenseDto {
         val collectiveCode = requireCollectiveCodeByMemberName(request.paidBy)
+        val collectiveMembers = memberRepository.findAllByCollectiveCode(collectiveCode).map { it.name }.toSet()
+        if (collectiveMembers.isEmpty()) {
+            throw IllegalArgumentException("Collective '$collectiveCode' has no members")
+        }
+
+        val requestedParticipants = request.participantNames.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        val participants = if (requestedParticipants.isEmpty()) collectiveMembers else requestedParticipants
+        val invalidParticipants = participants - collectiveMembers
+        if (invalidParticipants.isNotEmpty()) {
+            throw IllegalArgumentException("Participants not in collective: ${invalidParticipants.joinToString(", ")}")
+        }
+
         val saved =
                 expenseRepository.save(
                         Expense(
@@ -259,7 +272,7 @@ class KollektService(
                                 collectiveCode = collectiveCode,
                                 category = request.category,
                                 date = request.date,
-                                splitBetween = request.splitBetween,
+                                participantNames = participants,
                         ),
                 )
         clearDashboardCache()
@@ -270,25 +283,15 @@ class KollektService(
 
     fun getBalances(memberName: String): List<BalanceDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val expenses = expenseRepository.findAllByCollectiveCode(collectiveCode)
+        val checkpointExpenseId = latestSettledExpenseId(collectiveCode)
+        val expenses =
+                expenseRepository
+                        .findAllByCollectiveCode(collectiveCode)
+                        .filter { it.id > checkpointExpenseId }
         if (expenses.isEmpty()) return emptyList()
 
         val members = memberRepository.findAllByCollectiveCode(collectiveCode).map { it.name }
-        val perMember = mutableMapOf<String, Double>()
-        members.forEach { perMember[it] = 0.0 }
-
-        expenses.forEach { expense ->
-            val split = expense.amount.toDouble() / expense.splitBetween.toDouble()
-            members.take(expense.splitBetween).forEach { member ->
-                perMember[member] = perMember.getValue(member) - split
-            }
-            perMember[expense.paidBy] =
-                    perMember.getOrDefault(expense.paidBy, 0.0) + expense.amount.toDouble()
-        }
-
-        return perMember
-                .map { (name, amount) -> BalanceDto(name = name, amount = amount.roundToInt()) }
-                .sortedByDescending { it.amount }
+        return calculateBalances(expenses, members)
     }
 
     fun getPantSummary(memberName: String, goal: Int = 1000): PantSummaryDto {
@@ -321,6 +324,35 @@ class KollektService(
                 expenses = getExpenses(memberName),
                 balances = getBalances(memberName),
                 pantSummary = getPantSummary(memberName),
+        )
+    }
+
+    @Transactional
+    fun settleUp(request: SettleUpRequest): SettleUpResponse {
+        val collectiveCode = requireCollectiveCodeByMemberName(request.memberName)
+        val lastExpenseId = expenseRepository.findTopByCollectiveCodeOrderByIdDesc(collectiveCode)?.id ?: 0L
+        val checkpoint =
+                settlementCheckpointRepository.save(
+                        SettlementCheckpoint(
+                                collectiveCode = collectiveCode,
+                                settledBy = request.memberName,
+                                lastExpenseId = lastExpenseId,
+                        ),
+                )
+        eventPublisher.economyEvent(
+                "BALANCES_SETTLED",
+                mapOf(
+                        "collectiveCode" to collectiveCode,
+                        "settledBy" to request.memberName,
+                        "lastExpenseId" to lastExpenseId,
+                        "settledAt" to checkpoint.createdAt.toString(),
+                ),
+        )
+        return SettleUpResponse(
+                collectiveCode = collectiveCode,
+                settledBy = request.memberName,
+                lastExpenseId = lastExpenseId,
+                settledAt = checkpoint.createdAt,
         )
     }
 
@@ -424,195 +456,7 @@ class KollektService(
         val leaderboard = getLeaderboard(memberName).players
         val topPlayer = leaderboard.firstOrNull()?.name ?: "Emma"
         val bottomPlayer = leaderboard.lastOrNull()?.name ?: "Kasper"
-
-        val questions =
-                listOf(
-                        DrinkingQuestionDto(
-                                "$topPlayer, som leaderboard-leder, del ut 3 slurker!",
-                                "distribute",
-                                topPlayer
-                        ),
-                        DrinkingQuestionDto(
-                                "$bottomPlayer, du er sist på leaderboardet. Drikk 2!",
-                                "drink",
-                                bottomPlayer
-                        ),
-                        DrinkingQuestionDto(
-                                "Alle som har glemt å tømme søppel denne uken drikker 2!",
-                                "everyone",
-                                null
-                        ),
-                        DrinkingQuestionDto(
-                                "Pek på hvem som mest sannsynlig glemmer å handle. De drikker 1!",
-                                "vote",
-                                null
-                        ),
-                        DrinkingQuestionDto(
-                                "Rock, paper, scissors mellom topp 2 på leaderboard. Taper drikker 3!",
-                                "challenge",
-                                null
-                        ),
-                )
-
-        return questions[Random.nextInt(questions.size)]
-    }
-
-    // Backwards-compatible overloads used by existing tests/legacy code paths.
-    fun getTasks(): List<TaskDto> = taskRepository.findAll().sortedBy { it.dueDate }.map { it.toDto() }
-
-    fun toggleTask(taskId: Long): TaskDto {
-        val task =
-                taskRepository.findById(taskId).orElseThrow {
-                    IllegalArgumentException("Task $taskId not found")
-                }
-        val updated = taskRepository.save(task.copy(completed = !task.completed))
-        clearDashboardCache()
-        clearLeaderboardCache()
-        eventPublisher.taskEvent("TASK_TOGGLED", updated.toDto())
-        return updated.toDto()
-    }
-
-    fun getShoppingItems(): List<ShoppingItemDto> = shoppingItemRepository.findAll().map { it.toDto() }
-
-    fun toggleShoppingItem(itemId: Long): ShoppingItemDto {
-        val item =
-                shoppingItemRepository.findById(itemId).orElseThrow {
-                    IllegalArgumentException("Shopping item $itemId not found")
-                }
-        val updated = shoppingItemRepository.save(item.copy(completed = !item.completed))
-        eventPublisher.taskEvent("SHOPPING_ITEM_TOGGLED", updated.toDto())
-        return updated.toDto()
-    }
-
-    fun deleteShoppingItem(itemId: Long) {
-        shoppingItemRepository.deleteById(itemId)
-        eventPublisher.taskEvent("SHOPPING_ITEM_DELETED", mapOf("id" to itemId))
-    }
-
-    fun getEvents(): List<EventDto> = eventRepository.findAll().sortedBy { it.date }.map { it.toDto() }
-
-    fun getMessages(): List<MessageDto> =
-            chatMessageRepository.findAll().sortedBy { it.timestamp }.map { it.toDto() }
-
-    fun getExpenses(): List<ExpenseDto> =
-            expenseRepository.findAll().sortedByDescending { it.date }.map { it.toDto() }
-
-    fun getBalances(): List<BalanceDto> {
-        val expenses = expenseRepository.findAll()
-        if (expenses.isEmpty()) return emptyList()
-
-        val members = memberRepository.findAll().map { it.name }
-        val perMember = mutableMapOf<String, Double>()
-        members.forEach { perMember[it] = 0.0 }
-
-        expenses.forEach { expense ->
-            val split = expense.amount.toDouble() / expense.splitBetween.toDouble()
-            members.take(expense.splitBetween).forEach { member ->
-                perMember[member] = perMember.getValue(member) - split
-            }
-            perMember[expense.paidBy] =
-                    perMember.getOrDefault(expense.paidBy, 0.0) + expense.amount.toDouble()
-        }
-
-        return perMember
-                .map { (name, amount) -> BalanceDto(name = name, amount = amount.roundToInt()) }
-                .sortedByDescending { it.amount }
-    }
-
-    fun getPantSummary(goal: Int = 1000): PantSummaryDto {
-        val entries =
-                pantEntryRepository.findAll().sortedByDescending { it.date }.map { it.toDto() }
-        val current = entries.sumOf { it.amount }
-        return PantSummaryDto(currentAmount = current, goalAmount = goal, entries = entries)
-    }
-
-    fun getEconomySummary(): EconomySummaryDto {
-        return EconomySummaryDto(
-                expenses = getExpenses(),
-                balances = getBalances(),
-                pantSummary = getPantSummary(),
-        )
-    }
-
-    fun getLeaderboard(): LeaderboardResponse {
-        val cached = redisTemplate.opsForValue().get("leaderboard:global")
-        if (cached is LeaderboardResponse) return cached
-
-        val tasks = taskRepository.findAll()
-        val players =
-                memberRepository.findAll().sortedByDescending { it.xp }.mapIndexed { index, member ->
-                    val completedCount = tasks.count { it.assignee == member.name && it.completed }
-                    LeaderboardPlayerDto(
-                            rank = index + 1,
-                            name = member.name,
-                            level = member.level,
-                            xp = member.xp,
-                            tasksCompleted = completedCount,
-                            streak = (completedCount / 2).coerceAtMost(30),
-                            badges =
-                                    when {
-                                        index == 0 -> listOf("TOP", "STREAK", "PRO")
-                                        index < 3 -> listOf("STREAK", "PRO")
-                                        else -> listOf("PRO")
-                                    },
-                    )
-                }
-
-        val totalTasks = tasks.count { it.completed }
-        val totalXp = players.sumOf { it.xp }
-        val avgPerPerson = if (players.isNotEmpty()) totalXp / players.size else 0
-        val top = players.firstOrNull()?.name ?: "N/A"
-
-        val response =
-                LeaderboardResponse(
-                        players = players,
-                        weeklyStats =
-                                WeeklyStatsDto(
-                                        totalTasks = totalTasks,
-                                        totalXp = totalXp,
-                                        avgPerPerson = avgPerPerson,
-                                        topContributor = top,
-                                ),
-                )
-
-        redisTemplate.opsForValue().set("leaderboard:global", response)
-        return response
-    }
-
-    fun getDrinkingQuestion(): DrinkingQuestionDto {
-        val leaderboard = getLeaderboard().players
-        val topPlayer = leaderboard.firstOrNull()?.name ?: "Emma"
-        val bottomPlayer = leaderboard.lastOrNull()?.name ?: "Kasper"
-
-        val questions =
-                listOf(
-                        DrinkingQuestionDto(
-                                "$topPlayer, som leaderboard-leder, del ut 3 slurker!",
-                                "distribute",
-                                topPlayer
-                        ),
-                        DrinkingQuestionDto(
-                                "$bottomPlayer, du er sist på leaderboardet. Drikk 2!",
-                                "drink",
-                                bottomPlayer
-                        ),
-                        DrinkingQuestionDto(
-                                "Alle som har glemt å tømme søppel denne uken drikker 2!",
-                                "everyone",
-                                null
-                        ),
-                        DrinkingQuestionDto(
-                                "Pek på hvem som mest sannsynlig glemmer å handle. De drikker 1!",
-                                "vote",
-                                null
-                        ),
-                        DrinkingQuestionDto(
-                                "Rock, paper, scissors mellom topp 2 på leaderboard. Taper drikker 3!",
-                                "challenge",
-                                null
-                        ),
-                )
-
+        val questions = buildDrinkingQuestions(topPlayer, bottomPlayer)
         return questions[Random.nextInt(questions.size)]
     }
 
@@ -649,6 +493,64 @@ class KollektService(
                 ?: throw IllegalArgumentException("User '${member.name}' must join a collective first")
     }
 
+    private fun latestSettledExpenseId(collectiveCode: String): Long {
+        return settlementCheckpointRepository.findTopByCollectiveCodeOrderByIdDesc(collectiveCode)?.lastExpenseId ?: 0L
+    }
+
+    private fun calculateBalances(expenses: List<Expense>, members: List<String>): List<BalanceDto> {
+        if (members.isEmpty()) return emptyList()
+        val perMember = members.associateWith { 0.0 }.toMutableMap()
+        val memberSet = members.toSet()
+
+        expenses.forEach { expense ->
+            val participants = (if (expense.participantNames.isEmpty()) memberSet else expense.participantNames).intersect(memberSet)
+            if (participants.isEmpty()) return@forEach
+
+            val split = expense.amount.toDouble() / participants.size.toDouble()
+            participants.forEach { member ->
+                perMember[member] = perMember.getValue(member) - split
+            }
+            perMember[expense.paidBy] =
+                    perMember.getOrDefault(expense.paidBy, 0.0) + expense.amount.toDouble()
+        }
+
+        return perMember
+                .map { (name, amount) -> BalanceDto(name = name, amount = amount.roundToInt()) }
+                .sortedByDescending { it.amount }
+    }
+
+    private fun buildDrinkingQuestions(
+            topPlayer: String,
+            bottomPlayer: String,
+    ): List<DrinkingQuestionDto> =
+            listOf(
+                    DrinkingQuestionDto(
+                            "$topPlayer, som leaderboard-leder, del ut 3 slurker!",
+                            "distribute",
+                            topPlayer
+                    ),
+                    DrinkingQuestionDto(
+                            "$bottomPlayer, du er sist på leaderboardet. Drikk 2!",
+                            "drink",
+                            bottomPlayer
+                    ),
+                    DrinkingQuestionDto(
+                            "Alle som har glemt å tømme søppel denne uken drikker 2!",
+                            "everyone",
+                            null
+                    ),
+                    DrinkingQuestionDto(
+                            "Pek på hvem som mest sannsynlig glemmer å handle. De drikker 1!",
+                            "vote",
+                            null
+                    ),
+                    DrinkingQuestionDto(
+                            "Rock, paper, scissors mellom topp 2 på leaderboard. Taper drikker 3!",
+                            "challenge",
+                            null
+                    ),
+            )
+
     private fun TaskItem.toDto() =
             TaskDto(id, title, assignee, dueDate, category, completed, xp, recurring)
     private fun ShoppingItem.toDto() = ShoppingItemDto(id, item, addedBy, completed)
@@ -658,7 +560,15 @@ class KollektService(
     private fun Member.toUserDto() = UserDto(id, name, collectiveCode)
     private fun Collective.toDto() = CollectiveDto(id, name, joinCode)
     private fun Expense.toDto() =
-            ExpenseDto(id, description, amount, paidBy, category, date, splitBetween)
+            ExpenseDto(
+                    id = id,
+                    description = description,
+                    amount = amount,
+                    paidBy = paidBy,
+                    category = category,
+                    date = date,
+                    participantNames = participantNames.sorted(),
+            )
     private fun PantEntry.toDto() = PantEntryDto(id, bottles, amount, addedBy, date)
     private fun Achievement.toDto() =
             AchievementDto(id, title, description, icon, unlocked, progress, total)
