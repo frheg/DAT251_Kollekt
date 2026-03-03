@@ -15,6 +15,7 @@ data class Expense(
         @Column(nullable = false) val description: String,
         @Column(nullable = false) val amount: Int,
         @Column(nullable = false) val paidBy: String,
+        @Column(nullable = true) val collectiveCode: String? = null,
         @Column(nullable = false) val category: String,
         @Column(nullable = false) val date: LocalDate,
         @Column(nullable = false) val splitBetween: Int,

@@ -25,6 +25,7 @@ import org.springframework.data.redis.core.ValueOperations
 @MockitoSettings(strictness = Strictness.LENIENT)
 class KollektServiceTest {
     @Mock lateinit var memberRepository: MemberRepository
+    @Mock lateinit var collectiveRepository: CollectiveRepository
     @Mock lateinit var taskRepository: TaskRepository
     @Mock lateinit var shoppingItemRepository: ShoppingItemRepository
     @Mock lateinit var eventRepository: EventRepository
@@ -45,6 +46,7 @@ class KollektServiceTest {
         service =
             KollektService(
                 memberRepository,
+                collectiveRepository,
                 taskRepository,
                 shoppingItemRepository,
                 eventRepository,
@@ -262,6 +264,59 @@ class KollektServiceTest {
         assertEquals("Hei", result.text)
 
         verify(eventPublisher).chatEvent(eq("MESSAGE_CREATED"), any())
+    }
+
+    @Test
+    fun `createUser saves member and clears caches`() {
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        whenever(memberRepository.findByName("Lina")).thenReturn(null)
+        whenever(memberRepository.save(any())).thenReturn(Member(id = 77, name = "Lina"))
+
+        val result = service.createUser(CreateUserRequest(name = "Lina"))
+
+        assertEquals(77, result.id)
+        assertEquals("Lina", result.name)
+        assertNull(result.collectiveCode)
+        verify(redisTemplate).delete("leaderboard:global")
+    }
+
+    @Test
+    fun `createCollective generates code and assigns owner`() {
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        whenever(memberRepository.findById(1)).thenReturn(Optional.of(Member(id = 1, name = "Kasper")))
+        whenever(collectiveRepository.existsByJoinCode(any())).thenReturn(false)
+
+        val collectiveCaptor = argumentCaptor<Collective>()
+        whenever(collectiveRepository.save(collectiveCaptor.capture())).thenAnswer {
+            collectiveCaptor.firstValue.copy(id = 9)
+        }
+
+        val updatedOwnerCaptor = argumentCaptor<Member>()
+        whenever(memberRepository.save(updatedOwnerCaptor.capture())).thenReturn(updatedOwnerCaptor.firstValue)
+
+        val result = service.createCollective(CreateCollectiveRequest(name = "Team Kollekt", ownerUserId = 1))
+
+        assertEquals(9, result.id)
+        assertEquals("Team Kollekt", result.name)
+        assertEquals(6, result.joinCode.length)
+        assertEquals(result.joinCode, updatedOwnerCaptor.firstValue.collectiveCode)
+    }
+
+    @Test
+    fun `joinCollective sets collective code on user`() {
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(
+            Collective(id = 3, name = "Huset", joinCode = "ABC123", ownerMemberId = 10),
+        )
+        whenever(memberRepository.findById(2)).thenReturn(Optional.of(Member(id = 2, name = "Emma")))
+
+        val updatedUserCaptor = argumentCaptor<Member>()
+        whenever(memberRepository.save(updatedUserCaptor.capture())).thenReturn(updatedUserCaptor.firstValue)
+
+        val result = service.joinCollective(JoinCollectiveRequest(userId = 2, joinCode = "abc123"))
+
+        assertEquals("ABC123", result.collectiveCode)
+        assertEquals("ABC123", updatedUserCaptor.firstValue.collectiveCode)
     }
 
     @Test

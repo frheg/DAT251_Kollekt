@@ -9,18 +9,26 @@ import { Label } from './ui/label';
 import { api } from '../lib/api';
 import type { CalendarEvent, EventType } from '../lib/types';
 
-export function CalendarView() {
+interface CalendarViewProps {
+  currentUserName: string;
+}
+
+export function CalendarView({ currentUserName }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [form, setForm] = useState({ title: '', date: '', time: '', description: '', organizer: 'Kasper', type: 'OTHER' as EventType });
+  const [form, setForm] = useState({ title: '', date: '', time: '', description: '', organizer: currentUserName, type: 'OTHER' as EventType });
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get<CalendarEvent[]>('/events');
+      const data = await api.get<CalendarEvent[]>(`/events?memberName=${encodeURIComponent(currentUserName)}`);
       setEvents(data);
     };
     load();
-  }, []);
+  }, [currentUserName]);
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, organizer: currentUserName }));
+  }, [currentUserName]);
 
   const monthNames = ['Januar', 'Februar', 'Mars', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Desember'];
   const dayNames = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'];
@@ -90,7 +98,7 @@ export function CalendarView() {
       type: form.type,
     });
     setEvents([...events, created]);
-    setForm({ title: '', date: '', time: '', description: '', organizer: 'Kasper', type: 'OTHER' });
+    setForm({ title: '', date: '', time: '', description: '', organizer: currentUserName, type: 'OTHER' });
   };
 
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));

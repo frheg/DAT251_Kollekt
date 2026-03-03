@@ -14,4 +14,5 @@ data class Member(
         @Column(nullable = false, unique = true) val name: String,
         @Column(nullable = false) val level: Int = 1,
         @Column(nullable = false) val xp: Int = 0,
+        @Column(nullable = true) val collectiveCode: String? = null,
 )

@@ -7,21 +7,25 @@ import { Send, MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ChatMessage } from '../lib/types';
 
-export function Chat() {
+interface ChatProps {
+  currentUserName: string;
+}
+
+export function Chat({ currentUserName }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get<ChatMessage[]>('/chat/messages');
+      const data = await api.get<ChatMessage[]>(`/chat/messages?memberName=${encodeURIComponent(currentUserName)}`);
       setMessages(data);
     };
     load();
-  }, []);
+  }, [currentUserName]);
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
-    const created = await api.post<ChatMessage>('/chat/messages', { sender: 'Kasper', text: newMessage });
+    const created = await api.post<ChatMessage>('/chat/messages', { sender: currentUserName, text: newMessage });
     setMessages([...messages, created]);
     setNewMessage('');
   };
@@ -48,7 +52,7 @@ export function Chat() {
       <Card className="p-4 bg-white/80 backdrop-blur max-h-[60vh] overflow-y-auto">
         <div className="space-y-4">
           {messages.map(message => {
-            const isMe = message.sender === 'Kasper';
+            const isMe = message.sender === currentUserName;
             return (
               <div key={message.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
                 <Avatar className={`w-8 h-8 ${getAvatarColor(message.sender)} flex-shrink-0`}>

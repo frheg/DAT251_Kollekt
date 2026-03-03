@@ -13,6 +13,7 @@ import java.time.LocalDateTime
 data class ChatMessage(
         @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
         @Column(nullable = false) val sender: String,
+        @Column(nullable = true) val collectiveCode: String? = null,
         @Column(nullable = false, length = 1500) val text: String,
         @Column(nullable = false) val timestamp: LocalDateTime,
 )

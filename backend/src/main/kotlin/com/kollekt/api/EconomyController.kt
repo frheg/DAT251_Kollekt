@@ -8,21 +8,29 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/economy")
 class EconomyController(private val service: KollektService) {
-    @GetMapping("/expenses") fun getExpenses(): List<ExpenseDto> = service.getExpenses()
+    @GetMapping("/expenses")
+    fun getExpenses(@RequestParam memberName: String): List<ExpenseDto> =
+            service.getExpenses(memberName)
 
     @PostMapping("/expenses")
     @ResponseStatus(HttpStatus.CREATED)
     fun createExpense(@RequestBody request: CreateExpenseRequest): ExpenseDto =
             service.createExpense(request)
 
-    @GetMapping("/balances") fun getBalances(): List<BalanceDto> = service.getBalances()
+    @GetMapping("/balances")
+    fun getBalances(@RequestParam memberName: String): List<BalanceDto> =
+            service.getBalances(memberName)
 
-    @GetMapping("/pant") fun getPantSummary(): PantSummaryDto = service.getPantSummary()
+    @GetMapping("/pant")
+    fun getPantSummary(@RequestParam memberName: String): PantSummaryDto =
+            service.getPantSummary(memberName)
 
     @PostMapping("/pant")
     @ResponseStatus(HttpStatus.CREATED)
     fun addPant(@RequestBody request: CreatePantEntryRequest): PantEntryDto =
             service.addPantEntry(request)
 
-    @GetMapping("/summary") fun getSummary(): EconomySummaryDto = service.getEconomySummary()
+    @GetMapping("/summary")
+    fun getSummary(@RequestParam memberName: String): EconomySummaryDto =
+            service.getEconomySummary(memberName)
 }
