@@ -2,6 +2,8 @@
 
 Fullstack kollektiv-app basert på eksisterende Figma-export.
 
+
+
 ## Stack
 
 - Frontend: React + TypeScript (Vite)
