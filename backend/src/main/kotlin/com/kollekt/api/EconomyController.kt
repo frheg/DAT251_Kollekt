@@ -33,4 +33,8 @@ class EconomyController(private val service: KollektService) {
     @GetMapping("/summary")
     fun getSummary(@RequestParam memberName: String): EconomySummaryDto =
             service.getEconomySummary(memberName)
+
+    @PostMapping("/settle-up")
+    fun settleUp(@RequestBody request: SettleUpRequest): SettleUpResponse =
+            service.settleUp(request)
 }

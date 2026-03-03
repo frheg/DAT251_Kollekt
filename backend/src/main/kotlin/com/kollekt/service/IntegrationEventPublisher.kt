@@ -13,30 +13,20 @@ class IntegrationEventPublisher(
         @Value("\${app.topics.economy-events}") private val economyTopic: String,
 ) {
     fun taskEvent(action: String, payload: Any) {
-        kafkaTemplate.send(
-                taskTopic,
-                mapOf(
-                        "action" to action,
-                        "payload" to payload,
-                        "timestamp" to Instant.now().toString()
-                )
-        )
+        publish(taskTopic, action, payload)
     }
 
     fun chatEvent(action: String, payload: Any) {
-        kafkaTemplate.send(
-                chatTopic,
-                mapOf(
-                        "action" to action,
-                        "payload" to payload,
-                        "timestamp" to Instant.now().toString()
-                )
-        )
+        publish(chatTopic, action, payload)
     }
 
     fun economyEvent(action: String, payload: Any) {
+        publish(economyTopic, action, payload)
+    }
+
+    private fun publish(topic: String, action: String, payload: Any) {
         kafkaTemplate.send(
-                economyTopic,
+                topic,
                 mapOf(
                         "action" to action,
                         "payload" to payload,

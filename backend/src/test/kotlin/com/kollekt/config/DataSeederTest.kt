@@ -1,8 +1,7 @@
 package com.kollekt.config
 
-
 import com.kollekt.domain.Achievement
-import com.kollekt.repository.*
+import com.kollekt.repository.AchievementRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -13,13 +12,6 @@ import org.mockito.kotlin.whenever
 
 @ExtendWith(MockitoExtension::class)
 class DataSeederTest {
-    @Mock lateinit var memberRepository: MemberRepository
-    @Mock lateinit var taskRepository: TaskRepository
-    @Mock lateinit var shoppingItemRepository: ShoppingItemRepository
-    @Mock lateinit var eventRepository: EventRepository
-    @Mock lateinit var chatMessageRepository: ChatMessageRepository
-    @Mock lateinit var expenseRepository: ExpenseRepository
-    @Mock lateinit var pantEntryRepository: PantEntryRepository
     @Mock lateinit var achievementRepository: AchievementRepository
 
     @Test
@@ -27,16 +19,7 @@ class DataSeederTest {
         whenever(achievementRepository.count()).thenReturn(1L)
 
         val runner =
-            DataSeeder().seedData(
-                memberRepository,
-                taskRepository,
-                shoppingItemRepository,
-                eventRepository,
-                chatMessageRepository,
-                expenseRepository,
-                pantEntryRepository,
-                achievementRepository,
-            )
+            DataSeeder().seedData(achievementRepository)
 
         runner.run()
 
@@ -48,16 +31,7 @@ class DataSeederTest {
         whenever(achievementRepository.count()).thenReturn(0L)
 
         val runner =
-            DataSeeder().seedData(
-                memberRepository,
-                taskRepository,
-                shoppingItemRepository,
-                eventRepository,
-                chatMessageRepository,
-                expenseRepository,
-                pantEntryRepository,
-                achievementRepository,
-            )
+            DataSeeder().seedData(achievementRepository)
 
         runner.run()
 

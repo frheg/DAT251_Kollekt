@@ -11,7 +11,7 @@ Legend:
 
 1) *"See a clear overview of all shared tasks and who is responsible"*
 - Status: **Covered**
-- Backend: `KollektService.getTasks()` returns task list including `title`, `assignee`, `dueDate`, `completed`.
+- Backend: `KollektService.getTasks(memberName)` returns task list including `title`, `assignee`, `dueDate`, `completed`.
 - Tests:
   - `com.kollekt.service.KollektServiceTest` → `getTasks sorts by dueDate`
 
@@ -51,7 +51,7 @@ Note: The backend publishes integration events via `IntegrationEventPublisher` (
 
 1) *"View a shared calendar of house-related events"*
 - Status: **Covered**
-- Backend: `KollektService.getEvents()` returns events.
+- Backend: `KollektService.getEvents(memberName)` returns events.
 - Tests:
   - `KollektServiceTest` → `getEvents sorts by date`
 

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api")
 class StatsController(private val service: KollektService) {
     @GetMapping("/dashboard")
-    fun getDashboard(@RequestParam(defaultValue = "Kasper") memberName: String): DashboardResponse =
+    fun getDashboard(@RequestParam memberName: String): DashboardResponse =
             service.getDashboard(memberName)
 
     @GetMapping("/leaderboard")
