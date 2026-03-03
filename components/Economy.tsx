@@ -10,33 +10,61 @@ import { Label } from './ui/label';
 import { api } from '../lib/api';
 import type { EconomySummary, Expense, PantEntry } from '../lib/types';
 
-export function Economy() {
+interface EconomyProps {
+  currentUserName: string;
+}
+
+export function Economy({ currentUserName }: EconomyProps) {
   const [summary, setSummary] = useState<EconomySummary>({ expenses: [], balances: [], pantSummary: { currentAmount: 0, goalAmount: 1000, entries: [] } });
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: 'Husholdning', splitBetween: '8' });
   const [pantForm, setPantForm] = useState({ bottles: '', amount: '' });
+  const [expenseError, setExpenseError] = useState('');
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get<EconomySummary>('/economy/summary');
+      const data = await api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`);
       setSummary(data);
     };
     load();
-  }, []);
+  }, [currentUserName]);
 
   const addExpense = async () => {
-    if (!expenseForm.description || !expenseForm.amount) return;
+    const description = expenseForm.description.trim();
+    const normalizedAmount = expenseForm.amount.replace(',', '.');
+    const amount = Number(normalizedAmount);
+    const splitBetween = Number(expenseForm.splitBetween || '8');
 
-    const created = await api.post<Expense>('/economy/expenses', {
-      description: expenseForm.description,
-      amount: Number(expenseForm.amount),
-      paidBy: 'Kasper',
-      category: expenseForm.category,
-      date: new Date().toISOString().split('T')[0],
-      splitBetween: Number(expenseForm.splitBetween || 8),
-    });
+    if (!description) {
+      setExpenseError('Beskrivelse mangler.');
+      return;
+    }
 
-    setSummary({ ...summary, expenses: [created, ...summary.expenses] });
-    setExpenseForm({ description: '', amount: '', category: 'Husholdning', splitBetween: '8' });
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setExpenseError('Beløp må være et gyldig tall større enn 0.');
+      return;
+    }
+
+    if (!Number.isInteger(splitBetween) || splitBetween <= 0) {
+      setExpenseError('Split mellom må være et heltall større enn 0.');
+      return;
+    }
+
+    try {
+      setExpenseError('');
+      const created = await api.post<Expense>('/economy/expenses', {
+        description,
+        amount: Math.round(amount),
+        paidBy: currentUserName,
+        category: expenseForm.category,
+        date: new Date().toISOString().split('T')[0],
+        splitBetween,
+      });
+
+      setSummary({ ...summary, expenses: [created, ...summary.expenses] });
+      setExpenseForm({ description: '', amount: '', category: 'Husholdning', splitBetween: '8' });
+    } catch (error) {
+      setExpenseError(error instanceof Error ? error.message : 'Kunne ikke lagre utgift.');
+    }
   };
 
   const addPant = async () => {
@@ -45,7 +73,7 @@ export function Economy() {
     const created = await api.post<PantEntry>('/economy/pant', {
       bottles: Number(pantForm.bottles),
       amount: Number(pantForm.amount),
-      addedBy: 'Kasper',
+      addedBy: currentUserName,
       date: new Date().toISOString().split('T')[0],
     });
 
@@ -60,10 +88,10 @@ export function Economy() {
     setPantForm({ bottles: '', amount: '' });
   };
 
-  const myBalance = summary.balances.find(b => b.name === 'Kasper')?.amount ?? 0;
+  const myBalance = summary.balances.find(b => b.name === currentUserName)?.amount ?? 0;
   const totalExpenses = summary.expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const myContributions = summary.expenses.filter(exp => exp.paidBy === 'Kasper').reduce((sum, exp) => sum + exp.amount, 0);
-  const myShare = summary.expenses.reduce((sum, exp) => (exp.paidBy === 'Kasper' ? sum : sum + exp.amount / exp.splitBetween), 0);
+  const myContributions = summary.expenses.filter(exp => exp.paidBy === currentUserName).reduce((sum, exp) => sum + exp.amount, 0);
+  const myShare = summary.expenses.reduce((sum, exp) => (exp.paidBy === currentUserName ? sum : sum + exp.amount / exp.splitBetween), 0);
 
   return (
     <div className="space-y-4">
@@ -111,22 +139,35 @@ export function Economy() {
               <div className="space-y-4 py-4">
                 <div>
                   <Label>Beskrivelse</Label>
-                  <Input value={expenseForm.description} onChange={e => setExpenseForm({ ...expenseForm, description: e.target.value })} />
+                  <Input value={expenseForm.description} onChange={e => {
+                    setExpenseError('');
+                    setExpenseForm({ ...expenseForm, description: e.target.value });
+                  }} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Beløp (kr)</Label>
-                    <Input type="number" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} />
+                    <Input type="number" value={expenseForm.amount} onChange={e => {
+                      setExpenseError('');
+                      setExpenseForm({ ...expenseForm, amount: e.target.value });
+                    }} />
                   </div>
                   <div>
                     <Label>Kategori</Label>
-                    <Input value={expenseForm.category} onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })} />
+                    <Input value={expenseForm.category} onChange={e => {
+                      setExpenseError('');
+                      setExpenseForm({ ...expenseForm, category: e.target.value });
+                    }} />
                   </div>
                 </div>
                 <div>
                   <Label>Split mellom</Label>
-                  <Input type="number" value={expenseForm.splitBetween} onChange={e => setExpenseForm({ ...expenseForm, splitBetween: e.target.value })} />
+                  <Input type="number" value={expenseForm.splitBetween} onChange={e => {
+                    setExpenseError('');
+                    setExpenseForm({ ...expenseForm, splitBetween: e.target.value });
+                  }} />
                 </div>
+                {expenseError && <p className="text-sm text-red-600">{expenseError}</p>}
                 <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500" onClick={() => void addExpense()}>
                   Legg til utgift
                 </Button>
@@ -197,7 +238,7 @@ export function Economy() {
             <p className="text-sm text-gray-600 mb-4">Positive tall = får tilbake • Negative tall = skal betale</p>
             <div className="space-y-2">
               {[...summary.balances].sort((a, b) => b.amount - a.amount).map((balance, index) => {
-                const isMe = balance.name === 'Kasper';
+                const isMe = balance.name === currentUserName;
                 const isPositive = balance.amount > 0;
 
                 return (

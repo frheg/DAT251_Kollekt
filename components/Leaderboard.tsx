@@ -7,21 +7,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { api } from '../lib/api';
 import type { Achievement, LeaderboardResponse } from '../lib/types';
 
-export function Leaderboard() {
+interface LeaderboardProps {
+  currentUserName: string;
+}
+
+export function Leaderboard({ currentUserName }: LeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse>({ players: [], weeklyStats: { totalTasks: 0, totalXp: 0, avgPerPerson: 0, topContributor: '' } });
   const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   useEffect(() => {
     const load = async () => {
       const [leaderboardData, achievementData] = await Promise.all([
-        api.get<LeaderboardResponse>('/leaderboard'),
+        api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`),
         api.get<Achievement[]>('/achievements'),
       ]);
       setLeaderboard(leaderboardData);
       setAchievements(achievementData);
     };
     load();
-  }, []);
+  }, [currentUserName]);
 
   const players = leaderboard.players;
   const weeklyStats = leaderboard.weeklyStats;
@@ -85,7 +89,7 @@ export function Leaderboard() {
             <h3 className="mb-4">Alle spillere</h3>
             <div className="space-y-2">
               {players.map(player => {
-                const isMe = player.name === 'Kasper';
+                const isMe = player.name === currentUserName;
                 const progressToNext = ((player.xp % 200) / 200) * 100;
 
                 return (

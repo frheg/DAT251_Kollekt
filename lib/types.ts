@@ -120,3 +120,9 @@ export interface DrinkingQuestion {
   type: string;
   targetedPlayer?: string;
 }
+
+export interface AppUser {
+  id: number;
+  name: string;
+  collectiveCode?: string | null;
+}

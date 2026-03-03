@@ -8,48 +8,95 @@ import { Checkbox } from './ui/checkbox';
 import { CheckCircle2, Circle, Plus, Trash2, User, Calendar, ShoppingCart, Sparkles, AlertCircle } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { api } from '../lib/api';
-import type { ShoppingItem, Task } from '../lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Label } from './ui/label';
+import type { AppUser, ShoppingItem, Task, TaskCategory } from '../lib/types';
 
-export function Tasks() {
+interface TasksProps {
+  currentUserName: string;
+}
+
+export function Tasks({ currentUserName }: TasksProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [members, setMembers] = useState<AppUser[]>([]);
+  const [taskError, setTaskError] = useState('');
   const [newItem, setNewItem] = useState('');
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    assignee: currentUserName,
+    dueDate: '',
+    category: 'OTHER' as TaskCategory,
+  });
 
   useEffect(() => {
     const load = async () => {
-      const [taskData, shoppingData] = await Promise.all([api.get<Task[]>('/tasks'), api.get<ShoppingItem[]>('/tasks/shopping')]);
+      const [taskData, shoppingData, collectiveMembers] = await Promise.all([
+        api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
+      ]);
       setTasks(taskData);
       setShoppingList(shoppingData);
+      setMembers(collectiveMembers);
     };
 
     load();
-  }, []);
+  }, [currentUserName]);
+
+  useEffect(() => {
+    setTaskForm((prev) => ({ ...prev, assignee: currentUserName }));
+  }, [currentUserName]);
 
   const toggleTask = async (id: number) => {
-    const updated = await api.patch<Task>(`/tasks/${id}/toggle`);
+    const updated = await api.patch<Task>(`/tasks/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}`);
     setTasks(tasks.map(task => (task.id === id ? updated : task)));
   };
 
   const toggleShoppingItem = async (id: number) => {
-    const updated = await api.patch<ShoppingItem>(`/tasks/shopping/${id}/toggle`);
+    const updated = await api.patch<ShoppingItem>(`/tasks/shopping/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}`);
     setShoppingList(shoppingList.map(item => (item.id === id ? updated : item)));
   };
 
   const addShoppingItem = async () => {
     if (!newItem.trim()) return;
-    const created = await api.post<ShoppingItem>('/tasks/shopping', { item: newItem, addedBy: 'Kasper' });
+    const created = await api.post<ShoppingItem>('/tasks/shopping', { item: newItem, addedBy: currentUserName });
     setShoppingList([...shoppingList, created]);
     setNewItem('');
   };
 
+  const addTask = async () => {
+    const title = taskForm.title.trim();
+    if (!title || !taskForm.dueDate || !taskForm.assignee) {
+      setTaskError('Fyll inn tittel, ansvarlig og dato.');
+      return;
+    }
+
+    try {
+      setTaskError('');
+      const created = await api.post<Task>('/tasks', {
+        title,
+        assignee: taskForm.assignee,
+        dueDate: taskForm.dueDate,
+        category: taskForm.category,
+        xp: 10,
+        recurring: false,
+      });
+      setTasks([...tasks, created]);
+      setTaskForm({ title: '', assignee: currentUserName, dueDate: '', category: 'OTHER' });
+    } catch (error) {
+      setTaskError(error instanceof Error ? error.message : 'Kunne ikke legge til oppgave.');
+    }
+  };
+
   const removeShoppingItem = async (id: number) => {
-    await api.delete(`/tasks/shopping/${id}`);
+    await api.delete(`/tasks/shopping/${id}?memberName=${encodeURIComponent(currentUserName)}`);
     setShoppingList(shoppingList.filter(item => item.id !== id));
   };
 
   const activeTasks = tasks.filter(t => !t.completed);
   const completedTasks = tasks.filter(t => t.completed);
-  const myTasks = tasks.filter(t => t.assignee === 'Kasper' && !t.completed);
+  const myTasks = tasks.filter(t => t.assignee === currentUserName && !t.completed);
 
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
@@ -134,14 +181,90 @@ export function Tasks() {
   return (
     <div className="space-y-4">
       <Card className="p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-4">
           <div>
             <h2 className="text-white mb-1">Oppgaveoversikt</h2>
             <p className="text-purple-100 text-sm">{myTasks.length} oppgaver tildelt deg</p>
           </div>
-          <div className="text-right">
-            <p className="text-3xl">{completionRate}%</p>
-            <p className="text-sm text-purple-100">Fullført</p>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-3xl">{completionRate}%</p>
+              <p className="text-sm text-purple-100">Fullført</p>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="bg-white text-purple-700 hover:bg-gray-100">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ny oppgave
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Legg til oppgave</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <div>
+                    <Label>Tittel</Label>
+                    <Input
+                      value={taskForm.title}
+                      onChange={(e) => {
+                        setTaskError('');
+                        setTaskForm({ ...taskForm, title: e.target.value });
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Ansvarlig</Label>
+                      <select
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        value={taskForm.assignee}
+                        onChange={(e) => {
+                          setTaskError('');
+                          setTaskForm({ ...taskForm, assignee: e.target.value });
+                        }}
+                      >
+                        {members.map((member) => (
+                          <option key={member.id} value={member.name}>
+                            {member.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Dato</Label>
+                      <Input
+                        type="date"
+                        value={taskForm.dueDate}
+                        onChange={(e) => {
+                          setTaskError('');
+                          setTaskForm({ ...taskForm, dueDate: e.target.value });
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Kategori</Label>
+                    <select
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={taskForm.category}
+                      onChange={(e) => {
+                        setTaskError('');
+                        setTaskForm({ ...taskForm, category: e.target.value as TaskCategory });
+                      }}
+                    >
+                      <option value="OTHER">Annet</option>
+                      <option value="CLEANING">Vasking</option>
+                      <option value="SHOPPING">Handling</option>
+                    </select>
+                  </div>
+                  {taskError && <p className="text-sm text-red-600">{taskError}</p>}
+                  <Button className="w-full" onClick={() => void addTask()}>
+                    Opprett oppgave
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
         <Progress value={completionRate} className="h-2 bg-white/30" />

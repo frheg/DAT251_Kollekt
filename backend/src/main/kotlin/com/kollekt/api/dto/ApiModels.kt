@@ -71,6 +71,40 @@ data class CreateMessageRequest(
         val text: String,
 )
 
+data class UserDto(
+        val id: Long,
+        val name: String,
+        val collectiveCode: String?,
+)
+
+data class CreateUserRequest(
+        val name: String,
+)
+
+data class LoginRequest(
+        val name: String,
+)
+
+data class CollectiveDto(
+        val id: Long,
+        val name: String,
+        val joinCode: String,
+)
+
+data class CreateCollectiveRequest(
+        val name: String,
+        val ownerUserId: Long,
+)
+
+data class JoinCollectiveRequest(
+        val userId: Long,
+        val joinCode: String,
+)
+
+data class CollectiveCodeDto(
+        val joinCode: String,
+)
+
 data class ExpenseDto(
         val id: Long,
         val description: String,
