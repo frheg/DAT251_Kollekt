@@ -79,10 +79,28 @@ data class UserDto(
 
 data class CreateUserRequest(
         val name: String,
+        val password: String,
 )
 
 data class LoginRequest(
         val name: String,
+        val password: String,
+)
+
+data class AuthResponse(
+        val accessToken: String,
+        val refreshToken: String,
+        val tokenType: String,
+        val expiresIn: Long,
+        val user: UserDto,
+)
+
+data class RefreshTokenRequest(
+        val refreshToken: String,
+)
+
+data class LogoutRequest(
+        val refreshToken: String? = null,
 )
 
 data class CollectiveDto(
