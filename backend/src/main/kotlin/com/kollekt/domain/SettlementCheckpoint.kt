@@ -9,11 +9,11 @@ import jakarta.persistence.Table
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "chat_messages")
-data class ChatMessage(
+@Table(name = "settlement_checkpoints")
+data class SettlementCheckpoint(
         @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
-        @Column(nullable = false) val sender: String,
-        @Column(nullable = true) val collectiveCode: String? = null,
-        @Column(nullable = false, length = 1500) val text: String,
-        @Column(nullable = false) val timestamp: LocalDateTime,
+        @Column(nullable = false) val collectiveCode: String,
+        @Column(nullable = false) val settledBy: String,
+        @Column(nullable = false) val lastExpenseId: Long,
+        @Column(nullable = false) val createdAt: LocalDateTime = LocalDateTime.now(),
 )

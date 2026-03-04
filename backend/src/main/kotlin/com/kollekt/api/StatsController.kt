@@ -14,14 +14,17 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api")
 class StatsController(private val service: KollektService) {
     @GetMapping("/dashboard")
-    fun getDashboard(@RequestParam(defaultValue = "Kasper") memberName: String): DashboardResponse =
+    fun getDashboard(@RequestParam memberName: String): DashboardResponse =
             service.getDashboard(memberName)
 
-    @GetMapping("/leaderboard") fun getLeaderboard(): LeaderboardResponse = service.getLeaderboard()
+    @GetMapping("/leaderboard")
+    fun getLeaderboard(@RequestParam memberName: String): LeaderboardResponse =
+            service.getLeaderboard(memberName)
 
     @GetMapping("/achievements")
     fun getAchievements(): List<AchievementDto> = service.getAchievements()
 
     @GetMapping("/drinking-game/question")
-    fun getQuestion(): DrinkingQuestionDto = service.getDrinkingQuestion()
+    fun getQuestion(@RequestParam memberName: String): DrinkingQuestionDto =
+            service.getDrinkingQuestion(memberName)
 }

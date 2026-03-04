@@ -53,17 +53,23 @@ gradle bootRun
 ## Viktige API-endepunkter
 
 - `GET /api/dashboard?memberName=Kasper`
-- `GET/POST/PATCH /api/tasks`
-- `GET/POST/PATCH/DELETE /api/tasks/shopping`
-- `GET/POST /api/events`
-- `GET/POST /api/chat/messages`
-- `GET/POST /api/economy/expenses`
-- `GET /api/economy/balances`
-- `GET/POST /api/economy/pant`
-- `GET /api/economy/summary`
-- `GET /api/leaderboard`
+- `POST /api/onboarding/users`
+- `POST /api/onboarding/login`
+- `POST /api/onboarding/collectives`
+- `POST /api/onboarding/collectives/join`
+- `GET /api/onboarding/collectives/code/{userId}`
+- `GET /api/members/collective?memberName=<name>`
+- `GET/POST/PATCH /api/tasks` (`GET/PATCH` krever `memberName`)
+- `GET/POST/PATCH/DELETE /api/tasks/shopping` (`GET/PATCH/DELETE` krever `memberName`)
+- `GET/POST /api/events` (`GET` krever `memberName`)
+- `GET/POST /api/chat/messages` (`GET` krever `memberName`)
+- `GET/POST /api/economy/expenses` (`GET` krever `memberName`)
+- `GET /api/economy/balances?memberName=<name>`
+- `GET/POST /api/economy/pant` (`GET` krever `memberName`)
+- `GET /api/economy/summary?memberName=<name>`
+- `GET /api/leaderboard?memberName=<name>`
 - `GET /api/achievements`
-- `GET /api/drinking-game/question`
+- `GET /api/drinking-game/question?memberName=<name>`
 
 ## CI/CD
 

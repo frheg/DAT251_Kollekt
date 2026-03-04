@@ -9,7 +9,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/events")
 class CalendarController(private val service: KollektService) {
-    @GetMapping fun getEvents(): List<EventDto> = service.getEvents()
+    @GetMapping
+    fun getEvents(@RequestParam memberName: String): List<EventDto> = service.getEvents(memberName)
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
