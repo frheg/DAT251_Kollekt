@@ -7,15 +7,23 @@ export interface RealtimeEvent {
   payload?: unknown;
 }
 
+interface RealtimeOptions {
+  onConnected?: () => void;
+}
+
 function buildWsUrl(memberName: string): string {
-  const base = API_BASE.replace(/\/api\/?$/, '');
-  const wsBase = base.replace(/^http:\/\//, 'ws://').replace(/^https:\/\//, 'wss://');
-  return `${wsBase}/ws/collective?memberName=${encodeURIComponent(memberName)}`;
+  // Support both absolute and relative API bases (for example "/api" in production).
+  const apiUrl = new URL(API_BASE, window.location.origin);
+  const wsUrl = new URL('/ws/collective', apiUrl.origin);
+  wsUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  wsUrl.searchParams.set('memberName', memberName);
+  return wsUrl.toString();
 }
 
 export function connectCollectiveRealtime(
   memberName: string,
   onEvent: (event: RealtimeEvent) => void,
+  options?: RealtimeOptions,
 ): () => void {
   let socket: WebSocket | null = null;
   let closedManually = false;
@@ -24,6 +32,9 @@ export function connectCollectiveRealtime(
   const connect = () => {
     if (closedManually) return;
     socket = new WebSocket(buildWsUrl(memberName));
+    socket.onopen = () => {
+      options?.onConnected?.();
+    };
 
     socket.onmessage = (raw) => {
       try {
@@ -36,6 +47,10 @@ export function connectCollectiveRealtime(
     socket.onclose = () => {
       if (closedManually) return;
       reconnectTimer = setTimeout(connect, 2000);
+    };
+
+    socket.onerror = () => {
+      socket?.close();
     };
   };
 

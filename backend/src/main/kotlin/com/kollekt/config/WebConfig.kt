@@ -10,8 +10,11 @@ class WebConfig(
         @Value("\${app.cors.allowed-origins}") private val allowedOrigins: String,
 ) : WebMvcConfigurer {
     override fun addCorsMappings(registry: CorsRegistry) {
+        val configuredOrigins = allowedOrigins.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        val originPatterns = (configuredOrigins + listOf("http://127.0.0.1:*", "http://localhost:*")).distinct()
+
         registry.addMapping("/api/**")
-                .allowedOrigins(*allowedOrigins.split(',').map { it.trim() }.toTypedArray())
+                .allowedOriginPatterns(*originPatterns.toTypedArray())
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
     }
