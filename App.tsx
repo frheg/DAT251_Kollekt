@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Home, CheckSquare, Calendar, MessageSquare, Wallet, Trophy, Beer } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Home, CheckSquare, Calendar, MessageSquare, Wallet, Trophy, Beer, LogOut } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { Tasks } from './components/Tasks';
 import { CalendarView } from './components/CalendarView';
@@ -7,11 +7,63 @@ import { Chat } from './components/Chat';
 import { Economy } from './components/Economy';
 import { Leaderboard } from './components/Leaderboard';
 import { DrinkingGame } from './components/DrinkingGame';
+import { StartPage } from './components/StartPage';
+import { Button } from './components/ui/button';
+import { logoutSession } from './lib/api';
+import type { AppUser } from './lib/types';
 
 type View = 'dashboard' | 'tasks' | 'calendar' | 'chat' | 'economy' | 'leaderboard' | 'game';
+const VIEW_HASH_PREFIX = '#';
+
+function parseViewFromHash(hash: string): View | null {
+  const normalized = hash.replace(VIEW_HASH_PREFIX, '').trim().toLowerCase();
+  const allowed: View[] = ['dashboard', 'tasks', 'calendar', 'chat', 'economy', 'leaderboard', 'game'];
+  return allowed.includes(normalized as View) ? (normalized as View) : null;
+}
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentView] = useState<View>(() => parseViewFromHash(window.location.hash) ?? 'dashboard');
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('kollekt-user');
+    if (!stored) return;
+    try {
+      setCurrentUser(JSON.parse(stored) as AppUser);
+    } catch {
+      localStorage.removeItem('kollekt-user');
+    }
+  }, []);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const view = parseViewFromHash(window.location.hash);
+      if (view) setCurrentView(view);
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    const expectedHash = `${VIEW_HASH_PREFIX}${currentView}`;
+    if (window.location.hash !== expectedHash) {
+      window.history.replaceState(null, '', expectedHash);
+    }
+  }, [currentView]);
+
+  const handleAuthenticated = (user: AppUser) => {
+    setCurrentUser(user);
+    localStorage.setItem('kollekt-user', JSON.stringify(user));
+  };
+
+  const logout = () => {
+    void logoutSession();
+    setCurrentUser(null);
+    localStorage.removeItem('kollekt-user');
+    setCurrentView('dashboard');
+    window.history.replaceState(null, '', '#dashboard');
+  };
 
   const navigation = [
     { id: 'dashboard' as View, label: 'Hjem', icon: Home },
@@ -23,27 +75,41 @@ export default function App() {
     { id: 'game' as View, label: 'Drikkespill', icon: Beer },
   ];
 
+  if (!currentUser) {
+    return <StartPage onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 px-4 py-3 shadow-sm">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           <h1 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             Kollektiv Hub
           </h1>
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <p className="text-sm text-gray-900">{currentUser.name}</p>
+              <p className="text-xs text-gray-500">Kode: {currentUser.collectiveCode ?? 'Ingen'}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={logout}>
+              <LogOut className="w-4 h-4 mr-1" />
+              Logg ut
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto p-4">
-          {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
-          {currentView === 'tasks' && <Tasks />}
-          {currentView === 'calendar' && <CalendarView />}
-          {currentView === 'chat' && <Chat />}
-          {currentView === 'economy' && <Economy />}
-          {currentView === 'leaderboard' && <Leaderboard />}
-          {currentView === 'game' && <DrinkingGame />}
+          {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} currentUserName={currentUser.name} />}
+          {currentView === 'tasks' && <Tasks currentUserName={currentUser.name} />}
+          {currentView === 'calendar' && <CalendarView currentUserName={currentUser.name} />}
+          {currentView === 'chat' && <Chat currentUserName={currentUser.name} />}
+          {currentView === 'economy' && <Economy currentUserName={currentUser.name} />}
+          {currentView === 'leaderboard' && <Leaderboard currentUserName={currentUser.name} />}
+          {currentView === 'game' && <DrinkingGame currentUserName={currentUser.name} />}
         </div>
       </main>
 

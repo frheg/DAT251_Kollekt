@@ -23,6 +23,7 @@ enum class EventType {
 data class CalendarEvent(
         @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
         @Column(nullable = false) val title: String,
+        @Column(nullable = true) val collectiveCode: String? = null,
         @Column(nullable = false) val date: LocalDate,
         @Column(nullable = false) val time: LocalTime,
         @Enumerated(EnumType.STRING)

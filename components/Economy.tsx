@@ -7,36 +7,92 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Wallet, TrendingUp, Plus, Receipt, PiggyBank, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
+import { Checkbox } from './ui/checkbox';
 import { api } from '../lib/api';
-import type { EconomySummary, Expense, PantEntry } from '../lib/types';
+import type { AppUser, EconomySummary, Expense, PantEntry, SettleUpResponse } from '../lib/types';
 
-export function Economy() {
+interface EconomyProps {
+  currentUserName: string;
+}
+
+export function Economy({ currentUserName }: EconomyProps) {
   const [summary, setSummary] = useState<EconomySummary>({ expenses: [], balances: [], pantSummary: { currentAmount: 0, goalAmount: 1000, entries: [] } });
-  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: 'Husholdning', splitBetween: '8' });
+  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: 'Husholdning' });
   const [pantForm, setPantForm] = useState({ bottles: '', amount: '' });
+  const [expenseError, setExpenseError] = useState('');
+  const [settleInfo, setSettleInfo] = useState('');
+  const [collectiveMembers, setCollectiveMembers] = useState<AppUser[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get<EconomySummary>('/economy/summary');
-      setSummary(data);
+      const [summaryData, membersData] = await Promise.all([
+        api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
+      ]);
+      setSummary(summaryData);
+      setCollectiveMembers(membersData);
+      setSelectedParticipants(membersData.map((member) => member.name));
     };
     load();
-  }, []);
+  }, [currentUserName]);
 
   const addExpense = async () => {
-    if (!expenseForm.description || !expenseForm.amount) return;
+    const description = expenseForm.description.trim();
+    const normalizedAmount = expenseForm.amount.replace(',', '.');
+    const amount = Number(normalizedAmount);
 
-    const created = await api.post<Expense>('/economy/expenses', {
-      description: expenseForm.description,
-      amount: Number(expenseForm.amount),
-      paidBy: 'Kasper',
-      category: expenseForm.category,
-      date: new Date().toISOString().split('T')[0],
-      splitBetween: Number(expenseForm.splitBetween || 8),
-    });
+    if (!description) {
+      setExpenseError('Beskrivelse mangler.');
+      return;
+    }
 
-    setSummary({ ...summary, expenses: [created, ...summary.expenses] });
-    setExpenseForm({ description: '', amount: '', category: 'Husholdning', splitBetween: '8' });
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setExpenseError('Beløp må være et gyldig tall større enn 0.');
+      return;
+    }
+    if (selectedParticipants.length === 0) {
+      setExpenseError('Velg minst ett medlem å splitte utgiften mellom.');
+      return;
+    }
+
+    try {
+      setExpenseError('');
+      setSettleInfo('');
+      const created = await api.post<Expense>('/economy/expenses', {
+        description,
+        amount: Math.round(amount),
+        paidBy: currentUserName,
+        category: expenseForm.category,
+        date: new Date().toISOString().split('T')[0],
+        participantNames: selectedParticipants,
+      });
+
+      setSummary({ ...summary, expenses: [created, ...summary.expenses] });
+      setExpenseForm({ description: '', amount: '', category: 'Husholdning' });
+    } catch (error) {
+      setExpenseError(error instanceof Error ? error.message : 'Kunne ikke lagre utgift.');
+    }
+  };
+
+  const toggleParticipant = (name: string, checked: boolean) => {
+    setExpenseError('');
+    if (checked) {
+      setSelectedParticipants(prev => [...new Set([...prev, name])]);
+      return;
+    }
+    setSelectedParticipants(prev => prev.filter(participant => participant !== name));
+  };
+
+  const settleUp = async () => {
+    try {
+      const result = await api.post<SettleUpResponse>('/economy/settle-up', { memberName: currentUserName });
+      const refreshed = await api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`);
+      setSummary(refreshed);
+      setSettleInfo(`Gjort opp ${new Date(result.settledAt).toLocaleString('nb-NO')}. Historikken er beholdt.`);
+    } catch (error) {
+      setSettleInfo(error instanceof Error ? error.message : 'Kunne ikke gjøre opp nå.');
+    }
   };
 
   const addPant = async () => {
@@ -45,7 +101,7 @@ export function Economy() {
     const created = await api.post<PantEntry>('/economy/pant', {
       bottles: Number(pantForm.bottles),
       amount: Number(pantForm.amount),
-      addedBy: 'Kasper',
+      addedBy: currentUserName,
       date: new Date().toISOString().split('T')[0],
     });
 
@@ -60,10 +116,15 @@ export function Economy() {
     setPantForm({ bottles: '', amount: '' });
   };
 
-  const myBalance = summary.balances.find(b => b.name === 'Kasper')?.amount ?? 0;
+  const myBalance = summary.balances.find(b => b.name === currentUserName)?.amount ?? 0;
   const totalExpenses = summary.expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const myContributions = summary.expenses.filter(exp => exp.paidBy === 'Kasper').reduce((sum, exp) => sum + exp.amount, 0);
-  const myShare = summary.expenses.reduce((sum, exp) => (exp.paidBy === 'Kasper' ? sum : sum + exp.amount / exp.splitBetween), 0);
+  const myContributions = summary.expenses.filter(exp => exp.paidBy === currentUserName).reduce((sum, exp) => sum + exp.amount, 0);
+  const myShare = summary.expenses.reduce((sum, exp) => {
+    const participantCount = exp.participantNames.length;
+    if (participantCount === 0 || exp.paidBy === currentUserName) return sum;
+    if (!exp.participantNames.includes(currentUserName)) return sum;
+    return sum + exp.amount / participantCount;
+  }, 0);
 
   return (
     <div className="space-y-4">
@@ -111,22 +172,45 @@ export function Economy() {
               <div className="space-y-4 py-4">
                 <div>
                   <Label>Beskrivelse</Label>
-                  <Input value={expenseForm.description} onChange={e => setExpenseForm({ ...expenseForm, description: e.target.value })} />
+                  <Input value={expenseForm.description} onChange={e => {
+                    setExpenseError('');
+                    setExpenseForm({ ...expenseForm, description: e.target.value });
+                  }} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Beløp (kr)</Label>
-                    <Input type="number" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} />
+                    <Input type="number" value={expenseForm.amount} onChange={e => {
+                      setExpenseError('');
+                      setExpenseForm({ ...expenseForm, amount: e.target.value });
+                    }} />
                   </div>
                   <div>
                     <Label>Kategori</Label>
-                    <Input value={expenseForm.category} onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })} />
+                    <Input value={expenseForm.category} onChange={e => {
+                      setExpenseError('');
+                      setExpenseForm({ ...expenseForm, category: e.target.value });
+                    }} />
                   </div>
                 </div>
-                <div>
-                  <Label>Split mellom</Label>
-                  <Input type="number" value={expenseForm.splitBetween} onChange={e => setExpenseForm({ ...expenseForm, splitBetween: e.target.value })} />
+                <div className="space-y-2">
+                  <Label>Deles mellom</Label>
+                  <div className="max-h-40 overflow-auto rounded-md border p-3 space-y-2">
+                    {collectiveMembers.map(member => {
+                      const checked = selectedParticipants.includes(member.name);
+                      return (
+                        <label key={member.id} className="flex items-center gap-2 text-sm">
+                          <Checkbox checked={checked} onCheckedChange={(state) => toggleParticipant(member.name, state === true)} />
+                          <span>{member.name}</span>
+                          <span className={checked ? 'text-green-600' : 'text-gray-400'}>
+                            {checked ? 'inkludert' : 'ekskludert'}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
+                {expenseError && <p className="text-sm text-red-600">{expenseError}</p>}
                 <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500" onClick={() => void addExpense()}>
                   Legg til utgift
                 </Button>
@@ -162,7 +246,10 @@ export function Economy() {
           <Card className="p-6 bg-white/80 backdrop-blur">
             <h3 className="mb-4">Siste utgifter</h3>
             <div className="space-y-3">
-              {summary.expenses.map(expense => (
+              {summary.expenses.map(expense => {
+                const participantCount = expense.participantNames.length;
+                const perPerson = participantCount > 0 ? Math.round(expense.amount / participantCount) : expense.amount;
+                return (
                 <div key={expense.id} className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-green-300 transition-all">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -178,7 +265,7 @@ export function Economy() {
                         <span>{new Date(expense.date).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Split mellom {expense.splitBetween} personer ({Math.round(expense.amount / expense.splitBetween)} kr/person)
+                        Split mellom {participantCount} personer ({perPerson} kr/person)
                       </p>
                     </div>
                     <div className="text-right">
@@ -186,18 +273,25 @@ export function Economy() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </TabsContent>
 
         <TabsContent value="balances" className="space-y-4 mt-4">
           <Card className="p-6 bg-white/80 backdrop-blur">
-            <h3 className="mb-4">Saldooversikt</h3>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3>Saldooversikt</h3>
+              <Button variant="outline" onClick={() => void settleUp()}>
+                Gjør opp
+              </Button>
+            </div>
             <p className="text-sm text-gray-600 mb-4">Positive tall = får tilbake • Negative tall = skal betale</p>
+            {settleInfo && <p className="text-sm text-gray-600 mb-4">{settleInfo}</p>}
             <div className="space-y-2">
               {[...summary.balances].sort((a, b) => b.amount - a.amount).map((balance, index) => {
-                const isMe = balance.name === 'Kasper';
+                const isMe = balance.name === currentUserName;
                 const isPositive = balance.amount > 0;
 
                 return (

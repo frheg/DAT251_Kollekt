@@ -12,7 +12,11 @@ interface Player {
   level: number;
 }
 
-export function DrinkingGame() {
+interface DrinkingGameProps {
+  currentUserName: string;
+}
+
+export function DrinkingGame({ currentUserName }: DrinkingGameProps) {
   const [gameStarted, setGameStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<DrinkingQuestion | null>(null);
   const [questionCount, setQuestionCount] = useState(0);
@@ -20,14 +24,14 @@ export function DrinkingGame() {
 
   useEffect(() => {
     const loadPlayers = async () => {
-      const leaderboard = await api.get<LeaderboardResponse>('/leaderboard');
+      const leaderboard = await api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`);
       setPlayers(leaderboard.players.map(p => ({ name: p.name, level: p.level })));
     };
     loadPlayers();
-  }, []);
+  }, [currentUserName]);
 
   const nextQuestion = async () => {
-    const question = await api.get<DrinkingQuestion>('/drinking-game/question');
+    const question = await api.get<DrinkingQuestion>(`/drinking-game/question?memberName=${encodeURIComponent(currentUserName)}`);
     setCurrentQuestion(question);
     setQuestionCount(prev => prev + 1);
   };
