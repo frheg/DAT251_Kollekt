@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Send, MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import type { ChatMessage } from '../lib/types';
 
 interface ChatProps {
@@ -15,12 +16,28 @@ export function Chat({ currentUserName }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
 
+  const load = async () => {
+    const data = await api.get<ChatMessage[]>(`/chat/messages?memberName=${encodeURIComponent(currentUserName)}`);
+    setMessages(data);
+  };
+
   useEffect(() => {
-    const load = async () => {
-      const data = await api.get<ChatMessage[]>(`/chat/messages?memberName=${encodeURIComponent(currentUserName)}`);
-      setMessages(data);
-    };
-    load();
+    void load();
+    const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
+      if (event.type !== 'MESSAGE_CREATED') return;
+
+      const payload = event.payload as Partial<ChatMessage> | undefined;
+      if (!payload || typeof payload.id !== 'number') {
+        void load();
+        return;
+      }
+
+      setMessages((prev) => {
+        if (prev.some((msg) => msg.id === payload.id)) return prev;
+        return [...prev, payload as ChatMessage].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      });
+    });
+    return disconnect;
   }, [currentUserName]);
 
   const sendMessage = async () => {

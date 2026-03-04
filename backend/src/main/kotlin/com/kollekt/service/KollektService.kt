@@ -25,6 +25,7 @@ class KollektService(
         private val achievementRepository: AchievementRepository,
         private val redisTemplate: RedisTemplate<String, Any>,
         private val eventPublisher: IntegrationEventPublisher,
+        private val realtimeUpdateService: RealtimeUpdateService,
 ) {
     private val joinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -51,18 +52,77 @@ class KollektService(
         clearDashboardCache()
         clearLeaderboardCache()
         eventPublisher.taskEvent("TASK_CREATED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "TASK_CREATED", saved.toDto())
         return saved.toDto()
     }
 
     @Transactional
-    fun toggleTask(taskId: Long, memberName: String): TaskDto {
+    fun toggleTask(taskId: Long, memberName: String, completed: Boolean? = null): TaskDto {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val task = taskRepository.findByIdAndCollectiveCode(taskId, collectiveCode)
+        val task = taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
-        val updated = taskRepository.save(task.copy(completed = !task.completed))
+
+        val targetCompleted = completed ?: !task.completed
+        if (task.completed == targetCompleted) {
+            return task.toDto()
+        }
+
+        var awardedXp = 0
+        val updated =
+                if (targetCompleted) {
+                    if (!task.xpAwarded) {
+                        val member =
+                                memberRepository.findByNameAndCollectiveCodeForUpdate(memberName, collectiveCode)
+                                        ?: throw IllegalArgumentException("User '$memberName' not found in collective")
+                        awardedXp = task.xp
+                        val updatedXp = member.xp + awardedXp
+                        val updatedLevel = updatedXp / 200 + 1
+                        memberRepository.save(member.copy(xp = updatedXp, level = updatedLevel))
+                    }
+                    taskRepository.save(
+                            task.copy(
+                                    completed = true,
+                                    xpAwarded = true,
+                                    completedBy = memberName,
+                                    completedAt = LocalDateTime.now(),
+                            ),
+                    )
+                } else {
+                    taskRepository.save(
+                            task.copy(
+                                    completed = false,
+                                    completedBy = null,
+                                    completedAt = null,
+                            ),
+                    )
+                }
+
         clearDashboardCache()
         clearLeaderboardCache()
         eventPublisher.taskEvent("TASK_TOGGLED", updated.toDto())
+        realtimeUpdateService.publish(
+                collectiveCode,
+                "TASK_UPDATED",
+                mapOf(
+                        "task" to updated.toDto(),
+                        "awardedXp" to awardedXp,
+                        "updatedBy" to memberName,
+                ),
+        )
+        if (awardedXp > 0) {
+            val updatedMember = memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
+            realtimeUpdateService.publish(
+                    collectiveCode,
+                    "XP_UPDATED",
+                    mapOf(
+                            "memberName" to memberName,
+                            "awardedXp" to awardedXp,
+                            "totalXp" to (updatedMember?.xp ?: 0),
+                            "level" to (updatedMember?.level ?: 1),
+                            "taskId" to taskId,
+                    ),
+            )
+        }
         return updated.toDto()
     }
 
@@ -149,6 +209,7 @@ class KollektService(
                         ),
                 )
         eventPublisher.chatEvent("MESSAGE_CREATED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", saved.toDto())
         return saved.toDto()
     }
 

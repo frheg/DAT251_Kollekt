@@ -8,6 +8,7 @@ import { Checkbox } from './ui/checkbox';
 import { CheckCircle2, Circle, Plus, Trash2, User, Calendar, ShoppingCart, Sparkles, AlertCircle } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import type { AppUser, ShoppingItem, Task, TaskCategory } from '../lib/types';
@@ -29,19 +30,25 @@ export function Tasks({ currentUserName }: TasksProps) {
     category: 'OTHER' as TaskCategory,
   });
 
-  useEffect(() => {
-    const load = async () => {
-      const [taskData, shoppingData, collectiveMembers] = await Promise.all([
-        api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
-        api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(currentUserName)}`),
-        api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
-      ]);
-      setTasks(taskData);
-      setShoppingList(shoppingData);
-      setMembers(collectiveMembers);
-    };
+  const load = async () => {
+    const [taskData, shoppingData, collectiveMembers] = await Promise.all([
+      api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
+      api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(currentUserName)}`),
+      api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
+    ]);
+    setTasks(taskData);
+    setShoppingList(shoppingData);
+    setMembers(collectiveMembers);
+  };
 
-    load();
+  useEffect(() => {
+    void load();
+    const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
+      if (event.type === 'TASK_UPDATED' || event.type === 'TASK_CREATED') {
+        void load();
+      }
+    });
+    return disconnect;
   }, [currentUserName]);
 
   useEffect(() => {
@@ -49,7 +56,10 @@ export function Tasks({ currentUserName }: TasksProps) {
   }, [currentUserName]);
 
   const toggleTask = async (id: number) => {
-    const updated = await api.patch<Task>(`/tasks/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}`);
+    const task = tasks.find((candidate) => candidate.id === id);
+    if (!task) return;
+    const targetCompleted = !task.completed;
+    const updated = await api.patch<Task>(`/tasks/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}&completed=${targetCompleted}`);
     setTasks(tasks.map(task => (task.id === id ? updated : task)));
   };
 

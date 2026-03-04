@@ -19,8 +19,11 @@ class TaskController(private val service: KollektService) {
     fun createTask(@RequestBody request: CreateTaskRequest): TaskDto = service.createTask(request)
 
     @PatchMapping("/{taskId}/toggle")
-    fun toggleTask(@PathVariable taskId: Long, @RequestParam memberName: String): TaskDto =
-            service.toggleTask(taskId, memberName)
+    fun toggleTask(
+            @PathVariable taskId: Long,
+            @RequestParam memberName: String,
+            @RequestParam(required = false) completed: Boolean?,
+    ): TaskDto = service.toggleTask(taskId, memberName, completed)
 
     @GetMapping("/shopping")
     fun getShoppingItems(@RequestParam memberName: String): List<ShoppingItemDto> =
