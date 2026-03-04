@@ -12,9 +12,16 @@ import { Button } from './components/ui/button';
 import type { AppUser } from './lib/types';
 
 type View = 'dashboard' | 'tasks' | 'calendar' | 'chat' | 'economy' | 'leaderboard' | 'game';
+const VIEW_HASH_PREFIX = '#';
+
+function parseViewFromHash(hash: string): View | null {
+  const normalized = hash.replace(VIEW_HASH_PREFIX, '').trim().toLowerCase();
+  const allowed: View[] = ['dashboard', 'tasks', 'calendar', 'chat', 'economy', 'leaderboard', 'game'];
+  return allowed.includes(normalized as View) ? (normalized as View) : null;
+}
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentView] = useState<View>(() => parseViewFromHash(window.location.hash) ?? 'dashboard');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
 
   useEffect(() => {
@@ -27,6 +34,23 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const onHashChange = () => {
+      const view = parseViewFromHash(window.location.hash);
+      if (view) setCurrentView(view);
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    const expectedHash = `${VIEW_HASH_PREFIX}${currentView}`;
+    if (window.location.hash !== expectedHash) {
+      window.history.replaceState(null, '', expectedHash);
+    }
+  }, [currentView]);
+
   const handleAuthenticated = (user: AppUser) => {
     setCurrentUser(user);
     localStorage.setItem('kollekt-user', JSON.stringify(user));
@@ -36,6 +60,7 @@ export default function App() {
     setCurrentUser(null);
     localStorage.removeItem('kollekt-user');
     setCurrentView('dashboard');
+    window.history.replaceState(null, '', '#dashboard');
   };
 
   const navigation = [
