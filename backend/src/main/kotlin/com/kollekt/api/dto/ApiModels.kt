@@ -71,6 +71,40 @@ data class CreateMessageRequest(
         val text: String,
 )
 
+data class UserDto(
+        val id: Long,
+        val name: String,
+        val collectiveCode: String?,
+)
+
+data class CreateUserRequest(
+        val name: String,
+)
+
+data class LoginRequest(
+        val name: String,
+)
+
+data class CollectiveDto(
+        val id: Long,
+        val name: String,
+        val joinCode: String,
+)
+
+data class CreateCollectiveRequest(
+        val name: String,
+        val ownerUserId: Long,
+)
+
+data class JoinCollectiveRequest(
+        val userId: Long,
+        val joinCode: String,
+)
+
+data class CollectiveCodeDto(
+        val joinCode: String,
+)
+
 data class ExpenseDto(
         val id: Long,
         val description: String,
@@ -78,7 +112,7 @@ data class ExpenseDto(
         val paidBy: String,
         val category: String,
         val date: LocalDate,
-        val splitBetween: Int,
+        val participantNames: List<String>,
 )
 
 data class CreateExpenseRequest(
@@ -87,7 +121,7 @@ data class CreateExpenseRequest(
         val paidBy: String,
         val category: String,
         val date: LocalDate,
-        val splitBetween: Int,
+        val participantNames: List<String> = emptyList(),
 )
 
 data class PantEntryDto(
@@ -162,6 +196,17 @@ data class EconomySummaryDto(
         val expenses: List<ExpenseDto>,
         val balances: List<BalanceDto>,
         val pantSummary: PantSummaryDto,
+)
+
+data class SettleUpRequest(
+        val memberName: String,
+)
+
+data class SettleUpResponse(
+        val collectiveCode: String,
+        val settledBy: String,
+        val lastExpenseId: Long,
+        val settledAt: LocalDateTime,
 )
 
 data class DrinkingQuestionDto(

@@ -45,7 +45,7 @@ export interface Expense {
   paidBy: string;
   category: string;
   date: string;
-  splitBetween: number;
+  participantNames: string[];
 }
 
 export interface Balance {
@@ -71,6 +71,13 @@ export interface EconomySummary {
   expenses: Expense[];
   balances: Balance[];
   pantSummary: PantSummary;
+}
+
+export interface SettleUpResponse {
+  collectiveCode: string;
+  settledBy: string;
+  lastExpenseId: number;
+  settledAt: string;
 }
 
 export interface LeaderboardPlayer {
@@ -119,4 +126,10 @@ export interface DrinkingQuestion {
   text: string;
   type: string;
   targetedPlayer?: string;
+}
+
+export interface AppUser {
+  id: number;
+  name: string;
+  collectiveCode?: string | null;
 }

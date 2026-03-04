@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/chat")
 class ChatController(private val service: KollektService) {
-    @GetMapping("/messages") fun getMessages(): List<MessageDto> = service.getMessages()
+    @GetMapping("/messages")
+    fun getMessages(@RequestParam memberName: String): List<MessageDto> =
+            service.getMessages(memberName)
 
     @PostMapping("/messages")
     @ResponseStatus(HttpStatus.CREATED)
