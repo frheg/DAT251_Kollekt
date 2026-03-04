@@ -46,6 +46,13 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    val isCi = System.getenv("CI")?.toBoolean() == true
+    testLogging {
+        events("FAILED")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = isCi
+    }
 }
 
 jacoco {
