@@ -16,6 +16,42 @@ export function Chat({ currentUserName }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
+  const sortByTimestamp = (a: ChatMessage, b: ChatMessage) =>
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+
+  const messageIdKey = (value: unknown): string | null => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+    return null;
+  };
+
+  const appendUniqueMessage = (
+    prev: ChatMessage[],
+    incoming: ChatMessage,
+  ): ChatMessage[] => {
+    const incomingKey = messageIdKey((incoming as { id?: unknown }).id);
+    if (incomingKey) {
+      const exists = prev.some(
+        (msg) => messageIdKey((msg as { id?: unknown }).id) === incomingKey,
+      );
+      if (exists) return prev;
+    } else {
+      const exists = prev.some(
+        (msg) =>
+          msg.sender === incoming.sender &&
+          msg.text === incoming.text &&
+          msg.timestamp === incoming.timestamp,
+      );
+      if (exists) return prev;
+    }
+
+    return [...prev, incoming].sort(sortByTimestamp);
+  };
+
   const load = async () => {
     const data = await api.get<ChatMessage[]>(
       `/chat/messages?memberName=${encodeURIComponent(currentUserName)}`,
@@ -30,19 +66,13 @@ export function Chat({ currentUserName }: ChatProps) {
       (event) => {
         if (event.type !== "MESSAGE_CREATED") return;
 
-        const payload = event.payload as Partial<ChatMessage> | undefined;
-        if (!payload || typeof payload.id !== "number") {
+        const payload = event.payload as ChatMessage | undefined;
+        if (!payload || typeof payload.sender !== "string" || typeof payload.text !== "string" || typeof payload.timestamp !== "string") {
           void load();
           return;
         }
 
-        setMessages((prev) => {
-          if (prev.some((msg) => msg.id === payload.id)) return prev;
-          return [...prev, payload as ChatMessage].sort(
-            (a, b) =>
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-          );
-        });
+        setMessages((prev) => appendUniqueMessage(prev, payload));
       },
       {
         onConnected: () => {
@@ -60,7 +90,7 @@ export function Chat({ currentUserName }: ChatProps) {
       sender: currentUserName,
       text: newMessage,
     });
-    setMessages((prev) => [...prev, created]);
+    setMessages((prev) => appendUniqueMessage(prev, created));
     setNewMessage("");
   };
 
