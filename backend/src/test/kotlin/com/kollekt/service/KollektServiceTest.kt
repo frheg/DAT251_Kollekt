@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
+import org.mockito.Mockito.lenient
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -68,7 +69,7 @@ class KollektServiceTest {
     @BeforeEach
     fun setUp() {
         valueOps = mock()
-        whenever(redisTemplate.opsForValue()).thenReturn(valueOps)
+        lenient().`when`(redisTemplate.opsForValue()).thenReturn(valueOps)
         service =
             KollektService(
                 memberRepository,
