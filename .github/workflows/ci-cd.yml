@@ -30,8 +30,15 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v3
-      - run: gradle build --no-daemon
-      - run: gradle test --no-daemon
+      - run: ./gradlew clean build --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-and-coverage-reports
+          path: |
+            backend/build/reports/tests/test
+            backend/build/reports/jacoco/test/html
+            backend/build/reports/jacoco/test/jacocoTestReport.xml
 
   docker-publish:
     if: github.ref == 'refs/heads/main'
