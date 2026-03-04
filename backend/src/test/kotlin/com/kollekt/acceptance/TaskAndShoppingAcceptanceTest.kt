@@ -1,5 +1,7 @@
 package com.kollekt.acceptance
 
+import com.kollekt.domain.Member
+import com.kollekt.repository.MemberRepository
 import com.kollekt.service.IntegrationEventPublisher
 import org.springframework.boot.CommandLineRunner
 import org.junit.jupiter.api.BeforeEach
@@ -27,6 +29,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @ActiveProfiles("test")
 class TaskAndShoppingAcceptanceTest {
     @Autowired lateinit var mockMvc: MockMvc
+    @Autowired lateinit var memberRepository: MemberRepository
 
     // Keep acceptance tests deterministic: don't require Redis/Kafka.
     @MockBean lateinit var redisTemplate: RedisTemplate<String, Any>
@@ -36,6 +39,15 @@ class TaskAndShoppingAcceptanceTest {
     @BeforeEach
     fun setUp() {
         whenever(redisTemplate.keys(any<String>())).thenReturn(emptySet())
+
+        // The production app relies on DataSeeder for initial members, but in tests we mock seeding.
+        // Ensure referenced members exist so controllers don't reject requests.
+        if (memberRepository.findByName("Kasper") == null) {
+            memberRepository.save(Member(name = "Kasper", level = 1, xp = 0))
+        }
+        if (memberRepository.findByName("Emma") == null) {
+            memberRepository.save(Member(name = "Emma", level = 1, xp = 0))
+        }
     }
 
     @Test
