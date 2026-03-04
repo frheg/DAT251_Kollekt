@@ -9,8 +9,6 @@ spring:
       repositories:
         enabled: false
   kafka:
-    admin:
-      enabled: false
     listener:
       auto-startup: false
   jpa:

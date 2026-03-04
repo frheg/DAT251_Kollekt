@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.kafka.core.KafkaAdmin
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -36,6 +37,8 @@ class TaskAndShoppingAcceptanceTest {
     @MockBean lateinit var redisTemplate: RedisTemplate<String, Any>
     @MockBean lateinit var eventPublisher: IntegrationEventPublisher
     @MockBean(name = "seedData") lateinit var seedData: CommandLineRunner
+    // Prevent KafkaAdmin from trying to connect to localhost:9092 in CI (no broker available).
+    @MockBean lateinit var kafkaAdmin: KafkaAdmin
 
     @BeforeEach
     fun setUp() {
