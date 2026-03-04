@@ -54,6 +54,20 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    // Some dependencies (notably kafka test jars) include junit-platform.properties on the classpath.
+    // Force deterministic, single-threaded execution to avoid CI-only flakiness.
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+    systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
+    systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
+    maxParallelForks = 1
+
+    val isCi = System.getenv("CI")?.toBoolean() == true
+    testLogging {
+        events("FAILED")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = isCi
+    }
 }
 
 jacoco {
