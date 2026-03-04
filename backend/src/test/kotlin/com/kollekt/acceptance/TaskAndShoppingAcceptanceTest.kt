@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.hamcrest.Matchers.hasItem
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
@@ -42,11 +43,15 @@ class TaskAndShoppingAcceptanceTest {
 
         // The production app relies on DataSeeder for initial members, but in tests we mock seeding.
         // Ensure referenced members exist so controllers don't reject requests.
-        if (memberRepository.findByName("Kasper") == null) {
-            memberRepository.save(Member(name = "Kasper", level = 1, xp = 0))
-        }
-        if (memberRepository.findByName("Emma") == null) {
-            memberRepository.save(Member(name = "Emma", level = 1, xp = 0))
+        ensureMemberExists("Kasper")
+        ensureMemberExists("Emma")
+    }
+
+    private fun ensureMemberExists(name: String) {
+        try {
+            memberRepository.saveAndFlush(Member(name = name, level = 1, xp = 0))
+        } catch (_: DataIntegrityViolationException) {
+            // Member already created concurrently by another test.
         }
     }
 
