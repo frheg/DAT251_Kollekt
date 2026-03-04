@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delet
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers.print
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
@@ -58,6 +59,7 @@ class TaskAndShoppingAcceptanceTest {
                             """.trimIndent(),
                         ),
                 )
+                .andDo(print())
                 .andExpect(status().isCreated)
                 .andExpect(jsonPath("$.id").isNumber)
                 .andExpect(jsonPath("$.title").value("Tomme soppla"))
@@ -98,6 +100,7 @@ class TaskAndShoppingAcceptanceTest {
                             """.trimIndent(),
                         ),
                 )
+                .andDo(print())
                 .andExpect(status().isCreated)
                 .andExpect(jsonPath("$.id").isNumber)
                 .andExpect(jsonPath("$.item").value("Dopapir"))
