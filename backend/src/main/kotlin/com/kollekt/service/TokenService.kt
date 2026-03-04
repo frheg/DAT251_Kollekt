@@ -5,12 +5,14 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtClaimsSet
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.security.oauth2.jwt.JwtException
+import org.springframework.security.oauth2.jwt.JwsHeader
 import org.springframework.stereotype.Service
 
 @Service
@@ -85,6 +87,7 @@ class TokenService(
         val issuedAt = Instant.now()
         val expiresAt = issuedAt.plusSeconds(tokenValiditySeconds)
         val jti = UUID.randomUUID().toString()
+        val header = JwsHeader.with(MacAlgorithm.HS256).build()
 
         val claims =
                 JwtClaimsSet.builder()
@@ -97,7 +100,7 @@ class TokenService(
                         .claim("token_type", "access")
                         .build()
 
-        val token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).tokenValue
+        val token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue
 
         return SignedToken(tokenValue = token, jti = jti)
     }
@@ -106,6 +109,7 @@ class TokenService(
         val issuedAt = Instant.now()
         val expiresAt = issuedAt.plusSeconds(refreshTokenValiditySeconds)
         val jti = UUID.randomUUID().toString()
+        val header = JwsHeader.with(MacAlgorithm.HS256).build()
 
         val claims =
                 JwtClaimsSet.builder()
@@ -117,7 +121,7 @@ class TokenService(
                         .claim("token_type", "refresh")
                         .build()
 
-        val token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).tokenValue
+        val token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue
 
         return SignedToken(tokenValue = token, jti = jti)
     }

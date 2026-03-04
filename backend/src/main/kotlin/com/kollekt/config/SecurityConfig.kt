@@ -22,11 +22,15 @@ import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
         @Value("\${app.security.jwt-secret}") private val jwtSecret: String,
+    @Value("\${app.cors.allowed-origins}") private val allowedOrigins: String,
         private val tokenStoreService: TokenStoreService,
 ) {
     @Bean
@@ -68,5 +72,19 @@ class SecurityConfig(
     fun jwtEncoder(): JwtEncoder {
         val key = SecretKeySpec(jwtSecret.toByteArray(), "HmacSHA256")
         return NimbusJwtEncoder(ImmutableSecret(key))
+    }
+
+    @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val configuration = CorsConfiguration()
+        configuration.allowedOrigins = allowedOrigins.split(',').map { it.trim() }
+        configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        configuration.allowedHeaders = listOf("*")
+        configuration.allowCredentials = true
+
+        val source = UrlBasedCorsConfigurationSource()
+        source.registerCorsConfiguration("/api/**", configuration)
+        source.registerCorsConfiguration("/ws/**", configuration)
+        return source
     }
 }
