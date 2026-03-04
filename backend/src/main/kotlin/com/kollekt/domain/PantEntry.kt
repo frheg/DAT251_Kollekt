@@ -15,5 +15,6 @@ data class PantEntry(
         @Column(nullable = false) val bottles: Int,
         @Column(nullable = false) val amount: Int,
         @Column(nullable = false) val addedBy: String,
+        @Column(nullable = true) val collectiveCode: String? = null,
         @Column(nullable = false) val date: LocalDate,
 )

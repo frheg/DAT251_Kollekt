@@ -4,31 +4,50 @@ import { Button } from './ui/button';
 import { Trophy, CheckCircle2, Calendar, Wallet, TrendingUp, AlertCircle } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { api } from '../lib/api';
-import type { DashboardResponse } from '../lib/types';
+import { connectCollectiveRealtime } from '../lib/realtime';
+import type { AppUser, DashboardResponse, EconomySummary, Task } from '../lib/types';
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
+  currentUserName: string;
 }
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
   const [data, setData] = useState<DashboardResponse | null>(null);
+  const [members, setMembers] = useState<AppUser[]>([]);
+  const [completedTasksCount, setCompletedTasksCount] = useState(0);
+  const [myBalance, setMyBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const response = await api.get<DashboardResponse>('/dashboard?memberName=Kasper');
-        setData(response);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    try {
+      const [response, collectiveMembers, tasks, economySummary] = await Promise.all([
+        api.get<DashboardResponse>(`/dashboard?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`),
+      ]);
+      setData(response);
+      setMembers(collectiveMembers);
+      setCompletedTasksCount(tasks.filter((task) => task.completed).length);
+      setMyBalance(economySummary.balances.find((balance) => balance.name === currentUserName)?.amount ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
-  }, []);
+  useEffect(() => {
+    void load();
+    const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
+      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED') {
+        void load();
+      }
+    });
+    return disconnect;
+  }, [currentUserName]);
 
   const currentUser = {
-    name: data?.currentUserName ?? 'Kasper',
+    name: data?.currentUserName ?? currentUserName,
     xp: data?.currentUserXp ?? 0,
     level: data?.currentUserLevel ?? 1,
     rank: data?.currentUserRank ?? 1,
@@ -97,7 +116,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <CheckCircle2 className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl">12</p>
+              <p className="text-2xl">{completedTasksCount}</p>
               <p className="text-sm text-gray-600">Oppgaver fullført</p>
             </div>
           </div>
@@ -109,7 +128,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <Wallet className="w-6 h-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl">-85 kr</p>
+              <p className="text-2xl">{myBalance} kr</p>
               <p className="text-sm text-gray-600">Din saldo</p>
             </div>
           </div>
@@ -179,6 +198,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           ))}
           {!loading && recentExpenses.length === 0 && <p className="text-sm text-gray-500">Ingen registrerte utgifter</p>}
+        </div>
+      </Card>
+
+      <Card className="p-6 bg-white/80 backdrop-blur">
+        <h3 className="mb-4">Medlemmer i kollektivet</h3>
+        <div className="flex flex-wrap gap-2">
+          {members.map((member) => (
+            <span key={member.id} className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm">
+              {member.name}
+            </span>
+          ))}
+          {!loading && members.length === 0 && <p className="text-sm text-gray-500">Ingen medlemmer funnet</p>}
         </div>
       </Card>
     </div>
