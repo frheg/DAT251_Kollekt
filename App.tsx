@@ -9,7 +9,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { DrinkingGame } from './components/DrinkingGame';
 import { StartPage } from './components/StartPage';
 import { Button } from './components/ui/button';
-import { clearAccessToken } from './lib/api';
+import { logoutSession } from './lib/api';
 import type { AppUser } from './lib/types';
 
 type View = 'dashboard' | 'tasks' | 'calendar' | 'chat' | 'economy' | 'leaderboard' | 'game';
@@ -34,9 +34,9 @@ export default function App() {
   };
 
   const logout = () => {
+    void logoutSession();
     setCurrentUser(null);
     localStorage.removeItem('kollekt-user');
-    clearAccessToken();
     setCurrentView('dashboard');
   };
 

@@ -1,5 +1,6 @@
 package com.kollekt.config
 
+import com.kollekt.service.TokenStoreService
 import com.nimbusds.jose.jwk.source.ImmutableSecret
 import javax.crypto.spec.SecretKeySpec
 import org.springframework.beans.factory.annotation.Value
@@ -12,9 +13,12 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
+import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtEncoder
+import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.web.SecurityFilterChain
@@ -23,6 +27,7 @@ import org.springframework.security.web.SecurityFilterChain
 @EnableWebSecurity
 class SecurityConfig(
         @Value("\${app.security.jwt-secret}") private val jwtSecret: String,
+        private val tokenStoreService: TokenStoreService,
 ) {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -32,7 +37,12 @@ class SecurityConfig(
                 .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
                 .authorizeHttpRequests {
                     it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    it.requestMatchers("/api/onboarding/users", "/api/onboarding/login").permitAll()
+                    it.requestMatchers(
+                                    "/api/onboarding/users",
+                                    "/api/onboarding/login",
+                                    "/api/onboarding/refresh",
+                            )
+                            .permitAll()
                     it.requestMatchers("/ws/**").permitAll()
                     it.anyRequest().authenticated()
                 }
@@ -45,7 +55,13 @@ class SecurityConfig(
     @Bean
     fun jwtDecoder(): JwtDecoder {
         val key = SecretKeySpec(jwtSecret.toByteArray(), "HmacSHA256")
-        return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build()
+        val decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build()
+        val defaultValidator = JwtValidators.createDefault()
+        val revokedValidator = RevokedTokenValidator(tokenStoreService)
+        decoder.setJwtValidator(
+                DelegatingOAuth2TokenValidator<Jwt>(defaultValidator, revokedValidator)
+        )
+        return decoder
     }
 
     @Bean

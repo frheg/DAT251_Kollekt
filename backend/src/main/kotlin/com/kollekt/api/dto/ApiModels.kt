@@ -89,9 +89,18 @@ data class LoginRequest(
 
 data class AuthResponse(
         val accessToken: String,
+        val refreshToken: String,
         val tokenType: String,
         val expiresIn: Long,
         val user: UserDto,
+)
+
+data class RefreshTokenRequest(
+        val refreshToken: String,
+)
+
+data class LogoutRequest(
+        val refreshToken: String? = null,
 )
 
 data class CollectiveDto(

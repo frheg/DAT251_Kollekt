@@ -13,6 +13,7 @@ import com.kollekt.api.dto.UserDto
 import com.kollekt.domain.EventType
 import com.kollekt.domain.TaskCategory
 import com.kollekt.service.KollektService
+import com.kollekt.service.TokenStoreService
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -50,6 +51,7 @@ class ControllerEndpointContractTest {
         @Autowired lateinit var mockMvc: MockMvc
 
         @MockitoBean lateinit var service: KollektService
+        @MockitoBean lateinit var tokenStoreService: TokenStoreService
 
         @Test
         fun `onboarding create user uses api onboarding users endpoint`() {
@@ -58,6 +60,7 @@ class ControllerEndpointContractTest {
                         .thenReturn(
                                 AuthResponse(
                                         accessToken = "token",
+                                        refreshToken = "refresh-token",
                                         tokenType = "Bearer",
                                         expiresIn = 3600,
                                         user =

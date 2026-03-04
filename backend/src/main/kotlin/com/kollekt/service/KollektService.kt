@@ -9,6 +9,7 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -296,6 +297,23 @@ class KollektService(
                         memberRepository.findByName(name)
                                 ?: throw IllegalArgumentException("User '$name' not found")
                 return user.toUserDto()
+        }
+
+        fun refreshToken(request: RefreshTokenRequest): AuthResponse {
+                val refreshResult = tokenService.rotateRefreshToken(request.refreshToken)
+                val user =
+                        memberRepository.findByName(refreshResult.subject)
+                                ?: throw IllegalArgumentException(
+                                        "User '${refreshResult.subject}' not found"
+                                )
+                return toAuthResponse(user)
+        }
+
+        fun logout(accessTokenJwt: Jwt, refreshToken: String?) {
+                tokenService.revokeAccessToken(accessTokenJwt)
+                if (!refreshToken.isNullOrBlank()) {
+                        tokenService.revokeRefreshToken(refreshToken)
+                }
         }
 
         @Transactional
@@ -738,9 +756,10 @@ class KollektService(
                 )
 
         private fun toAuthResponse(member: Member): AuthResponse {
-                val token = tokenService.issueAccessToken(member)
+                val token = tokenService.issueTokenPair(member)
                 return AuthResponse(
                         accessToken = token.accessToken,
+                        refreshToken = token.refreshToken,
                         tokenType = token.tokenType,
                         expiresIn = token.expiresIn,
                         user = member.toUserDto(),

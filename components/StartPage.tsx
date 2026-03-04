@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Home, KeyRound, LogIn, UserPlus, Users } from 'lucide-react';
-import { api, setAccessToken } from '../lib/api';
+import { api, setAccessToken, setRefreshToken } from '../lib/api';
 import type { AppUser, AuthResponse } from '../lib/types';
 
 interface CollectiveDto {
@@ -37,6 +37,7 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
     try {
       const auth = await api.post<AuthResponse>('/onboarding/login', { name, password: loginPassword });
       setAccessToken(auth.accessToken);
+      setRefreshToken(auth.refreshToken);
       setError('');
       setInfo('');
       setCurrentUser(auth.user);
@@ -55,6 +56,7 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
     try {
       const auth = await api.post<AuthResponse>('/onboarding/users', { name, password: newUserPassword });
       setAccessToken(auth.accessToken);
+      setRefreshToken(auth.refreshToken);
       setCurrentUser(auth.user);
       setNewUserName('');
       setNewUserPassword('');

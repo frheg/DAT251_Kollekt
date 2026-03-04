@@ -7,6 +7,8 @@ import com.kollekt.api.dto.CreateCollectiveRequest
 import com.kollekt.api.dto.CreateUserRequest
 import com.kollekt.api.dto.JoinCollectiveRequest
 import com.kollekt.api.dto.LoginRequest
+import com.kollekt.api.dto.LogoutRequest
+import com.kollekt.api.dto.RefreshTokenRequest
 import com.kollekt.api.dto.UserDto
 import com.kollekt.service.KollektService
 import org.springframework.http.HttpStatus
@@ -31,6 +33,19 @@ class OnboardingController(private val service: KollektService) {
 
         @PostMapping("/login")
         fun login(@RequestBody request: LoginRequest): AuthResponse = service.login(request)
+
+        @PostMapping("/refresh")
+        fun refresh(@RequestBody request: RefreshTokenRequest): AuthResponse =
+                service.refreshToken(request)
+
+        @PostMapping("/logout")
+        @ResponseStatus(HttpStatus.NO_CONTENT)
+        fun logout(
+                @AuthenticationPrincipal jwt: Jwt,
+                @RequestBody(required = false) request: LogoutRequest?,
+        ) {
+                service.logout(jwt, request?.refreshToken)
+        }
 
         @PostMapping("/collectives")
         @ResponseStatus(HttpStatus.CREATED)
