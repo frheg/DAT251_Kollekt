@@ -4,8 +4,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Home, KeyRound, LogIn, UserPlus, Users } from 'lucide-react';
-import { api } from '../lib/api';
-import type { AppUser } from '../lib/types';
+import { api, setAccessToken } from '../lib/api';
+import type { AppUser, AuthResponse } from '../lib/types';
 
 interface CollectiveDto {
   id: number;
@@ -19,7 +19,9 @@ interface StartPageProps {
 
 export function StartPage({ onAuthenticated }: StartPageProps) {
   const [loginName, setLoginName] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [collectiveName, setCollectiveName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -28,15 +30,16 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
 
   const login = async () => {
     const name = loginName.trim();
-    if (!name) {
-      setError('Skriv inn navn for å logge inn.');
+    if (!name || !loginPassword.trim()) {
+      setError('Skriv inn navn og passord for å logge inn.');
       return;
     }
     try {
-      const user = await api.post<AppUser>('/onboarding/login', { name });
+      const auth = await api.post<AuthResponse>('/onboarding/login', { name, password: loginPassword });
+      setAccessToken(auth.accessToken);
       setError('');
       setInfo('');
-      setCurrentUser(user);
+      setCurrentUser(auth.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kunne ikke logge inn.');
     }
@@ -44,15 +47,17 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
 
   const createUser = async () => {
     const name = newUserName.trim();
-    if (!name) {
-      setError('Brukernavn kan ikke være tomt.');
+    if (!name || !newUserPassword.trim()) {
+      setError('Brukernavn og passord kan ikke være tomt.');
       return;
     }
 
     try {
-      const created = await api.post<AppUser>('/onboarding/users', { name });
-      setCurrentUser(created);
+      const auth = await api.post<AuthResponse>('/onboarding/users', { name, password: newUserPassword });
+      setAccessToken(auth.accessToken);
+      setCurrentUser(auth.user);
       setNewUserName('');
+      setNewUserPassword('');
       setError('');
       setInfo('Bruker opprettet.');
     } catch (err) {
@@ -137,6 +142,15 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                     setLoginName(e.target.value);
                   }}
                 />
+                <Input
+                  type="password"
+                  placeholder="Passord"
+                  value={loginPassword}
+                  onChange={(e) => {
+                    setError('');
+                    setLoginPassword(e.target.value);
+                  }}
+                />
                 <Button className="w-full" onClick={() => void login()}>
                   <LogIn className="w-4 h-4 mr-2" />
                   Logg inn
@@ -150,6 +164,15 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                   onChange={(e) => {
                     setError('');
                     setNewUserName(e.target.value);
+                  }}
+                />
+                <Input
+                  type="password"
+                  placeholder="Passord (minst 8 tegn)"
+                  value={newUserPassword}
+                  onChange={(e) => {
+                    setError('');
+                    setNewUserPassword(e.target.value);
                   }}
                 />
                 <Button className="w-full" onClick={() => void createUser()}>

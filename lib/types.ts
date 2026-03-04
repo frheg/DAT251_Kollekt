@@ -133,3 +133,10 @@ export interface AppUser {
   name: string;
   collectiveCode?: string | null;
 }
+
+export interface AuthResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: AppUser;
+}

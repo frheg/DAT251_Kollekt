@@ -1,8 +1,24 @@
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
+const TOKEN_KEY = 'kollekt-access-token';
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAccessToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearAccessToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAccessToken();
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...(init?.headers || {}) },
     ...init,
   });
 
