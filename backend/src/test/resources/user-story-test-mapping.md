@@ -21,7 +21,7 @@ Legend:
 
 3) *"Mark tasks as completed so contribution is visible"*
 - Status: **Covered**
-- Backend: `KollektService.toggleTask(taskId)` flips `completed`.
+- Backend: `KollektService.toggleTask(taskId, memberName, completed?)` updates task completion state.
 - Tests:
   - `KollektServiceTest` → `toggleTask flips completed, clears caches, and publishes event`
   - `KollektServiceTest` → `toggleTask throws when task not found`

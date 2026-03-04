@@ -60,6 +60,7 @@ class KollektServiceTest {
     @Mock lateinit var achievementRepository: AchievementRepository
     @Mock lateinit var redisTemplate: RedisTemplate<String, Any>
     @Mock lateinit var eventPublisher: IntegrationEventPublisher
+    @Mock lateinit var realtimeUpdateService: RealtimeUpdateService
 
     private lateinit var valueOps: ValueOperations<String, Any>
     private lateinit var service: KollektService
@@ -82,6 +83,7 @@ class KollektServiceTest {
                 achievementRepository,
                 redisTemplate,
                 eventPublisher,
+                realtimeUpdateService,
             )
     }
 
@@ -125,9 +127,61 @@ class KollektServiceTest {
     @Test
     fun `toggleTask enforces collective scope`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper"))
-        whenever(taskRepository.findByIdAndCollectiveCode(99, "ABC123")).thenReturn(null)
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(99, "ABC123")).thenReturn(null)
 
         assertThrows<IllegalArgumentException> { service.toggleTask(99, "Kasper") }
+    }
+
+    @Test
+    fun `toggleTask awards XP only once to completing user`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", xp = 100, level = 1))
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(11, "ABC123")).thenReturn(
+            TaskItem(
+                id = 11,
+                title = "Task",
+                assignee = "Emma",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.parse("2026-03-01"),
+                category = TaskCategory.OTHER,
+                completed = false,
+                xp = 25,
+            ),
+        )
+        whenever(memberRepository.findByNameAndCollectiveCodeForUpdate("Kasper", "ABC123")).thenReturn(member("Kasper", xp = 100, level = 1))
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        val result = service.toggleTask(11, "Kasper", true)
+
+        assertTrue(result.completed)
+        val memberCaptor = argumentCaptor<Member>()
+        verify(memberRepository).save(memberCaptor.capture())
+        assertEquals(125, memberCaptor.firstValue.xp)
+    }
+
+    @Test
+    fun `toggleTask with completed true is idempotent after XP awarded`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", xp = 125, level = 1))
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(11, "ABC123")).thenReturn(
+            TaskItem(
+                id = 11,
+                title = "Task",
+                assignee = "Emma",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.parse("2026-03-01"),
+                category = TaskCategory.OTHER,
+                completed = true,
+                xpAwarded = true,
+                xp = 25,
+            ),
+        )
+
+        val result = service.toggleTask(11, "Kasper", true)
+
+        assertTrue(result.completed)
+        verify(memberRepository, never()).findByNameAndCollectiveCodeForUpdate(any(), any())
     }
 
     @Test

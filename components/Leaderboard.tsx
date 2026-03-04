@@ -5,6 +5,7 @@ import { Trophy, TrendingUp, Flame, Target, Zap, Star, Award } from 'lucide-reac
 import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import type { Achievement, LeaderboardResponse } from '../lib/types';
 
 interface LeaderboardProps {
@@ -15,16 +16,23 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse>({ players: [], weeklyStats: { totalTasks: 0, totalXp: 0, avgPerPerson: 0, topContributor: '' } });
   const [achievements, setAchievements] = useState<Achievement[]>([]);
 
+  const load = async () => {
+    const [leaderboardData, achievementData] = await Promise.all([
+      api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`),
+      api.get<Achievement[]>('/achievements'),
+    ]);
+    setLeaderboard(leaderboardData);
+    setAchievements(achievementData);
+  };
+
   useEffect(() => {
-    const load = async () => {
-      const [leaderboardData, achievementData] = await Promise.all([
-        api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`),
-        api.get<Achievement[]>('/achievements'),
-      ]);
-      setLeaderboard(leaderboardData);
-      setAchievements(achievementData);
-    };
-    load();
+    void load();
+    const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
+      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED') {
+        void load();
+      }
+    });
+    return disconnect;
   }, [currentUserName]);
 
   const players = leaderboard.players;

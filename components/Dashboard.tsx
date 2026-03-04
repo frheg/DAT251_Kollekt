@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Trophy, CheckCircle2, Calendar, Wallet, TrendingUp, AlertCircle } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import type { AppUser, DashboardResponse, EconomySummary, Task } from '../lib/types';
 
 interface DashboardProps {
@@ -18,25 +19,31 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
   const [myBalance, setMyBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [response, collectiveMembers, tasks, economySummary] = await Promise.all([
-          api.get<DashboardResponse>(`/dashboard?memberName=${encodeURIComponent(currentUserName)}`),
-          api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
-          api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
-          api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`),
-        ]);
-        setData(response);
-        setMembers(collectiveMembers);
-        setCompletedTasksCount(tasks.filter((task) => task.completed).length);
-        setMyBalance(economySummary.balances.find((balance) => balance.name === currentUserName)?.amount ?? 0);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    try {
+      const [response, collectiveMembers, tasks, economySummary] = await Promise.all([
+        api.get<DashboardResponse>(`/dashboard?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
+        api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`),
+      ]);
+      setData(response);
+      setMembers(collectiveMembers);
+      setCompletedTasksCount(tasks.filter((task) => task.completed).length);
+      setMyBalance(economySummary.balances.find((balance) => balance.name === currentUserName)?.amount ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
+  useEffect(() => {
+    void load();
+    const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
+      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED') {
+        void load();
+      }
+    });
+    return disconnect;
   }, [currentUserName]);
 
   const currentUser = {
