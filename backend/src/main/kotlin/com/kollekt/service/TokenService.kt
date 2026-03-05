@@ -1,43 +1,43 @@
 package com.kollekt.service
 
 import com.kollekt.domain.Member
-import java.time.Duration
-import java.time.Instant
-import java.util.UUID
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
+import org.springframework.security.oauth2.jwt.JwsHeader
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtClaimsSet
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.security.oauth2.jwt.JwtException
-import org.springframework.security.oauth2.jwt.JwsHeader
 import org.springframework.stereotype.Service
+import java.time.Duration
+import java.time.Instant
+import java.util.UUID
 
 @Service
 class TokenService(
-        private val jwtEncoder: JwtEncoder,
-        private val jwtDecoder: JwtDecoder,
-        private val tokenStoreService: TokenStoreService,
-        @Value("\${app.security.token-validity-seconds}") private val tokenValiditySeconds: Long,
-        @Value("\${app.security.refresh-token-validity-seconds}")
-        private val refreshTokenValiditySeconds: Long,
+    private val jwtEncoder: JwtEncoder,
+    private val jwtDecoder: JwtDecoder,
+    private val tokenStoreService: TokenStoreService,
+    @Value("\${app.security.token-validity-seconds}") private val tokenValiditySeconds: Long,
+    @Value("\${app.security.refresh-token-validity-seconds}")
+    private val refreshTokenValiditySeconds: Long,
 ) {
     fun issueTokenPair(member: Member): TokenResult {
         val access = issueAccessToken(member)
         val refresh = issueRefreshToken(member)
         tokenStoreService.storeRefreshToken(
-                refresh.jti,
-                member.name,
-                Duration.ofSeconds(refreshTokenValiditySeconds),
+            refresh.jti,
+            member.name,
+            Duration.ofSeconds(refreshTokenValiditySeconds),
         )
 
         return TokenResult(
-                accessToken = access.tokenValue,
-                refreshToken = refresh.tokenValue,
-                tokenType = "Bearer",
-                expiresIn = tokenValiditySeconds,
+            accessToken = access.tokenValue,
+            refreshToken = refresh.tokenValue,
+            tokenType = "Bearer",
+            expiresIn = tokenValiditySeconds,
         )
     }
 
@@ -90,15 +90,15 @@ class TokenService(
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
 
         val claims =
-                JwtClaimsSet.builder()
-                        .subject(member.name)
-                        .id(jti)
-                        .issuedAt(issuedAt)
-                        .expiresAt(expiresAt)
-                        .claim("uid", member.id)
-                        .claim("scope", "USER")
-                        .claim("token_type", "access")
-                        .build()
+            JwtClaimsSet.builder()
+                .subject(member.name)
+                .id(jti)
+                .issuedAt(issuedAt)
+                .expiresAt(expiresAt)
+                .claim("uid", member.id)
+                .claim("scope", "USER")
+                .claim("token_type", "access")
+                .build()
 
         val token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue
 
@@ -112,14 +112,14 @@ class TokenService(
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
 
         val claims =
-                JwtClaimsSet.builder()
-                        .subject(member.name)
-                        .id(jti)
-                        .issuedAt(issuedAt)
-                        .expiresAt(expiresAt)
-                        .claim("uid", member.id)
-                        .claim("token_type", "refresh")
-                        .build()
+            JwtClaimsSet.builder()
+                .subject(member.name)
+                .id(jti)
+                .issuedAt(issuedAt)
+                .expiresAt(expiresAt)
+                .claim("uid", member.id)
+                .claim("token_type", "refresh")
+                .build()
 
         val token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).tokenValue
 
@@ -128,17 +128,17 @@ class TokenService(
 }
 
 data class TokenResult(
-        val accessToken: String,
-        val refreshToken: String,
-        val tokenType: String,
-        val expiresIn: Long,
+    val accessToken: String,
+    val refreshToken: String,
+    val tokenType: String,
+    val expiresIn: Long,
 )
 
 data class RefreshResult(
-        val subject: String,
+    val subject: String,
 )
 
 private data class SignedToken(
-        val tokenValue: String,
-        val jti: String,
+    val tokenValue: String,
+    val jti: String,
 )

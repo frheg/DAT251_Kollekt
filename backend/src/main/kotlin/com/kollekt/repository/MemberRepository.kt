@@ -9,13 +9,18 @@ import org.springframework.data.repository.query.Param
 
 interface MemberRepository : JpaRepository<Member, Long> {
     fun findByName(name: String): Member?
-    fun findByNameAndCollectiveCode(name: String, collectiveCode: String): Member?
+
+    fun findByNameAndCollectiveCode(
+        name: String,
+        collectiveCode: String,
+    ): Member?
+
     fun findAllByCollectiveCode(collectiveCode: String): List<Member>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Member m where m.name = :name and m.collectiveCode = :collectiveCode")
     fun findByNameAndCollectiveCodeForUpdate(
-            @Param("name") name: String,
-            @Param("collectiveCode") collectiveCode: String,
+        @Param("name") name: String,
+        @Param("collectiveCode") collectiveCode: String,
     ): Member?
 }

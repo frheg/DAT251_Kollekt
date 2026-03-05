@@ -11,18 +11,18 @@ class ApiExceptionHandler {
     @ExceptionHandler(AccessDeniedException::class)
     fun handleAccessDenied(ex: AccessDeniedException): ResponseEntity<Map<String, String>> {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(mapOf("error" to (ex.message ?: "Forbidden")))
+            .body(mapOf("error" to (ex.message ?: "Forbidden")))
     }
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<Map<String, String>> {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(mapOf("error" to (ex.message ?: "Bad request")))
+            .body(mapOf("error" to (ex.message ?: "Bad request")))
     }
 
     @ExceptionHandler(Exception::class)
     fun handleGeneral(ex: Exception): ResponseEntity<Map<String, String>> {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(mapOf("error" to (ex.message ?: "Internal server error")))
+            .body(mapOf("error" to (ex.message ?: "Internal server error")))
     }
 }

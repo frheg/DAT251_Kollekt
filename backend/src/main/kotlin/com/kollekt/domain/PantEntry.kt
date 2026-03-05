@@ -11,10 +11,10 @@ import java.time.LocalDate
 @Entity
 @Table(name = "pant_entries")
 data class PantEntry(
-        @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
-        @Column(nullable = false) val bottles: Int,
-        @Column(nullable = false) val amount: Int,
-        @Column(nullable = false) val addedBy: String,
-        @Column(nullable = true) val collectiveCode: String? = null,
-        @Column(nullable = false) val date: LocalDate,
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
+    @Column(nullable = false) val bottles: Int,
+    @Column(nullable = false) val amount: Int,
+    @Column(nullable = false) val addedBy: String,
+    @Column(nullable = true) val collectiveCode: String? = null,
+    @Column(nullable = false) val date: LocalDate,
 )

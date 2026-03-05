@@ -11,14 +11,15 @@ import org.springframework.web.util.UriComponentsBuilder
 
 @Component
 class CollectiveWebSocketHandler(
-        private val memberRepository: MemberRepository,
-        private val realtimeUpdateService: RealtimeUpdateService,
+    private val memberRepository: MemberRepository,
+    private val realtimeUpdateService: RealtimeUpdateService,
 ) : TextWebSocketHandler() {
     override fun afterConnectionEstablished(session: WebSocketSession) {
-        val uri = session.uri ?: run {
-            session.close(CloseStatus.BAD_DATA.withReason("Missing URI"))
-            return
-        }
+        val uri =
+            session.uri ?: run {
+                session.close(CloseStatus.BAD_DATA.withReason("Missing URI"))
+                return
+            }
         val queryParams = UriComponentsBuilder.fromUri(uri).build().queryParams
         val memberName = queryParams.getFirst("memberName")?.trim()
         if (memberName.isNullOrBlank()) {
@@ -37,12 +38,18 @@ class CollectiveWebSocketHandler(
         realtimeUpdateService.register(collectiveCode, session)
     }
 
-    override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
+    override fun afterConnectionClosed(
+        session: WebSocketSession,
+        status: CloseStatus,
+    ) {
         val collectiveCode = session.attributes["collectiveCode"] as? String ?: return
         realtimeUpdateService.unregister(collectiveCode, session)
     }
 
-    override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
+    override fun handleTextMessage(
+        session: WebSocketSession,
+        message: TextMessage,
+    ) {
         if (message.payload == "ping") {
             session.sendMessage(TextMessage("""{"type":"pong"}"""))
         }

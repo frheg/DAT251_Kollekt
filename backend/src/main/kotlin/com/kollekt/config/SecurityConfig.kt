@@ -2,7 +2,6 @@ package com.kollekt.config
 
 import com.kollekt.service.TokenStoreService
 import com.nimbusds.jose.jwk.source.ImmutableSecret
-import javax.crypto.spec.SecretKeySpec
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,34 +25,35 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import javax.crypto.spec.SecretKeySpec
 
 @Configuration
 @EnableWebSecurity
 @Profile("!test")
 class SecurityConfig(
-        @Value("\${app.security.jwt-secret}") private val jwtSecret: String,
+    @Value("\${app.security.jwt-secret}") private val jwtSecret: String,
     @Value("\${app.cors.allowed-origins}") private val allowedOrigins: String,
-        private val tokenStoreService: TokenStoreService,
+    private val tokenStoreService: TokenStoreService,
 ) {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         return http
-                .csrf { it.disable() }
-                .cors(Customizer.withDefaults())
-                .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-                .authorizeHttpRequests {
-                    it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    it.requestMatchers(
-                                    "/api/onboarding/users",
-                                    "/api/onboarding/login",
-                                    "/api/onboarding/refresh",
-                            )
-                            .permitAll()
-                    it.requestMatchers("/ws/**").permitAll()
-                    it.anyRequest().authenticated()
-                }
-                .oauth2ResourceServer { it.jwt(Customizer.withDefaults()) }
-                .build()
+            .csrf { it.disable() }
+            .cors(Customizer.withDefaults())
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .authorizeHttpRequests {
+                it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                it.requestMatchers(
+                    "/api/onboarding/users",
+                    "/api/onboarding/login",
+                    "/api/onboarding/refresh",
+                )
+                    .permitAll()
+                it.requestMatchers("/ws/**").permitAll()
+                it.anyRequest().authenticated()
+            }
+            .oauth2ResourceServer { it.jwt(Customizer.withDefaults()) }
+            .build()
     }
 
     @Bean fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
@@ -65,7 +65,7 @@ class SecurityConfig(
         val defaultValidator = JwtValidators.createDefault()
         val revokedValidator = RevokedTokenValidator(tokenStoreService)
         decoder.setJwtValidator(
-                DelegatingOAuth2TokenValidator<Jwt>(defaultValidator, revokedValidator)
+            DelegatingOAuth2TokenValidator<Jwt>(defaultValidator, revokedValidator),
         )
         return decoder
     }

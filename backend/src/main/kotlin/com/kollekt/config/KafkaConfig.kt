@@ -10,16 +10,19 @@ import org.springframework.kafka.support.serializer.JsonSerializer
 @Configuration
 class KafkaConfig {
     @Bean
-    fun taskEventsTopic(@Value("\${app.topics.task-events}") topic: String): NewTopic =
-            NewTopic(topic, 1, 1)
+    fun taskEventsTopic(
+        @Value("\${app.topics.task-events}") topic: String,
+    ): NewTopic = NewTopic(topic, 1, 1)
 
     @Bean
-    fun chatEventsTopic(@Value("\${app.topics.chat-events}") topic: String): NewTopic =
-            NewTopic(topic, 1, 1)
+    fun chatEventsTopic(
+        @Value("\${app.topics.chat-events}") topic: String,
+    ): NewTopic = NewTopic(topic, 1, 1)
 
     @Bean
-    fun economyEventsTopic(@Value("\${app.topics.economy-events}") topic: String): NewTopic =
-            NewTopic(topic, 1, 1)
+    fun economyEventsTopic(
+        @Value("\${app.topics.economy-events}") topic: String,
+    ): NewTopic = NewTopic(topic, 1, 1)
 
     @Bean
     fun jsonDeserializer(): JsonDeserializer<Any> {
