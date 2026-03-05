@@ -8,7 +8,7 @@ on:
 
 jobs:
   frontend-build:
-    name: Frontend - build (quality gate)
+    name: Frontend - build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
         run: npm run build
 
   backend-build:
-    name: Backend - format, build & test (quality gate)
+    name: Backend - format, build & test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,7 +40,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v3
 
-      - name: Formatting verification (ktlint)
+      - name: Formatting verification
         run: ./gradlew ktlintCheck --no-daemon
 
       - name: Build
@@ -50,7 +50,7 @@ jobs:
         run: ./gradlew test --no-daemon
 
   docker-publish:
-    name: Publish Docker images (main only)
+    name: Publish Docker images
     needs: [frontend-build, backend-build]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
