@@ -10,11 +10,11 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "achievements")
 data class Achievement(
-        @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
-        @Column(nullable = false) val title: String,
-        @Column(nullable = false) val description: String,
-        @Column(nullable = false) val icon: String,
-        @Column(nullable = false) val unlocked: Boolean = false,
-        val progress: Int? = null,
-        val total: Int? = null,
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
+    @Column(nullable = false) val title: String,
+    @Column(nullable = false) val description: String,
+    @Column(nullable = false) val icon: String,
+    @Column(nullable = false) val unlocked: Boolean = false,
+    val progress: Int? = null,
+    val total: Int? = null,
 )

@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
 package com.kollekt.api
 
 import com.kollekt.api.dto.CreateMessageRequest
@@ -11,19 +13,19 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/chat")
 class ChatController(private val service: KollektService) {
-        @GetMapping("/messages")
-        fun getMessages(
-                @RequestParam memberName: String,
-                @AuthenticationPrincipal jwt: Jwt,
-        ): List<MessageDto> {
-                requireTokenSubject(jwt, memberName)
-                return service.getMessages(memberName)
-        }
+    @GetMapping("/messages")
+    fun getMessages(
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): List<MessageDto> {
+        requireTokenSubject(jwt, memberName)
+        return service.getMessages(memberName)
+    }
 
-        @PostMapping("/messages")
-        @ResponseStatus(HttpStatus.CREATED)
-        fun createMessage(
-                @RequestBody request: CreateMessageRequest,
-                @AuthenticationPrincipal jwt: Jwt,
-        ): MessageDto = service.createMessage(request, jwt.subject)
+    @PostMapping("/messages")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createMessage(
+        @RequestBody request: CreateMessageRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): MessageDto = service.createMessage(request, jwt.subject)
 }

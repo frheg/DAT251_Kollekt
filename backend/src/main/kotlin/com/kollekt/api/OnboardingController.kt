@@ -26,59 +26,66 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/onboarding")
 class OnboardingController(private val service: KollektService) {
-        @PostMapping("/users")
-        @ResponseStatus(HttpStatus.CREATED)
-        fun createUser(@RequestBody request: CreateUserRequest): AuthResponse =
-                service.createUser(request)
+    @PostMapping("/users")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createUser(
+        @RequestBody request: CreateUserRequest,
+    ): AuthResponse = service.createUser(request)
 
-        @PostMapping("/login")
-        fun login(@RequestBody request: LoginRequest): AuthResponse = service.login(request)
+    @PostMapping("/login")
+    fun login(
+        @RequestBody request: LoginRequest,
+    ): AuthResponse = service.login(request)
 
-        @PostMapping("/refresh")
-        fun refresh(@RequestBody request: RefreshTokenRequest): AuthResponse =
-                service.refreshToken(request)
+    @PostMapping("/refresh")
+    fun refresh(
+        @RequestBody request: RefreshTokenRequest,
+    ): AuthResponse = service.refreshToken(request)
 
-        @PostMapping("/logout")
-        @ResponseStatus(HttpStatus.NO_CONTENT)
-        fun logout(
-                @AuthenticationPrincipal jwt: Jwt,
-                @RequestBody(required = false) request: LogoutRequest?,
-        ) {
-                service.logout(jwt, request?.refreshToken)
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun logout(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestBody(required = false) request: LogoutRequest?,
+    ) {
+        service.logout(jwt, request?.refreshToken)
+    }
+
+    @PostMapping("/collectives")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createCollective(
+        @RequestBody request: CreateCollectiveRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): CollectiveDto {
+        verifyUserId(jwt, request.ownerUserId)
+        return service.createCollective(request)
+    }
+
+    @PostMapping("/collectives/join")
+    fun joinCollective(
+        @RequestBody request: JoinCollectiveRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): UserDto {
+        verifyUserId(jwt, request.userId)
+        return service.joinCollective(request)
+    }
+
+    @GetMapping("/collectives/code/{userId}")
+    fun getCollectiveCode(
+        @PathVariable userId: Long,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): CollectiveCodeDto {
+        verifyUserId(jwt, userId)
+        return service.getCollectiveCodeForUser(userId)
+    }
+
+    private fun verifyUserId(
+        jwt: Jwt,
+        expectedUserId: Long,
+    ) {
+        val tokenUser = service.getUserByName(jwt.subject)
+        if (tokenUser.id != expectedUserId) {
+            throw AccessDeniedException("Token user does not match requested user")
         }
-
-        @PostMapping("/collectives")
-        @ResponseStatus(HttpStatus.CREATED)
-        fun createCollective(
-                @RequestBody request: CreateCollectiveRequest,
-                @AuthenticationPrincipal jwt: Jwt,
-        ): CollectiveDto {
-                verifyUserId(jwt, request.ownerUserId)
-                return service.createCollective(request)
-        }
-
-        @PostMapping("/collectives/join")
-        fun joinCollective(
-                @RequestBody request: JoinCollectiveRequest,
-                @AuthenticationPrincipal jwt: Jwt,
-        ): UserDto {
-                verifyUserId(jwt, request.userId)
-                return service.joinCollective(request)
-        }
-
-        @GetMapping("/collectives/code/{userId}")
-        fun getCollectiveCode(
-                @PathVariable userId: Long,
-                @AuthenticationPrincipal jwt: Jwt,
-        ): CollectiveCodeDto {
-                verifyUserId(jwt, userId)
-                return service.getCollectiveCodeForUser(userId)
-        }
-
-        private fun verifyUserId(jwt: Jwt, expectedUserId: Long) {
-                val tokenUser = service.getUserByName(jwt.subject)
-                if (tokenUser.id != expectedUserId) {
-                        throw AccessDeniedException("Token user does not match requested user")
-                }
-        }
+    }
 }

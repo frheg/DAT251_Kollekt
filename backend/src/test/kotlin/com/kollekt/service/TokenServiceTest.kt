@@ -1,8 +1,6 @@
 package com.kollekt.service
 
 import com.kollekt.domain.Member
-import java.time.Duration
-import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
@@ -12,7 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.junit.jupiter.MockitoSettings
-import org.mockito.quality.Strictness
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doAnswer
@@ -20,19 +17,23 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.mockito.quality.Strictness
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.security.oauth2.jwt.JwtException
+import java.time.Duration
+import java.time.Instant
 
 @ExtendWith(MockitoExtension::class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class TokenServiceTest {
-
     @Mock lateinit var jwtEncoder: JwtEncoder
+
     @Mock lateinit var jwtDecoder: JwtDecoder
+
     @Mock lateinit var tokenStoreService: TokenStoreService
 
     private lateinit var tokenService: TokenService
@@ -64,13 +65,14 @@ class TokenServiceTest {
     fun setUp() {
         stubEncoder()
 
-        tokenService = TokenService(
-            jwtEncoder,
-            jwtDecoder,
-            tokenStoreService,
-            tokenValiditySeconds,
-            refreshTokenValiditySeconds,
-        )
+        tokenService =
+            TokenService(
+                jwtEncoder,
+                jwtDecoder,
+                tokenStoreService,
+                tokenValiditySeconds,
+                refreshTokenValiditySeconds,
+            )
     }
 
     // ── issueTokenPair ────────────────────────────────────────────────────────
@@ -103,14 +105,15 @@ class TokenServiceTest {
     @Test
     fun `rotateRefreshToken returns subject when token is valid`() {
         val now = Instant.now()
-        val refreshJwt = Jwt.withTokenValue("refresh-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .jti("jti-123")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .claim("token_type", "refresh")
-            .build()
+        val refreshJwt =
+            Jwt.withTokenValue("refresh-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .jti("jti-123")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .claim("token_type", "refresh")
+                .build()
 
         whenever(jwtDecoder.decode("refresh-token")).doReturn(refreshJwt)
         whenever(tokenStoreService.isRefreshTokenActive("jti-123", "Kasper")).doReturn(true)
@@ -124,14 +127,15 @@ class TokenServiceTest {
     @Test
     fun `rotateRefreshToken throws when token_type is not refresh`() {
         val now = Instant.now()
-        val accessJwt = Jwt.withTokenValue("access-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .jti("jti-abc")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .claim("token_type", "access")
-            .build()
+        val accessJwt =
+            Jwt.withTokenValue("access-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .jti("jti-abc")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .claim("token_type", "access")
+                .build()
 
         whenever(jwtDecoder.decode("access-token")).doReturn(accessJwt)
 
@@ -143,14 +147,15 @@ class TokenServiceTest {
     @Test
     fun `rotateRefreshToken throws when token is not active in store`() {
         val now = Instant.now()
-        val refreshJwt = Jwt.withTokenValue("refresh-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .jti("jti-456")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .claim("token_type", "refresh")
-            .build()
+        val refreshJwt =
+            Jwt.withTokenValue("refresh-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .jti("jti-456")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .claim("token_type", "refresh")
+                .build()
 
         whenever(jwtDecoder.decode("refresh-token")).doReturn(refreshJwt)
         whenever(tokenStoreService.isRefreshTokenActive("jti-456", "Kasper")).doReturn(false)
@@ -174,13 +179,14 @@ class TokenServiceTest {
     @Test
     fun `revokeAccessToken stores jti with remaining ttl`() {
         val now = Instant.now()
-        val jwt = Jwt.withTokenValue("access-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .jti("jti-789")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .build()
+        val jwt =
+            Jwt.withTokenValue("access-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .jti("jti-789")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .build()
 
         tokenService.revokeAccessToken(jwt)
 
@@ -192,12 +198,13 @@ class TokenServiceTest {
         val now = Instant.now()
         // Build a JWT without an id claim — Jwt.Builder requires id() but we
         // can fake it with an empty string then intercept; easiest is to mock.
-        val jwt = Jwt.withTokenValue("no-jti-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .build()
+        val jwt =
+            Jwt.withTokenValue("no-jti-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .build()
 
         // id() defaults to null when not set — calling revokeAccessToken should
         // be a no-op (no interaction with tokenStoreService).
@@ -211,14 +218,15 @@ class TokenServiceTest {
     @Test
     fun `revokeRefreshToken calls store revoke when token is valid`() {
         val now = Instant.now()
-        val refreshJwt = Jwt.withTokenValue("refresh-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .jti("jti-r1")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .claim("token_type", "refresh")
-            .build()
+        val refreshJwt =
+            Jwt.withTokenValue("refresh-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .jti("jti-r1")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .claim("token_type", "refresh")
+                .build()
 
         whenever(jwtDecoder.decode("refresh-token")).doReturn(refreshJwt)
 
@@ -230,14 +238,15 @@ class TokenServiceTest {
     @Test
     fun `revokeRefreshToken throws when token_type is not refresh`() {
         val now = Instant.now()
-        val accessJwt = Jwt.withTokenValue("access-token")
-            .header("alg", MacAlgorithm.HS256.name)
-            .subject("Kasper")
-            .jti("jti-a1")
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(3600))
-            .claim("token_type", "access")
-            .build()
+        val accessJwt =
+            Jwt.withTokenValue("access-token")
+                .header("alg", MacAlgorithm.HS256.name)
+                .subject("Kasper")
+                .jti("jti-a1")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(3600))
+                .claim("token_type", "access")
+                .build()
 
         whenever(jwtDecoder.decode("access-token")).doReturn(accessJwt)
 

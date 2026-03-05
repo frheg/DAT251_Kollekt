@@ -14,14 +14,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer
 class RedisConfig {
     @Bean
     fun objectMapper(): ObjectMapper =
-            jacksonObjectMapper()
-                    .findAndRegisterModules()
-                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        jacksonObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
     @Bean
     fun redisTemplate(
-            connectionFactory: RedisConnectionFactory,
-            objectMapper: ObjectMapper
+        connectionFactory: RedisConnectionFactory,
+        objectMapper: ObjectMapper,
     ): RedisTemplate<String, Any> {
         val template = RedisTemplate<String, Any>()
         template.connectionFactory = connectionFactory

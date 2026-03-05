@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(private val service: KollektService) {
     @GetMapping("/collective")
     fun getCollectiveMembers(
-            @RequestParam memberName: String,
-            @AuthenticationPrincipal jwt: Jwt,
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
     ): List<UserDto> {
         requireTokenSubject(jwt, memberName)
         return service.getCollectiveMembers(memberName)

@@ -5,6 +5,7 @@ plugins {
     id("org.springframework.boot") version "3.4.4"
     id("io.spring.dependency-management") version "1.1.7"
     jacoco
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
 }
 
 group = "com.kollekt"
@@ -122,4 +123,11 @@ tasks.test {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions.jvmTarget = "21"
+}
+
+ktlint {
+    filter {
+        exclude("**/build/**")
+        exclude("**/generated/**")
+    }
 }
