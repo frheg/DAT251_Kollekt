@@ -11,9 +11,9 @@ import java.time.LocalDateTime
 @Entity
 @Table(name = "settlement_checkpoints")
 data class SettlementCheckpoint(
-        @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
-        @Column(nullable = false) val collectiveCode: String,
-        @Column(nullable = false) val settledBy: String,
-        @Column(nullable = false) val lastExpenseId: Long,
-        @Column(nullable = false) val createdAt: LocalDateTime = LocalDateTime.now(),
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) val id: Long = 0,
+    @Column(nullable = false) val collectiveCode: String,
+    @Column(nullable = false) val settledBy: String,
+    @Column(nullable = false) val lastExpenseId: Long,
+    @Column(nullable = false) val createdAt: LocalDateTime = LocalDateTime.now(),
 )

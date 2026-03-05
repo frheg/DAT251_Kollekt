@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component
 
 @Component
 class IntegrationEventConsumer(
-        @Value("\${app.topics.task-events}") private val taskTopic: String,
-        @Value("\${app.topics.chat-events}") private val chatTopic: String,
-        @Value("\${app.topics.economy-events}") private val economyTopic: String,
+    @Value("\${app.topics.task-events}") private val taskTopic: String,
+    @Value("\${app.topics.chat-events}") private val chatTopic: String,
+    @Value("\${app.topics.economy-events}") private val economyTopic: String,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 

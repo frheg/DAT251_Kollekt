@@ -8,16 +8,16 @@ import org.junit.jupiter.api.Test
  * The listener methods only log — we verify they run without throwing.
  */
 class IntegrationEventConsumerTest {
-
     private lateinit var consumer: IntegrationEventConsumer
 
     @BeforeEach
     fun setUp() {
-        consumer = IntegrationEventConsumer(
-            taskTopic = "task-events",
-            chatTopic = "chat-events",
-            economyTopic = "economy-events",
-        )
+        consumer =
+            IntegrationEventConsumer(
+                taskTopic = "task-events",
+                chatTopic = "chat-events",
+                economyTopic = "economy-events",
+            )
     }
 
     @Test

@@ -9,12 +9,16 @@ import org.springframework.data.repository.query.Param
 
 interface TaskRepository : JpaRepository<TaskItem, Long> {
     fun findAllByCollectiveCode(collectiveCode: String): List<TaskItem>
-    fun findByIdAndCollectiveCode(id: Long, collectiveCode: String): TaskItem?
+
+    fun findByIdAndCollectiveCode(
+        id: Long,
+        collectiveCode: String,
+    ): TaskItem?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from TaskItem t where t.id = :id and t.collectiveCode = :collectiveCode")
     fun findByIdAndCollectiveCodeForUpdate(
-            @Param("id") id: Long,
-            @Param("collectiveCode") collectiveCode: String,
+        @Param("id") id: Long,
+        @Param("collectiveCode") collectiveCode: String,
     ): TaskItem?
 }

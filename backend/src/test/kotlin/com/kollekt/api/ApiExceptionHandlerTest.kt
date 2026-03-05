@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
 package com.kollekt.api
 
 import org.junit.jupiter.api.Assertions.*
