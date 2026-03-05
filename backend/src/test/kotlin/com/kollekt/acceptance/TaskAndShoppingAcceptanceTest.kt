@@ -4,13 +4,13 @@ import com.kollekt.domain.Member
 import com.kollekt.repository.MemberRepository
 import com.kollekt.service.IntegrationEventPublisher
 import com.kollekt.service.TokenStoreService
-import org.springframework.boot.CommandLineRunner
+import org.hamcrest.Matchers.hasItem
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
-import org.hamcrest.Matchers.hasItem
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.MockBean
@@ -36,14 +36,20 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class TaskAndShoppingAcceptanceTest {
     @Autowired lateinit var mockMvc: MockMvc
+
     @Autowired lateinit var memberRepository: MemberRepository
 
     // Keep acceptance tests deterministic: don't require Redis/Kafka/Security.
     @MockBean lateinit var redisTemplate: RedisTemplate<String, Any>
+
     @MockBean lateinit var eventPublisher: IntegrationEventPublisher
-    @MockBean(name = "seedData") lateinit var seedData: CommandLineRunner
+
+    @MockBean(name = "seedData")
+    lateinit var seedData: CommandLineRunner
+
     // Prevent KafkaAdmin from trying to connect to localhost:9092 in CI (no broker available).
     @MockBean lateinit var kafkaAdmin: KafkaAdmin
+
     // TokenStoreService is used by SecurityConfig; mock it to avoid Redis dependency.
     @MockBean lateinit var tokenStoreService: TokenStoreService
 
@@ -54,14 +60,16 @@ class TaskAndShoppingAcceptanceTest {
         // Ensure referenced members exist in a shared collective so the service
         // can resolve collective code and assignee membership checks.
         val collectiveCode = "TEST-COLLECTIVE"
-        if (memberRepository.findByName("Kasper") == null)
+        if (memberRepository.findByName("Kasper") == null) {
             memberRepository.saveAndFlush(
                 Member(name = "Kasper", level = 1, xp = 0, collectiveCode = collectiveCode),
             )
-        if (memberRepository.findByName("Emma") == null)
+        }
+        if (memberRepository.findByName("Emma") == null) {
             memberRepository.saveAndFlush(
                 Member(name = "Emma", level = 1, xp = 0, collectiveCode = collectiveCode),
             )
+        }
     }
 
     @Test

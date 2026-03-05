@@ -16,7 +16,6 @@ import org.springframework.web.socket.WebSocketSession
 
 @ExtendWith(MockitoExtension::class)
 class RealtimeUpdateServiceTest {
-
     @Mock lateinit var session: WebSocketSession
 
     private lateinit var service: RealtimeUpdateService
