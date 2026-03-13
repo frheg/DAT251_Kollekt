@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Card } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Beer, Shuffle, TrendingUp, Users, Zap, Trophy } from 'lucide-react';
+import { Beer, Shuffle, TrendingUp, Trophy, Users, Zap } from 'lucide-react';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { api } from '../lib/api';
+import { getAvatarToneClass, getInitials } from '../lib/ui';
+import {
+  EmptyState,
+  PageHeader,
+  PageStack,
+  SectionCard,
+} from './shared/page';
 import type { DrinkingQuestion, LeaderboardResponse } from '../lib/types';
 
 interface Player {
@@ -16,6 +22,47 @@ interface DrinkingGameProps {
   currentUserName: string;
 }
 
+const questionAppearance: Record<
+  string,
+  {
+    label: string;
+    icon: typeof Beer;
+    cardClassName: string;
+    badgeClassName: string;
+  }
+> = {
+  drink: {
+    label: 'Ta en slurk',
+    icon: Beer,
+    cardClassName: 'border-rose-200 bg-rose-50/80',
+    badgeClassName: 'bg-rose-100 text-rose-700',
+  },
+  distribute: {
+    label: 'Del ut',
+    icon: Users,
+    cardClassName: 'border-blue-200 bg-blue-50/80',
+    badgeClassName: 'bg-blue-100 text-blue-700',
+  },
+  everyone: {
+    label: 'Alle er med',
+    icon: TrendingUp,
+    cardClassName: 'border-amber-200 bg-amber-50/80',
+    badgeClassName: 'bg-amber-100 text-amber-700',
+  },
+  vote: {
+    label: 'Stem frem',
+    icon: Trophy,
+    cardClassName: 'border-slate-200 bg-slate-50/80',
+    badgeClassName: 'bg-slate-100 text-slate-700',
+  },
+  challenge: {
+    label: 'Utfordring',
+    icon: Zap,
+    cardClassName: 'border-emerald-200 bg-emerald-50/80',
+    badgeClassName: 'bg-emerald-100 text-emerald-700',
+  },
+};
+
 export function DrinkingGame({ currentUserName }: DrinkingGameProps) {
   const [gameStarted, setGameStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<DrinkingQuestion | null>(null);
@@ -24,16 +71,21 @@ export function DrinkingGame({ currentUserName }: DrinkingGameProps) {
 
   useEffect(() => {
     const loadPlayers = async () => {
-      const leaderboard = await api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`);
-      setPlayers(leaderboard.players.map(p => ({ name: p.name, level: p.level })));
+      const leaderboard = await api.get<LeaderboardResponse>(
+        `/leaderboard?memberName=${encodeURIComponent(currentUserName)}`,
+      );
+      setPlayers(leaderboard.players.map((player) => ({ name: player.name, level: player.level })));
     };
-    loadPlayers();
+
+    void loadPlayers();
   }, [currentUserName]);
 
   const nextQuestion = async () => {
-    const question = await api.get<DrinkingQuestion>(`/drinking-game/question?memberName=${encodeURIComponent(currentUserName)}`);
+    const question = await api.get<DrinkingQuestion>(
+      `/drinking-game/question?memberName=${encodeURIComponent(currentUserName)}`,
+    );
     setCurrentQuestion(question);
-    setQuestionCount(prev => prev + 1);
+    setQuestionCount((previous) => previous + 1);
   };
 
   const startGame = async () => {
@@ -47,138 +99,145 @@ export function DrinkingGame({ currentUserName }: DrinkingGameProps) {
     setQuestionCount(0);
   };
 
-  const getQuestionColor = (type: string) => {
-    switch (type) {
-      case 'drink':
-        return 'from-red-500 to-pink-500';
-      case 'distribute':
-        return 'from-blue-500 to-purple-500';
-      case 'everyone':
-        return 'from-orange-500 to-red-500';
-      case 'vote':
-        return 'from-purple-500 to-pink-500';
-      case 'challenge':
-        return 'from-green-500 to-emerald-500';
-      default:
-        return 'from-gray-500 to-gray-600';
-    }
-  };
-
-  const getQuestionIcon = (type: string) => {
-    switch (type) {
-      case 'drink':
-        return <Beer className="w-8 h-8" />;
-      case 'distribute':
-        return <Users className="w-8 h-8" />;
-      case 'everyone':
-        return <TrendingUp className="w-8 h-8" />;
-      case 'vote':
-        return <Trophy className="w-8 h-8" />;
-      case 'challenge':
-        return <Zap className="w-8 h-8" />;
-      default:
-        return <Beer className="w-8 h-8" />;
-    }
-  };
-
-  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
-
-  const getAvatarColor = (name: string) => {
-    const colors = ['bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-green-500', 'bg-orange-500', 'bg-red-500'];
-    return colors[name.length % colors.length];
-  };
-
-  if (!gameStarted) {
-    return (
-      <div className="space-y-4">
-        <Card className="p-6 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white border-0">
-          <div className="flex items-center gap-3 mb-3">
-            <Beer className="w-10 h-10" />
-            <div>
-              <h2 className="text-white mb-1">Drikkespill</h2>
-              <p className="text-pink-100 text-sm">Tilpasset kollektivet ditt</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 bg-white/80 backdrop-blur">
-          <h3 className="mb-4">Hvordan det fungerer</h3>
-          <div className="space-y-3 text-sm text-gray-600 mb-6">
-            <p>Spørsmålene hentes fra backend.</p>
-            <p>Spørsmålene bygger på leaderboard-data.</p>
-            <p>Neste spørsmål trekkes dynamisk.</p>
-          </div>
-
-          <Button onClick={() => void startGame()} className="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-lg py-6">
-            <Beer className="w-5 h-5 mr-2" />
-            Start spill
-          </Button>
-        </Card>
-
-        <Card className="p-6 bg-white/80 backdrop-blur">
-          <h3 className="mb-4">Aktive spillere ({players.length})</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {players.map(player => (
-              <div key={player.name} className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
-                <Avatar className={`w-12 h-12 ${getAvatarColor(player.name)} mb-2`}>
-                  <AvatarFallback className="text-white">{getInitials(player.name)}</AvatarFallback>
-                </Avatar>
-                <p className="text-sm text-center">{player.name}</p>
-                <Badge variant="outline" className="text-xs mt-1">
-                  Lvl {player.level}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const appearance =
+    (currentQuestion && questionAppearance[currentQuestion.type]) ?? questionAppearance.drink;
+  const QuestionIcon = appearance.icon;
 
   return (
-    <div className="space-y-4">
-      <Card className="p-6 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white border-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <Beer className="w-8 h-8" />
-            <div>
-              <h2 className="text-white mb-1">Drikkespill</h2>
-              <p className="text-pink-100 text-sm">Spørsmål #{questionCount}</p>
-            </div>
+    <PageStack>
+      <PageHeader
+        icon={Beer}
+        eyebrow="Spill"
+        title="Drikkespill"
+        description="En enkel spørsmålsrunde for kvelden når dere vil ha noe lett og sosialt å starte med."
+        action={
+          gameStarted ? (
+            <Button variant="outline" onClick={endGame}>
+              Avslutt runden
+            </Button>
+          ) : (
+            <Button onClick={() => void startGame()}>
+              Start runde
+            </Button>
+          )
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Spillere</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              {players.length}
+            </p>
           </div>
-          <Button onClick={endGame} variant="outline" className="bg-white/20 border-white/40 text-white hover:bg-white/30">
-            Avslutt
-          </Button>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Status</p>
+            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+              {gameStarted ? 'Runden er i gang' : 'Klar når dere er'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Spørsmål vist</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              {questionCount}
+            </p>
+          </div>
         </div>
-      </Card>
+      </PageHeader>
 
-      {currentQuestion && (
-        <Card className={`p-8 bg-gradient-to-br ${getQuestionColor(currentQuestion.type)} text-white border-0 shadow-xl`}>
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="p-4 bg-white/20 rounded-full">{getQuestionIcon(currentQuestion.type)}</div>
+      {!gameStarted ? (
+        <>
+          <SectionCard
+            title="Slik fungerer det"
+            description="Start runden og trekk ett spørsmål av gangen. Bruk det som en lett icebreaker og juster tempoet selv."
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                <p className="font-medium text-slate-950">Trekk et spørsmål</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Hvert trekk gir en ny aktivitet eller utfordring.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+                <p className="font-medium text-slate-950">Ta det som det passer</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Bruk spørsmålene som start på praten, ikke som en fasit.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                <p className="font-medium text-slate-950">Trekk neste når dere vil</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Runden fortsetter så lenge dere har lyst.
+                </p>
+              </div>
+            </div>
+          </SectionCard>
 
-            <Badge className="bg-white/30 text-white border-white/40 px-4 py-1">{currentQuestion.type}</Badge>
-
-            <p className="text-xl text-white max-w-md">{currentQuestion.text}</p>
-
-            {currentQuestion.targetedPlayer && (
-              <div className="flex items-center gap-2 bg-white/20 rounded-full px-4 py-2">
-                <Avatar className={`w-8 h-8 ${getAvatarColor(currentQuestion.targetedPlayer)}`}>
-                  <AvatarFallback className="text-white text-xs">{getInitials(currentQuestion.targetedPlayer)}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm">Mål: {currentQuestion.targetedPlayer}</span>
+          <SectionCard
+            title={`Spillere (${players.length})`}
+            description="Alle som er med i kollektivet kan delta i runden."
+          >
+            {players.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="Ingen spillere å vise"
+                description="Legg til flere medlemmer i kollektivet for å få mer liv i runden."
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {players.map((player) => (
+                  <div
+                    key={player.name}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center shadow-sm"
+                  >
+                    <Avatar className={`mx-auto size-12 ${getAvatarToneClass(player.name)}`}>
+                      <AvatarFallback>{getInitials(player.name)}</AvatarFallback>
+                    </Avatar>
+                    <p className="mt-3 font-medium text-slate-950">{player.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">Nivå {player.level}</p>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
-        </Card>
-      )}
+          </SectionCard>
+        </>
+      ) : (
+        <>
+          {currentQuestion && (
+            <SectionCard
+              className={appearance.cardClassName}
+              title={`Spørsmål ${questionCount}`}
+              description="Trekk neste når dere er klare."
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
+                    <QuestionIcon className="size-6" />
+                  </div>
+                  <Badge className={appearance.badgeClassName}>{appearance.label}</Badge>
+                </div>
 
-      <div className="grid grid-cols-1 gap-3">
-        <Button onClick={() => void nextQuestion()} className="bg-gradient-to-r from-green-500 to-emerald-500 py-6 text-lg">
-          <Shuffle className="w-5 h-5 mr-2" />
-          Neste spørsmål
-        </Button>
-      </div>
-    </div>
+                <p className="max-w-2xl text-lg font-medium leading-8 text-slate-950">
+                  {currentQuestion.text}
+                </p>
+
+                {currentQuestion.targetedPlayer && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+                    <Avatar className={`size-8 ${getAvatarToneClass(currentQuestion.targetedPlayer)}`}>
+                      <AvatarFallback>{getInitials(currentQuestion.targetedPlayer)}</AvatarFallback>
+                    </Avatar>
+                    <span>{currentQuestion.targetedPlayer}</span>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+
+          <Button className="w-full sm:w-auto" onClick={() => void nextQuestion()}>
+            <Shuffle className="size-4" />
+            Neste spørsmål
+          </Button>
+        </>
+      )}
+    </PageStack>
   );
 }
