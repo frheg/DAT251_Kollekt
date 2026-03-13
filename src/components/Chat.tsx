@@ -1,78 +1,81 @@
-import { useEffect, useState } from "react";
-import { Card } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Send, MessageSquare } from "lucide-react";
-import { api } from "../lib/api";
-import { connectCollectiveRealtime } from "../lib/realtime";
-import type { ChatMessage } from "../lib/types";
+import { useEffect, useRef, useState } from 'react';
+import { MessageSquare, Send } from 'lucide-react';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
+import { formatTime, getAvatarToneClass, getInitials } from '../lib/ui';
+import { EmptyState, PageHeader, PageStack, SectionCard } from './shared/page';
+import type { ChatMessage } from '../lib/types';
 
 interface ChatProps {
   currentUserName: string;
 }
 
+function sortByTimestamp(left: ChatMessage, right: ChatMessage) {
+  return new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime();
+}
+
+function getMessageId(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return null;
+}
+
+function appendUniqueMessage(previous: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+  const incomingKey = getMessageId((incoming as { id?: unknown }).id);
+
+  if (incomingKey) {
+    const exists = previous.some(
+      (message) => getMessageId((message as { id?: unknown }).id) === incomingKey,
+    );
+    if (exists) return previous;
+  } else {
+    const exists = previous.some(
+      (message) =>
+        message.sender === incoming.sender &&
+        message.text === incoming.text &&
+        message.timestamp === incoming.timestamp,
+    );
+    if (exists) return previous;
+  }
+
+  return [...previous, incoming].sort(sortByTimestamp);
+}
+
 export function Chat({ currentUserName }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-
-  const sortByTimestamp = (a: ChatMessage, b: ChatMessage) =>
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-
-  const messageIdKey = (value: unknown): string | null => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return String(value);
-    }
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value;
-    }
-    return null;
-  };
-
-  const appendUniqueMessage = (
-    prev: ChatMessage[],
-    incoming: ChatMessage,
-  ): ChatMessage[] => {
-    const incomingKey = messageIdKey((incoming as { id?: unknown }).id);
-    if (incomingKey) {
-      const exists = prev.some(
-        (msg) => messageIdKey((msg as { id?: unknown }).id) === incomingKey,
-      );
-      if (exists) return prev;
-    } else {
-      const exists = prev.some(
-        (msg) =>
-          msg.sender === incoming.sender &&
-          msg.text === incoming.text &&
-          msg.timestamp === incoming.timestamp,
-      );
-      if (exists) return prev;
-    }
-
-    return [...prev, incoming].sort(sortByTimestamp);
-  };
+  const [newMessage, setNewMessage] = useState('');
+  const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const load = async () => {
     const data = await api.get<ChatMessage[]>(
       `/chat/messages?memberName=${encodeURIComponent(currentUserName)}`,
     );
-    setMessages(data);
+    setMessages(data.sort(sortByTimestamp));
   };
 
   useEffect(() => {
     void load();
+
     const disconnect = connectCollectiveRealtime(
       currentUserName,
       (event) => {
-        if (event.type !== "MESSAGE_CREATED") return;
+        if (event.type !== 'MESSAGE_CREATED') return;
 
         const payload = event.payload as ChatMessage | undefined;
-        if (!payload || typeof payload.sender !== "string" || typeof payload.text !== "string" || typeof payload.timestamp !== "string") {
+        if (
+          !payload ||
+          typeof payload.sender !== 'string' ||
+          typeof payload.text !== 'string' ||
+          typeof payload.timestamp !== 'string'
+        ) {
           void load();
           return;
         }
 
-        setMessages((prev) => appendUniqueMessage(prev, payload));
+        setMessages((previous) => appendUniqueMessage(previous, payload));
       },
       {
         onConnected: () => {
@@ -84,105 +87,115 @@ export function Chat({ currentUserName }: ChatProps) {
     return disconnect;
   }, [currentUserName]);
 
+  useEffect(() => {
+    bottomAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
   const sendMessage = async () => {
-    if (!newMessage.trim()) return;
-    const created = await api.post<ChatMessage>("/chat/messages", {
+    const text = newMessage.trim();
+    if (!text) return;
+
+    const createdMessage = await api.post<ChatMessage>('/chat/messages', {
       sender: currentUserName,
-      text: newMessage,
+      text,
     });
-    setMessages((prev) => appendUniqueMessage(prev, created));
-    setNewMessage("");
-  };
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-blue-500",
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-green-500",
-      "bg-orange-500",
-      "bg-red-500",
-    ];
-    return colors[name.length % colors.length];
+    setMessages((previous) => appendUniqueMessage(previous, createdMessage));
+    setNewMessage('');
   };
 
   return (
-    <div className="space-y-4">
-      <Card className="p-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0">
-        <div className="flex items-center gap-3">
-          <MessageSquare className="w-8 h-8" />
-          <div>
-            <h2 className="text-white mb-1">Kollektiv Chat</h2>
-            <p className="text-blue-100 text-sm">Meldinger fra backend</p>
-          </div>
+    <PageStack>
+      <PageHeader
+        icon={MessageSquare}
+        eyebrow="Samtaler"
+        title="Felles chat"
+        description="Bruk samtalen til raske avklaringer, påminnelser og det som ikke trenger et eget møte."
+      >
+        <div className="max-w-sm rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Sist aktiv</p>
+            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+              {messages.length > 0
+                ? formatTime(messages[messages.length - 1].timestamp)
+                : 'Ingen meldinger enda'}
+            </p>
         </div>
-      </Card>
+      </PageHeader>
 
-      <Card className="p-4 bg-white/80 backdrop-blur max-h-[60vh] overflow-y-auto">
-        <div className="space-y-4">
-          {messages.map((message) => {
-            const isMe = message.sender === currentUserName;
-            return (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${isMe ? "flex-row-reverse" : ""}`}
-              >
-                <Avatar
-                  className={`w-8 h-8 ${getAvatarColor(message.sender)} flex-shrink-0`}
-                >
-                  <AvatarFallback className="text-white text-xs">
-                    {getInitials(message.sender)}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div
-                  className={`flex-1 ${isMe ? "flex flex-col items-end" : ""}`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm">{message.sender}</span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(message.timestamp).toLocaleTimeString("nb-NO", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                  <div
-                    className={`inline-block p-3 rounded-lg max-w-md ${isMe ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white" : "bg-gray-100 text-gray-900"}`}
-                  >
-                    <p>{message.text}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <Card className="p-4 bg-white/80 backdrop-blur">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Skriv en melding..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void sendMessage()}
-            className="bg-white"
+      <SectionCard title="Samtalen" description="Nye meldinger legger seg nederst automatisk.">
+        {messages.length === 0 ? (
+          <EmptyState
+            icon={MessageSquare}
+            title="Det er stille her enn så lenge"
+            description="Send den første meldingen for å få i gang praten."
           />
-          <Button
-            onClick={() => void sendMessage()}
-            className="bg-gradient-to-r from-purple-500 to-pink-500"
-          >
-            <Send className="w-4 h-4" />
+        ) : (
+          <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
+            {messages.map((message) => {
+              const isMe = message.sender === currentUserName;
+
+              return (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${isMe ? 'justify-end' : 'justify-start'}`}
+                >
+                  {!isMe && (
+                    <Avatar className={`size-9 ${getAvatarToneClass(message.sender)}`}>
+                      <AvatarFallback>{getInitials(message.sender)}</AvatarFallback>
+                    </Avatar>
+                  )}
+
+                  <div className={`max-w-[min(34rem,85%)] space-y-1 ${isMe ? 'items-end' : ''}`}>
+                    <div
+                      className={`flex items-center gap-2 text-xs text-slate-500 ${
+                        isMe ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      <span>{isMe ? 'Deg' : message.sender}</span>
+                      <span>{formatTime(message.timestamp)}</span>
+                    </div>
+
+                    <div
+                      className={`rounded-2xl px-4 py-3 shadow-sm ${
+                        isMe
+                          ? 'rounded-tr-md bg-slate-900 text-white'
+                          : 'rounded-tl-md border border-slate-200 bg-white text-slate-900'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap text-sm leading-6">{message.text}</p>
+                    </div>
+                  </div>
+
+                  {isMe && (
+                    <Avatar className={`size-9 ${getAvatarToneClass(message.sender)}`}>
+                      <AvatarFallback>{getInitials(message.sender)}</AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              );
+            })}
+            <div ref={bottomAnchorRef} />
+          </div>
+        )}
+
+        <form
+          className="flex flex-col gap-2 sm:flex-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void sendMessage();
+          }}
+        >
+          <Input
+            placeholder="Skriv en melding"
+            value={newMessage}
+            onChange={(event) => setNewMessage(event.target.value)}
+          />
+          <Button className="sm:w-auto" type="submit">
+            <Send className="size-4" />
+            Send
           </Button>
-        </div>
-      </Card>
-    </div>
+        </form>
+      </SectionCard>
+    </PageStack>
   );
 }

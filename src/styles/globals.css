@@ -4,38 +4,38 @@
 
 :root {
   --font-size: 16px;
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
+  --background: #f3f4f1;
+  --foreground: #17191c;
+  --card: rgba(255, 255, 255, 0.94);
+  --card-foreground: #17191c;
+  --popover: #ffffff;
+  --popover-foreground: #17191c;
+  --primary: #1f2937;
+  --primary-foreground: #ffffff;
+  --secondary: #edf0f2;
+  --secondary-foreground: #1f2937;
+  --muted: #eef1f3;
+  --muted-foreground: #5f6875;
+  --accent: #e5eaee;
+  --accent-foreground: #111827;
+  --destructive: #c2410c;
   --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
+  --border: rgba(15, 23, 42, 0.09);
+  --input: #ffffff;
+  --input-background: rgba(255, 255, 255, 0.98);
+  --switch-background: #cfd6dd;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: oklch(0.708 0 0);
+  --ring: #94a3b8;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  --radius: 0.875rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
+  --sidebar-primary: #1f2937;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
@@ -126,10 +126,35 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(circle at top left, rgba(148, 163, 184, 0.16), transparent 20rem),
+      radial-gradient(circle at bottom right, rgba(203, 213, 225, 0.22), transparent 22rem),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(243, 244, 241, 0.98));
+    background-attachment: fixed;
+    line-height: 1.5;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(31, 41, 55, 0.18);
+    color: #111827;
   }
 }
 
@@ -184,4 +209,22 @@
 
 html {
   font-size: var(--font-size);
+}
+
+@layer components {
+  .page-enter {
+    animation: page-enter 260ms ease-out;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
