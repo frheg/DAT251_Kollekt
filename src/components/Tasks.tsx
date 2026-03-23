@@ -1,20 +1,132 @@
 import { useEffect, useState } from 'react';
-import { Card } from './ui/card';
+import {
+  Calendar,
+  CheckCircle2,
+  CheckSquare,
+  Circle,
+  Plus,
+  ShoppingCart,
+  Sparkles,
+  Trash2,
+  User,
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Checkbox } from './ui/checkbox';
-import { CheckCircle2, Circle, Plus, Trash2, User, Calendar, ShoppingCart, Sparkles, AlertCircle } from 'lucide-react';
-import { Progress } from './ui/progress';
-import { api } from '../lib/api';
-import { connectCollectiveRealtime } from '../lib/realtime';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog';
 import { Label } from './ui/label';
+import { api, getUserMessage } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
+import {
+  formatShortDate,
+  getRelativeDayLabel,
+  isOverdueDate,
+} from '../lib/ui';
+import {
+  EmptyState,
+  PageHeader,
+  PageStack,
+  SectionCard,
+  SelectField,
+  StatusMessage,
+} from './shared/page';
 import type { AppUser, ShoppingItem, Task, TaskCategory } from '../lib/types';
 
 interface TasksProps {
   currentUserName: string;
+}
+
+const categoryConfig: Record<
+  TaskCategory,
+  {
+    label: string;
+    icon: typeof Circle;
+  }
+> = {
+  CLEANING: { label: 'Vasking', icon: Sparkles },
+  SHOPPING: { label: 'Handling', icon: ShoppingCart },
+  OTHER: { label: 'Annet', icon: Circle },
+};
+
+interface TaskRowProps {
+  task: Task;
+  onToggle: (id: number) => void;
+}
+
+function TaskRow({ task, onToggle }: TaskRowProps) {
+  const category = categoryConfig[task.category] ?? categoryConfig.OTHER;
+  const CategoryIcon = category.icon;
+  const overdue = !task.completed && isOverdueDate(task.dueDate);
+
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-4 shadow-sm transition ${
+        task.completed
+          ? 'border-emerald-200 bg-emerald-50/70'
+          : overdue
+            ? 'border-rose-200 bg-rose-50/70'
+            : 'border-slate-200 bg-white'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => onToggle(task.id)}
+          className="mt-0.5 rounded-full text-slate-400 transition hover:text-slate-900"
+          aria-label={task.completed ? 'Marker som ikke fullført' : 'Marker som fullført'}
+        >
+          {task.completed ? (
+            <CheckCircle2 className="size-6 text-emerald-600" />
+          ) : (
+            <Circle className="size-6" />
+          )}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <p
+                className={`text-base font-medium ${
+                  task.completed ? 'text-slate-500 line-through' : 'text-slate-950'
+                }`}
+              >
+                {task.title}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                <Badge variant="secondary">
+                  <User className="size-3" />
+                  {task.assignee}
+                </Badge>
+                <Badge variant={overdue ? 'destructive' : 'outline'}>
+                  <Calendar className="size-3" />
+                  {getRelativeDayLabel(task.dueDate)}
+                </Badge>
+                <Badge variant="outline">
+                  <CategoryIcon className="size-3" />
+                  {category.label}
+                </Badge>
+                {task.recurring && <Badge variant="outline">Gjentakende</Badge>}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+              <span>{formatShortDate(task.dueDate)}</span>
+              <Badge className="bg-slate-900 text-white">+{task.xp} XP</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function Tasks({ currentUserName }: TasksProps) {
@@ -23,6 +135,7 @@ export function Tasks({ currentUserName }: TasksProps) {
   const [members, setMembers] = useState<AppUser[]>([]);
   const [taskError, setTaskError] = useState('');
   const [newItem, setNewItem] = useState('');
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({
     title: '',
     assignee: currentUserName,
@@ -36,6 +149,7 @@ export function Tasks({ currentUserName }: TasksProps) {
       api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(currentUserName)}`),
       api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
     ]);
+
     setTasks(taskData);
     setShoppingList(shoppingData);
     setMembers(collectiveMembers);
@@ -52,39 +166,54 @@ export function Tasks({ currentUserName }: TasksProps) {
   }, [currentUserName]);
 
   useEffect(() => {
-    setTaskForm((prev) => ({ ...prev, assignee: currentUserName }));
+    setTaskForm((previous) => ({ ...previous, assignee: currentUserName }));
   }, [currentUserName]);
 
   const toggleTask = async (id: number) => {
-    const task = tasks.find((candidate) => candidate.id === id);
-    if (!task) return;
-    const targetCompleted = !task.completed;
-    const updated = await api.patch<Task>(`/tasks/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}&completed=${targetCompleted}`);
-    setTasks(tasks.map(task => (task.id === id ? updated : task)));
+    const currentTask = tasks.find((candidate) => candidate.id === id);
+    if (!currentTask) return;
+
+    const updatedTask = await api.patch<Task>(
+      `/tasks/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}&completed=${!currentTask.completed}`,
+    );
+
+    setTasks((previous) =>
+      previous.map((task) => (task.id === id ? updatedTask : task)),
+    );
   };
 
   const toggleShoppingItem = async (id: number) => {
-    const updated = await api.patch<ShoppingItem>(`/tasks/shopping/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}`);
-    setShoppingList(shoppingList.map(item => (item.id === id ? updated : item)));
+    const updatedItem = await api.patch<ShoppingItem>(
+      `/tasks/shopping/${id}/toggle?memberName=${encodeURIComponent(currentUserName)}`,
+    );
+
+    setShoppingList((previous) =>
+      previous.map((item) => (item.id === id ? updatedItem : item)),
+    );
   };
 
   const addShoppingItem = async () => {
-    if (!newItem.trim()) return;
-    const created = await api.post<ShoppingItem>('/tasks/shopping', { item: newItem, addedBy: currentUserName });
-    setShoppingList([...shoppingList, created]);
+    const value = newItem.trim();
+    if (!value) return;
+
+    const createdItem = await api.post<ShoppingItem>('/tasks/shopping', {
+      item: value,
+      addedBy: currentUserName,
+    });
+
+    setShoppingList((previous) => [...previous, createdItem]);
     setNewItem('');
   };
 
   const addTask = async () => {
     const title = taskForm.title.trim();
     if (!title || !taskForm.dueDate || !taskForm.assignee) {
-      setTaskError('Fyll inn tittel, ansvarlig og dato.');
+      setTaskError('Fyll inn tittel, ansvarlig og dato før du lagrer.');
       return;
     }
 
     try {
-      setTaskError('');
-      const created = await api.post<Task>('/tasks', {
+      const createdTask = await api.post<Task>('/tasks', {
         title,
         assignee: taskForm.assignee,
         dueDate: taskForm.dueDate,
@@ -92,285 +221,297 @@ export function Tasks({ currentUserName }: TasksProps) {
         xp: 10,
         recurring: false,
       });
-      setTasks([...tasks, created]);
-      setTaskForm({ title: '', assignee: currentUserName, dueDate: '', category: 'OTHER' });
+
+      setTasks((previous) => [...previous, createdTask]);
+      setTaskForm({
+        title: '',
+        assignee: currentUserName,
+        dueDate: '',
+        category: 'OTHER',
+      });
+      setTaskError('');
+      setIsTaskDialogOpen(false);
     } catch (error) {
-      setTaskError(error instanceof Error ? error.message : 'Kunne ikke legge til oppgave.');
+      setTaskError(getUserMessage(error, 'Kunne ikke lagre oppgaven akkurat nå.'));
     }
   };
 
   const removeShoppingItem = async (id: number) => {
     await api.delete(`/tasks/shopping/${id}?memberName=${encodeURIComponent(currentUserName)}`);
-    setShoppingList(shoppingList.filter(item => item.id !== id));
+    setShoppingList((previous) => previous.filter((item) => item.id !== id));
   };
 
-  const activeTasks = tasks.filter(t => !t.completed);
-  const completedTasks = tasks.filter(t => t.completed);
-  const myTasks = tasks.filter(t => t.assignee === currentUserName && !t.completed);
-
+  const activeTasks = tasks
+    .filter((task) => !task.completed)
+    .sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+  const completedTasks = tasks
+    .filter((task) => task.completed)
+    .sort((left, right) => right.dueDate.localeCompare(left.dueDate));
+  const myTasks = activeTasks.filter((task) => task.assignee === currentUserName);
+  const pendingShoppingItems = shoppingList.filter((item) => !item.completed);
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'SHOPPING':
-        return <ShoppingCart className="w-4 h-4" />;
-      case 'CLEANING':
-        return <Sparkles className="w-4 h-4" />;
-      default:
-        return <Circle className="w-4 h-4" />;
-    }
-  };
-
-  const getDaysUntil = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const diffTime = date.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'I dag';
-    if (diffDays === 1) return 'I morgen';
-    if (diffDays < 0) return 'Forsinket';
-    return `${diffDays} dager`;
-  };
-
-  const TaskItem = ({ task }: { task: Task }) => {
-    const daysUntil = getDaysUntil(task.dueDate);
-    const isOverdue = daysUntil === 'Forsinket';
-
-    return (
-      <div
-        className={`p-4 bg-white rounded-lg border-2 transition-all ${
-          task.completed
-            ? 'border-green-200 bg-green-50/50'
-            : isOverdue
-              ? 'border-red-200 bg-red-50/50'
-              : 'border-gray-200 hover:border-purple-300'
-        }`}
-      >
-        <div className="flex items-start gap-3">
-          <button onClick={() => void toggleTask(task.id)} className="mt-1 flex-shrink-0">
-            {task.completed ? (
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            ) : (
-              <Circle className="w-6 h-6 text-gray-400 hover:text-purple-600" />
-            )}
-          </button>
-
-          <div className="flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className={task.completed ? 'line-through text-gray-500' : ''}>{task.title}</p>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <Badge variant="outline" className="text-xs">
-                    <User className="w-3 h-3 mr-1" />
-                    {task.assignee}
-                  </Badge>
-                  <Badge variant={isOverdue ? 'destructive' : 'secondary'} className="text-xs">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {daysUntil}
-                  </Badge>
-                  {task.recurring && (
-                    <Badge variant="outline" className="text-xs bg-blue-50">
-                      Gjentagende
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">+{task.xp} XP</Badge>
-                {getCategoryIcon(task.category)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="space-y-4">
-      <Card className="p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
-        <div className="flex items-center justify-between mb-4 gap-4">
-          <div>
-            <h2 className="text-white mb-1">Oppgaveoversikt</h2>
-            <p className="text-purple-100 text-sm">{myTasks.length} oppgaver tildelt deg</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-3xl">{completionRate}%</p>
-              <p className="text-sm text-purple-100">Fullført</p>
-            </div>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button className="bg-white text-purple-700 hover:bg-gray-100">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ny oppgave
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Legg til oppgave</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3 py-2">
-                  <div>
-                    <Label>Tittel</Label>
-                    <Input
-                      value={taskForm.title}
-                      onChange={(e) => {
+    <PageStack>
+      <PageHeader
+        icon={CheckSquare}
+        eyebrow="Oppgaver"
+        title="Oppgaver og handleliste"
+        description="Fordel ansvar, følg med på frister og hold handlelisten oppdatert."
+        action={
+          <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="size-4" />
+                Ny oppgave
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Legg til oppgave</DialogTitle>
+                <DialogDescription>
+                  Velg hva som skal gjøres, hvem som tar den og når den skal være ferdig.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void addTask();
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="task-title">Hva skal gjøres?</Label>
+                  <Input
+                    id="task-title"
+                    value={taskForm.title}
+                    onChange={(event) => {
+                      setTaskError('');
+                      setTaskForm({ ...taskForm, title: event.target.value });
+                    }}
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="task-assignee">Ansvarlig</Label>
+                    <SelectField
+                      id="task-assignee"
+                      value={taskForm.assignee}
+                      onChange={(event) => {
                         setTaskError('');
-                        setTaskForm({ ...taskForm, title: e.target.value });
+                        setTaskForm({ ...taskForm, assignee: event.target.value });
+                      }}
+                    >
+                      {members.map((member) => (
+                        <option key={member.id} value={member.name}>
+                          {member.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="task-date">Frist</Label>
+                    <Input
+                      id="task-date"
+                      type="date"
+                      value={taskForm.dueDate}
+                      onChange={(event) => {
+                        setTaskError('');
+                        setTaskForm({ ...taskForm, dueDate: event.target.value });
                       }}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Ansvarlig</Label>
-                      <select
-                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                        value={taskForm.assignee}
-                        onChange={(e) => {
-                          setTaskError('');
-                          setTaskForm({ ...taskForm, assignee: e.target.value });
-                        }}
-                      >
-                        {members.map((member) => (
-                          <option key={member.id} value={member.name}>
-                            {member.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label>Dato</Label>
-                      <Input
-                        type="date"
-                        value={taskForm.dueDate}
-                        onChange={(e) => {
-                          setTaskError('');
-                          setTaskForm({ ...taskForm, dueDate: e.target.value });
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Kategori</Label>
-                    <select
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      value={taskForm.category}
-                      onChange={(e) => {
-                        setTaskError('');
-                        setTaskForm({ ...taskForm, category: e.target.value as TaskCategory });
-                      }}
-                    >
-                      <option value="OTHER">Annet</option>
-                      <option value="CLEANING">Vasking</option>
-                      <option value="SHOPPING">Handling</option>
-                    </select>
-                  </div>
-                  {taskError && <p className="text-sm text-red-600">{taskError}</p>}
-                  <Button className="w-full" onClick={() => void addTask()}>
-                    Opprett oppgave
-                  </Button>
                 </div>
-              </DialogContent>
-            </Dialog>
+
+                <div className="space-y-2">
+                  <Label htmlFor="task-category">Kategori</Label>
+                  <SelectField
+                    id="task-category"
+                    value={taskForm.category}
+                    onChange={(event) => {
+                      setTaskError('');
+                      setTaskForm({
+                        ...taskForm,
+                        category: event.target.value as TaskCategory,
+                      });
+                    }}
+                  >
+                    <option value="OTHER">Annet</option>
+                    <option value="CLEANING">Vasking</option>
+                    <option value="SHOPPING">Handling</option>
+                  </SelectField>
+                </div>
+
+                {taskError && <StatusMessage tone="rose">{taskError}</StatusMessage>}
+
+                <Button className="w-full" type="submit">
+                  Opprett oppgave
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Dine åpne oppgaver</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              {myTasks.length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Fullføringsgrad</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              {completionRate}%
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Handleliste</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              {pendingShoppingItems.length} igjen
+            </p>
           </div>
         </div>
-        <Progress value={completionRate} className="h-2 bg-white/30" />
-      </Card>
+      </PageHeader>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">Alle</TabsTrigger>
-          <TabsTrigger value="mine">Mine oppgaver</TabsTrigger>
+          <TabsTrigger value="mine">Mine</TabsTrigger>
           <TabsTrigger value="shopping">Handleliste</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="space-y-4 mt-4">
-          <div className="space-y-3">
-            <h3 className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-purple-600" />
-              Aktive oppgaver ({activeTasks.length})
-            </h3>
+        <TabsContent value="all" className="mt-4 space-y-4">
+          <SectionCard
+            title={`Aktive oppgaver (${activeTasks.length})`}
+            description="Det som fortsatt gjenstår å gjøre."
+          >
             {activeTasks.length === 0 ? (
-              <Card className="p-8 text-center bg-white/80">
-                <p className="text-gray-500">Ingen aktive oppgaver</p>
-              </Card>
+              <EmptyState
+                icon={CheckCircle2}
+                title="Ingen aktive oppgaver"
+                description="Du er ajour. Nye oppgaver dukker opp her."
+              />
             ) : (
-              activeTasks.map(task => <TaskItem key={task.id} task={task} />)
+              <div className="space-y-3">
+                {activeTasks.map((task) => (
+                  <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+                ))}
+              </div>
             )}
-          </div>
+          </SectionCard>
 
           {completedTasks.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="flex items-center gap-2 text-green-600">
-                <CheckCircle2 className="w-5 h-5" />
-                Fullført ({completedTasks.length})
-              </h3>
-              {completedTasks.map(task => <TaskItem key={task.id} task={task} />)}
-            </div>
+            <SectionCard
+              title={`Nylig fullført (${completedTasks.length})`}
+              description="Oppgaver som allerede er krysset av."
+            >
+              <div className="space-y-3">
+                {completedTasks.map((task) => (
+                  <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+                ))}
+              </div>
+            </SectionCard>
           )}
         </TabsContent>
 
-        <TabsContent value="mine" className="space-y-3 mt-4">
-          <h3 className="flex items-center gap-2">
-            <User className="w-5 h-5 text-purple-600" />
-            Dine oppgaver ({myTasks.length})
-          </h3>
-          {myTasks.length === 0 ? (
-            <Card className="p-8 text-center bg-white/80">
-              <p className="text-gray-500">Du har ingen aktive oppgaver</p>
-            </Card>
-          ) : (
-            myTasks.map(task => <TaskItem key={task.id} task={task} />)
-          )}
-        </TabsContent>
-
-        <TabsContent value="shopping" className="space-y-4 mt-4">
-          <Card className="p-6 bg-white/80 backdrop-blur">
-            <h3 className="mb-4 flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-purple-600" />
-              Felles handleliste
-            </h3>
-
-            <div className="flex gap-2 mb-4">
-              <Input
-                placeholder="Legg til vare..."
-                value={newItem}
-                onChange={e => setNewItem(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && void addShoppingItem()}
-                className="bg-white"
+        <TabsContent value="mine" className="mt-4">
+          <SectionCard
+            title={`Dine oppgaver (${myTasks.length})`}
+            description="Oppgaver som er tildelt deg akkurat nå."
+          >
+            {myTasks.length === 0 ? (
+              <EmptyState
+                icon={User}
+                title="Ingen oppgaver til deg"
+                description="Når du blir satt opp som ansvarlig, vises oppgavene her."
               />
-              <Button onClick={() => void addShoppingItem()} className="bg-gradient-to-r from-purple-500 to-pink-500">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {myTasks.map((task) => (
+                  <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
 
-            <div className="space-y-2">
-              {shoppingList.map(item => (
-                <div
-                  key={item.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                    item.completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox checked={item.completed} onCheckedChange={() => void toggleShoppingItem(item.id)} />
-                    <div>
-                      <p className={item.completed ? 'line-through text-gray-500' : ''}>{item.item}</p>
-                      <p className="text-xs text-gray-500">Lagt til av {item.addedBy}</p>
-                    </div>
+        <TabsContent value="shopping" className="mt-4">
+          <SectionCard
+            title="Felles handleliste"
+            description="Legg inn det som mangler hjemme, og kryss av når det er kjøpt."
+          >
+            <form
+              className="flex flex-col gap-2 sm:flex-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void addShoppingItem();
+              }}
+            >
+              <Input
+                placeholder="Legg til en vare"
+                value={newItem}
+                onChange={(event) => setNewItem(event.target.value)}
+              />
+              <Button className="sm:w-auto" type="submit">
+                <Plus className="size-4" />
+                Legg til
+              </Button>
+            </form>
+
+            {shoppingList.length === 0 ? (
+              <EmptyState
+                icon={ShoppingCart}
+                title="Handlelisten er tom"
+                description="Det er bare å legge inn det som trengs hjemme."
+              />
+            ) : (
+              <div className="space-y-3">
+                {shoppingList.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-sm ${
+                      item.completed
+                        ? 'border-emerald-200 bg-emerald-50/70'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <label className="flex min-w-0 flex-1 items-center gap-3">
+                      <Checkbox
+                        checked={item.completed}
+                        onCheckedChange={() => void toggleShoppingItem(item.id)}
+                      />
+                      <div className="min-w-0">
+                        <p
+                          className={`truncate ${
+                            item.completed ? 'text-slate-500 line-through' : 'text-slate-950'
+                          }`}
+                        >
+                          {item.item}
+                        </p>
+                        <p className="text-sm text-slate-500">Lagt til av {item.addedBy}</p>
+                      </div>
+                    </label>
+
+                    <Button
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                      aria-label={`Fjern ${item.item}`}
+                      onClick={() => void removeShoppingItem(item.id)}
+                    >
+                      <Trash2 className="size-4 text-rose-600" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => void removeShoppingItem(item.id)}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Card>
+                ))}
+              </div>
+            )}
+          </SectionCard>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageStack>
   );
 }

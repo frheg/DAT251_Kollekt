@@ -1,37 +1,123 @@
 import { useEffect, useState } from 'react';
-import { Card } from './ui/card';
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Film,
+  PartyPopper,
+  Pizza,
+  Plus,
+  Users,
+} from 'lucide-react';
 import { Button } from './ui/button';
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, PartyPopper, Film, Pizza } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Badge } from './ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
-import { api } from '../lib/api';
+import { api, getUserMessage } from '../lib/api';
+import { formatLongDate, formatShortDate, formatTime, isUpcomingDate } from '../lib/ui';
+import {
+  EmptyState,
+  PageHeader,
+  PageStack,
+  SectionCard,
+  SelectField,
+  StatusMessage,
+} from './shared/page';
 import type { CalendarEvent, EventType } from '../lib/types';
 
 interface CalendarViewProps {
   currentUserName: string;
 }
 
+const monthNames = [
+  'Januar',
+  'Februar',
+  'Mars',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
+const dayNames = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'];
+
+const eventAppearance: Record<
+  EventType,
+  {
+    label: string;
+    icon: typeof Calendar;
+    badgeClassName: string;
+    softClassName: string;
+  }
+> = {
+  PARTY: {
+    label: 'Sosialt',
+    icon: PartyPopper,
+    badgeClassName: 'bg-rose-100 text-rose-700',
+    softClassName: 'border-rose-200 bg-rose-50/80',
+  },
+  MOVIE: {
+    label: 'Film',
+    icon: Film,
+    badgeClassName: 'bg-blue-100 text-blue-700',
+    softClassName: 'border-blue-200 bg-blue-50/80',
+  },
+  DINNER: {
+    label: 'Middag',
+    icon: Pizza,
+    badgeClassName: 'bg-amber-100 text-amber-700',
+    softClassName: 'border-amber-200 bg-amber-50/80',
+  },
+  OTHER: {
+    label: 'Annet',
+    icon: Calendar,
+    badgeClassName: 'bg-slate-100 text-slate-700',
+    softClassName: 'border-slate-200 bg-slate-50/80',
+  },
+};
+
 export function CalendarView({ currentUserName }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [form, setForm] = useState({ title: '', date: '', time: '', description: '', organizer: currentUserName, type: 'OTHER' as EventType });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [eventError, setEventError] = useState('');
+  const [form, setForm] = useState({
+    title: '',
+    date: '',
+    time: '',
+    description: '',
+    organizer: currentUserName,
+    type: 'OTHER' as EventType,
+  });
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get<CalendarEvent[]>(`/events?memberName=${encodeURIComponent(currentUserName)}`);
+      const data = await api.get<CalendarEvent[]>(
+        `/events?memberName=${encodeURIComponent(currentUserName)}`,
+      );
       setEvents(data);
     };
-    load();
+
+    void load();
   }, [currentUserName]);
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, organizer: currentUserName }));
+    setForm((previous) => ({ ...previous, organizer: currentUserName }));
   }, [currentUserName]);
-
-  const monthNames = ['Januar', 'Februar', 'Mars', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Desember'];
-  const dayNames = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'];
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -40,205 +126,353 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-    const days: (number | null)[] = [];
+    const days: Array<number | null> = [];
 
-    for (let i = 0; i < startingDayOfWeek; i++) days.push(null);
-    for (let day = 1; day <= daysInMonth; day++) days.push(day);
+    for (let index = 0; index < startingDayOfWeek; index += 1) {
+      days.push(null);
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      days.push(day);
+    }
 
     return days;
   };
 
   const getEventsForDay = (day: number | null) => {
     if (!day) return [];
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return events.filter(e => e.date === dateStr);
+
+    const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(
+      2,
+      '0',
+    )}-${String(day).padStart(2, '0')}`;
+
+    return events.filter((event) => event.date === dateString);
   };
 
   const isToday = (day: number | null) => {
     if (!day) return false;
+
     const today = new Date();
-    return day === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
-  };
-
-  const getEventIcon = (type: string) => {
-    switch (type) {
-      case 'PARTY':
-        return <PartyPopper className="w-4 h-4" />;
-      case 'MOVIE':
-        return <Film className="w-4 h-4" />;
-      case 'DINNER':
-        return <Pizza className="w-4 h-4" />;
-      default:
-        return <Calendar className="w-4 h-4" />;
-    }
-  };
-
-  const getEventColor = (type: string) => {
-    switch (type) {
-      case 'PARTY':
-        return 'from-pink-500 to-purple-500';
-      case 'MOVIE':
-        return 'from-blue-500 to-cyan-500';
-      case 'DINNER':
-        return 'from-orange-500 to-red-500';
-      default:
-        return 'from-gray-500 to-gray-600';
-    }
+    return (
+      day === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear()
+    );
   };
 
   const saveEvent = async () => {
-    if (!form.title || !form.date || !form.time) return;
-    const created = await api.post<CalendarEvent>('/events', {
-      title: form.title,
-      date: form.date,
-      time: form.time,
-      description: form.description || null,
-      organizer: form.organizer,
-      attendees: 1,
-      type: form.type,
-    });
-    setEvents([...events, created]);
-    setForm({ title: '', date: '', time: '', description: '', organizer: currentUserName, type: 'OTHER' });
+    if (!form.title || !form.date || !form.time) {
+      setEventError('Fyll inn tittel, dato og tidspunkt før du lagrer.');
+      return;
+    }
+
+    try {
+      const createdEvent = await api.post<CalendarEvent>('/events', {
+        title: form.title.trim(),
+        date: form.date,
+        time: form.time,
+        description: form.description || null,
+        organizer: form.organizer,
+        attendees: 1,
+        type: form.type,
+      });
+
+      setEvents((previous) => [...previous, createdEvent]);
+      setForm({
+        title: '',
+        date: '',
+        time: '',
+        description: '',
+        organizer: currentUserName,
+        type: 'OTHER',
+      });
+      setEventError('');
+      setIsDialogOpen(false);
+    } catch (error) {
+      setEventError(getUserMessage(error, 'Kunne ikke lagre planen akkurat nå.'));
+    }
   };
 
-  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const nextMonth = () =>
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  const previousMonth = () =>
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
 
-  const upcomingEvents = events.filter(e => new Date(e.date) >= new Date()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
+  const upcomingEvents = events
+    .filter((event) => isUpcomingDate(event.date))
+    .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+    .slice(0, 6);
+
+  const thisMonthEvents = events.filter(
+    (event) =>
+      new Date(event.date).getMonth() === currentDate.getMonth() &&
+      new Date(event.date).getFullYear() === currentDate.getFullYear(),
+  );
 
   return (
-    <div className="space-y-4">
-      <Card className="p-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-white mb-1">Felles kalender</h2>
-            <p className="text-blue-100 text-sm">{upcomingEvents.length} kommende events</p>
-          </div>
-          <Dialog>
+    <PageStack>
+      <PageHeader
+        icon={Calendar}
+        eyebrow="Kalender"
+        title="Felles kalender"
+        description="Planlegg middager, filmkvelder og alt annet dere vil få på plass sammen."
+        action={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-white text-purple-600 hover:bg-gray-100">
-                <Plus className="w-4 h-4 mr-2" />
-                Nytt event
+              <Button>
+                <Plus className="size-4" />
+                Ny plan
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Opprett nytt event</DialogTitle>
+                <DialogTitle>Legg inn noe i kalenderen</DialogTitle>
+                <DialogDescription>
+                  Skriv inn det viktigste, så dukker det opp for hele kollektivet.
+                </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <Label>Tittel</Label>
-                  <Input placeholder="F.eks. Filmkveld" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveEvent();
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="event-title">Tittel</Label>
+                  <Input
+                    id="event-title"
+                    placeholder="For eksempel filmkveld"
+                    value={form.title}
+                    onChange={(event) => {
+                      setEventError('');
+                      setForm({ ...form, title: event.target.value });
+                    }}
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Dato</Label>
-                    <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="event-date">Dato</Label>
+                    <Input
+                      id="event-date"
+                      type="date"
+                      value={form.date}
+                      onChange={(event) => {
+                        setEventError('');
+                        setForm({ ...form, date: event.target.value });
+                      }}
+                    />
                   </div>
-                  <div>
-                    <Label>Tid</Label>
-                    <Input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
+
+                  <div className="space-y-2">
+                    <Label htmlFor="event-time">Tidspunkt</Label>
+                    <Input
+                      id="event-time"
+                      type="time"
+                      value={form.time}
+                      onChange={(event) => {
+                        setEventError('');
+                        setForm({ ...form, time: event.target.value });
+                      }}
+                    />
                   </div>
                 </div>
-                <div>
-                  <Label>Beskrivelse</Label>
-                  <Textarea placeholder="Valgfri beskrivelse..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+
+                <div className="space-y-2">
+                  <Label htmlFor="event-type">Type</Label>
+                  <SelectField
+                    id="event-type"
+                    value={form.type}
+                    onChange={(event) => {
+                      setEventError('');
+                      setForm({ ...form, type: event.target.value as EventType });
+                    }}
+                  >
+                    <option value="OTHER">Annet</option>
+                    <option value="PARTY">Sosialt</option>
+                    <option value="MOVIE">Film</option>
+                    <option value="DINNER">Middag</option>
+                  </SelectField>
                 </div>
-                <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-500" onClick={() => void saveEvent()}>
-                  Opprett event
+
+                <div className="space-y-2">
+                  <Label htmlFor="event-description">Kort beskjed</Label>
+                  <Textarea
+                    id="event-description"
+                    placeholder="Hva trenger folk å vite?"
+                    value={form.description}
+                    onChange={(event) => {
+                      setEventError('');
+                      setForm({ ...form, description: event.target.value });
+                    }}
+                  />
+                </div>
+
+                {eventError && <StatusMessage tone="rose">{eventError}</StatusMessage>}
+
+                <Button className="w-full" type="submit">
+                  Lagre plan
                 </Button>
-              </div>
+              </form>
             </DialogContent>
           </Dialog>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Denne måneden</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              {thisMonthEvents.length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Neste plan</p>
+            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+              {upcomingEvents[0] ? formatLongDate(upcomingEvents[0].date) : 'Ikke satt'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Klar for å invitere</p>
+            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+              Legg inn neste avtale
+            </p>
+          </div>
         </div>
-      </Card>
+      </PageHeader>
 
-      <Card className="p-6 bg-white/80 backdrop-blur">
-        <div className="flex items-center justify-between mb-6">
-          <Button variant="outline" size="sm" onClick={prevMonth}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <h3>
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h3>
-          <Button variant="outline" size="sm" onClick={nextMonth}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-7 gap-2 mb-2">
-          {dayNames.map(day => (
-            <div key={day} className="text-center text-sm text-gray-600 p-2">
-              {day}
+      <SectionCard
+        title={`${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
+        description="Månedsvisning av alt som ligger i kalenderen."
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" type="button" onClick={previousMonth}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button variant="outline" size="icon" type="button" onClick={nextMonth}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        }
+      >
+        <div className="overflow-x-auto">
+          <div className="min-w-[42rem]">
+            <div className="grid grid-cols-7 gap-2">
+              {dayNames.map((day) => (
+                <div key={day} className="px-2 py-2 text-center text-sm font-medium text-slate-500">
+                  {day}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="grid grid-cols-7 gap-2">
-          {getDaysInMonth(currentDate).map((day, index) => {
-            const dayEvents = getEventsForDay(day);
-            const today = isToday(day);
+            <div className="mt-2 grid grid-cols-7 gap-2">
+              {getDaysInMonth(currentDate).map((day, index) => {
+                const eventsForDay = getEventsForDay(day);
+                const today = isToday(day);
 
-            return (
-              <div
-                key={index}
-                className={`min-h-20 p-2 rounded-lg border-2 transition-all ${
-                  !day
-                    ? 'bg-gray-50 border-gray-100'
-                    : today
-                      ? 'bg-gradient-to-br from-purple-100 to-pink-100 border-purple-300'
-                      : dayEvents.length > 0
-                        ? 'bg-blue-50 border-blue-200 hover:border-blue-400 cursor-pointer'
-                        : 'bg-white border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {day && (
-                  <>
-                    <div className={`text-sm mb-1 ${today ? 'font-bold text-purple-600' : ''}`}>{day}</div>
-                    <div className="space-y-1">
-                      {dayEvents.slice(0, 2).map(event => (
-                        <div key={event.id} className={`text-xs p-1 rounded bg-gradient-to-r ${getEventColor(event.type)} text-white truncate`}>
-                          {event.time.substring(0, 5)}
+                return (
+                  <div
+                    key={`${day ?? 'empty'}-${index}`}
+                    className={`min-h-28 rounded-2xl border px-2 py-2 ${
+                      !day
+                        ? 'border-transparent bg-transparent'
+                        : today
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : eventsForDay.length > 0
+                            ? 'border-slate-200 bg-slate-50/80'
+                            : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    {day && (
+                      <>
+                        <p className={`text-sm font-semibold ${today ? 'text-white' : 'text-slate-900'}`}>
+                          {day}
+                        </p>
+                        <div className="mt-2 space-y-1.5">
+                          {eventsForDay.slice(0, 2).map((event) => {
+                            const appearance = eventAppearance[event.type] ?? eventAppearance.OTHER;
+                            return (
+                              <div
+                                key={event.id}
+                                className={`rounded-xl px-2 py-1 text-xs font-medium ${
+                                  today ? 'bg-white/15 text-white' : appearance.badgeClassName
+                                }`}
+                              >
+                                {formatTime(event.time)} {event.title}
+                              </div>
+                            );
+                          })}
+                          {eventsForDay.length > 2 && (
+                            <div className={`px-1 text-xs ${today ? 'text-slate-200' : 'text-slate-500'}`}>
+                              +{eventsForDay.length - 2} flere
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      {dayEvents.length > 2 && <div className="text-xs text-gray-600">+{dayEvents.length - 2}</div>}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </Card>
+      </SectionCard>
 
-      <Card className="p-6 bg-white/80 backdrop-blur">
-        <h3 className="mb-4">Kommende events</h3>
-        <div className="space-y-3">
-          {upcomingEvents.map(event => (
-            <div key={event.id} className={`p-4 rounded-lg bg-gradient-to-r ${getEventColor(event.type)} text-white`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-white/20 rounded-lg mt-1">{getEventIcon(event.type)}</div>
-                  <div>
-                    <h4 className="text-white mb-1">{event.title}</h4>
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
-                      <span>{new Date(event.date).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}</span>
-                      <span>•</span>
-                      <span>{event.time.substring(0, 5)}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {event.attendees}
-                      </span>
+      <SectionCard
+        title="Neste planer"
+        description="Det som ligger nærmest i tid akkurat nå."
+      >
+        {upcomingEvents.length === 0 ? (
+          <EmptyState
+            icon={Calendar}
+            title="Ingen planer enda"
+            description="Legg inn neste middag, husmøte eller sosiale kveld her."
+          />
+        ) : (
+          <div className="space-y-3">
+            {upcomingEvents.map((event) => {
+              const appearance = eventAppearance[event.type] ?? eventAppearance.OTHER;
+              const Icon = appearance.icon;
+
+              return (
+                <div
+                  key={event.id}
+                  className={`rounded-2xl border px-4 py-4 shadow-sm ${appearance.softClassName}`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
+                        <Icon className="size-5" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-slate-950">{event.title}</p>
+                          <Badge className={appearance.badgeClassName}>{appearance.label}</Badge>
+                        </div>
+                        <p className="text-sm text-slate-600">
+                          {formatShortDate(event.date)} kl. {formatTime(event.time)}
+                        </p>
+                        {event.description && (
+                          <p className="text-sm leading-6 text-slate-600">{event.description}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                          <span>Arrangør: {event.organizer}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="size-4" />
+                            {event.attendees}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-white/70 mt-1">Arrangert av {event.organizer}</p>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+    </PageStack>
   );
 }

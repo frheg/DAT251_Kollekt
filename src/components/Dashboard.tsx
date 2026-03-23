@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Card } from './ui/card';
+import {
+  Calendar,
+  CheckCircle2,
+  Coins,
+  Home,
+  Trophy,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { Button } from './ui/button';
-import { Trophy, CheckCircle2, Calendar, Wallet, TrendingUp, AlertCircle } from 'lucide-react';
 import { Progress } from './ui/progress';
+import { Badge } from './ui/badge';
 import { api } from '../lib/api';
 import { connectCollectiveRealtime } from '../lib/realtime';
+import { type AppView } from '../lib/app';
+import { formatAmount, formatShortDate, formatTime } from '../lib/ui';
+import { EmptyState, MetricCard, PageHeader, PageStack, SectionCard } from './shared/page';
 import type { AppUser, DashboardResponse, EconomySummary, Task } from '../lib/types';
 
 interface DashboardProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: AppView) => void;
   currentUserName: string;
 }
 
@@ -21,16 +32,19 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
 
   const load = async () => {
     try {
-      const [response, collectiveMembers, tasks, economySummary] = await Promise.all([
+      const [dashboardData, collectiveMembers, tasks, economySummary] = await Promise.all([
         api.get<DashboardResponse>(`/dashboard?memberName=${encodeURIComponent(currentUserName)}`),
         api.get<AppUser[]>(`/members/collective?memberName=${encodeURIComponent(currentUserName)}`),
         api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(currentUserName)}`),
         api.get<EconomySummary>(`/economy/summary?memberName=${encodeURIComponent(currentUserName)}`),
       ]);
-      setData(response);
+
+      setData(dashboardData);
       setMembers(collectiveMembers);
       setCompletedTasksCount(tasks.filter((task) => task.completed).length);
-      setMyBalance(economySummary.balances.find((balance) => balance.name === currentUserName)?.amount ?? 0);
+      setMyBalance(
+        economySummary.balances.find((balance) => balance.name === currentUserName)?.amount ?? 0,
+      );
     } finally {
       setLoading(false);
     }
@@ -54,164 +68,201 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
   };
 
   const progressToNextLevel = ((currentUser.xp % 200) / 200) * 100;
-
   const upcomingTasks = data?.upcomingTasks ?? [];
   const upcomingEvents = data?.upcomingEvents ?? [];
   const recentExpenses = data?.recentExpenses ?? [];
 
-  const alerts = [
-    { id: 1, message: 'Tørketrommel må tømmes!', type: 'warning' },
-    { id: 2, message: 'Handleliste: 3 nye varer', type: 'info' },
-  ];
-
   return (
-    <div className="space-y-4">
-      {/* User Stats Card */}
-      <Card className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white p-6 border-0 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-white mb-1">Hei, {currentUser.name}!</h2>
-            <p className="text-blue-100 text-sm">Level {currentUser.level} • Rank #{currentUser.rank}</p>
+    <PageStack>
+      <PageHeader
+        icon={Home}
+        eyebrow="Hjem"
+        title={`Hei, ${currentUser.name}`}
+        description="Dette er det viktigste som skjer i kollektivet akkurat nå."
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white shadow-sm">
+            <p className="text-sm text-slate-300">Poeng</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight">{currentUser.xp} XP</p>
+            <p className="mt-1 text-sm text-slate-300">Nivå {currentUser.level}</p>
           </div>
-          <div className="text-right">
-            <div className="flex items-center gap-2 justify-end">
-              <Trophy className="w-6 h-6 text-yellow-300" />
-              <span className="text-2xl">{currentUser.xp} XP</span>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <p className="text-sm text-slate-500">Plassering</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              #{currentUser.rank}
+            </p>
+            <p className="mt-1 text-sm text-slate-600">Blant alle i kollektivet</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-slate-500">Neste nivå</p>
+                <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+                  {currentUser.xp % 200}/200 XP
+                </p>
+              </div>
+              <Trophy className="size-5 text-slate-400" />
             </div>
+            <Progress className="mt-3" value={progressToNextLevel} />
           </div>
         </div>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-blue-100">
-            <span>Progresjon til Level {currentUser.level + 1}</span>
-            <span>{currentUser.xp % 200}/200 XP</span>
-          </div>
-          <Progress value={progressToNextLevel} className="h-2 bg-white/30" />
-        </div>
-      </Card>
+      </PageHeader>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <div className="space-y-2">
-          {alerts.map((alert) => (
-            <Card
-              key={alert.id}
-              className={`p-4 flex items-center gap-3 ${
-                alert.type === 'warning' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200'
-              }`}
-            >
-              <AlertCircle
-                className={`w-5 h-5 ${alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'}`}
-              />
-              <p className={alert.type === 'warning' ? 'text-orange-900' : 'text-blue-900'}>{alert.message}</p>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-4 bg-white/80 backdrop-blur hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onNavigate('tasks')}>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl">{completedTasksCount}</p>
-              <p className="text-sm text-gray-600">Oppgaver fullført</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-white/80 backdrop-blur hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onNavigate('economy')}>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Wallet className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl">{myBalance} kr</p>
-              <p className="text-sm text-gray-600">Din saldo</p>
-            </div>
-          </div>
-        </Card>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <MetricCard
+          icon={CheckCircle2}
+          label="Fullførte oppgaver"
+          value={String(completedTasksCount)}
+          hint="Se hva som gjenstår"
+          tone="emerald"
+          onClick={() => onNavigate('tasks')}
+        />
+        <MetricCard
+          icon={Wallet}
+          label="Din saldo"
+          value={formatAmount(myBalance)}
+          hint="Sjekk hvem som skylder hva"
+          tone="blue"
+          onClick={() => onNavigate('economy')}
+        />
+        <MetricCard
+          icon={Users}
+          label="Aktive medlemmer"
+          value={String(members.length)}
+          hint="Hold alle oppdatert"
+          tone="amber"
+        />
       </div>
 
-      {/* Upcoming Tasks */}
-      <Card className="p-6 bg-white/80 backdrop-blur">
-        <div className="flex items-center justify-between mb-4">
-          <h3>Kommende oppgaver</h3>
-          <Button variant="ghost" size="sm" onClick={() => onNavigate('tasks')}>
-            Se alle
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {upcomingTasks.map((task) => (
-            <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p>{task.title}</p>
-                <p className="text-sm text-gray-600">{task.assignee}</p>
-              </div>
-              <span className="text-sm text-gray-500">{new Date(task.dueDate).toLocaleDateString('nb-NO')}</span>
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <SectionCard
+          title="Kommende oppgaver"
+          description="Oppgaver som snart må gjøres."
+          action={
+            <Button size="sm" variant="ghost" onClick={() => onNavigate('tasks')}>
+              Se alle
+            </Button>
+          }
+        >
+          {upcomingTasks.length === 0 && !loading ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title="Ingen oppgaver på vei inn"
+              description="Når noen legger til en oppgave, vises den her."
+            />
+          ) : (
+            <div className="space-y-3">
+              {upcomingTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium text-slate-950">{task.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                      <Badge variant="secondary">{task.assignee}</Badge>
+                      <span>{formatShortDate(task.dueDate)}</span>
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium text-slate-500">+{task.xp} XP</div>
+                </div>
+              ))}
             </div>
-          ))}
-          {!loading && upcomingTasks.length === 0 && <p className="text-sm text-gray-500">Ingen kommende oppgaver</p>}
-        </div>
-      </Card>
+          )}
+        </SectionCard>
 
-      {/* Upcoming Events */}
-      <Card className="p-6 bg-white/80 backdrop-blur">
-        <div className="flex items-center justify-between mb-4">
-          <h3>Kommende events</h3>
-          <Button variant="ghost" size="sm" onClick={() => onNavigate('calendar')}>
-            Se kalender
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {upcomingEvents.map((event) => (
-            <div key={event.id} className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-              <Calendar className="w-5 h-5 text-purple-600" />
-              <div className="flex-1">
-                <p>{event.title}</p>
-                <p className="text-sm text-gray-600">{new Date(event.date).toLocaleDateString('nb-NO')} • {event.time.slice(0, 5)}</p>
-              </div>
+        <SectionCard
+          title="Nærmeste planer"
+          description="Det som ligger først i kalenderen."
+          action={
+            <Button size="sm" variant="ghost" onClick={() => onNavigate('calendar')}>
+              Åpne kalender
+            </Button>
+          }
+        >
+          {upcomingEvents.length === 0 && !loading ? (
+            <EmptyState
+              icon={Calendar}
+              title="Ingen planer enda"
+              description="Legg inn neste filmkveld, middag eller husmøte."
+            />
+          ) : (
+            <div className="space-y-3">
+              {upcomingEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-950">{event.title}</p>
+                      <p className="text-sm text-slate-600">
+                        {formatShortDate(event.date)} kl. {formatTime(event.time)}
+                      </p>
+                    </div>
+                    <Calendar className="size-5 text-slate-400" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-          {!loading && upcomingEvents.length === 0 && <p className="text-sm text-gray-500">Ingen kommende events</p>}
-        </div>
-      </Card>
+          )}
+        </SectionCard>
+      </div>
 
-      {/* Recent Expenses */}
-      <Card className="p-6 bg-white/80 backdrop-blur">
-        <div className="flex items-center justify-between mb-4">
-          <h3>Siste utgifter</h3>
-          <Button variant="ghost" size="sm" onClick={() => onNavigate('economy')}>
-            Se alle
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {recentExpenses.map((expense) => (
-            <div key={expense.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p>{expense.description}</p>
-                <p className="text-sm text-gray-600">Betalt av {expense.paidBy}</p>
-              </div>
-              <span className="font-medium">{expense.amount} kr</span>
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <SectionCard
+          title="Siste felleskjøp"
+          description="Nylig registrerte utgifter."
+          action={
+            <Button size="sm" variant="ghost" onClick={() => onNavigate('economy')}>
+              Se økonomi
+            </Button>
+          }
+        >
+          {recentExpenses.length === 0 && !loading ? (
+            <EmptyState
+              icon={Coins}
+              title="Ingen utgifter registrert"
+              description="Når noen legger inn et kjøp, vises det her."
+            />
+          ) : (
+            <div className="space-y-3">
+              {recentExpenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium text-slate-950">{expense.description}</p>
+                    <p className="text-sm text-slate-600">Betalt av {expense.paidBy}</p>
+                  </div>
+                  <div className="text-base font-semibold text-slate-950">
+                    {formatAmount(expense.amount)}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-          {!loading && recentExpenses.length === 0 && <p className="text-sm text-gray-500">Ingen registrerte utgifter</p>}
-        </div>
-      </Card>
+          )}
+        </SectionCard>
 
-      <Card className="p-6 bg-white/80 backdrop-blur">
-        <h3 className="mb-4">Medlemmer i kollektivet</h3>
-        <div className="flex flex-wrap gap-2">
-          {members.map((member) => (
-            <span key={member.id} className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm">
-              {member.name}
-            </span>
-          ))}
-          {!loading && members.length === 0 && <p className="text-sm text-gray-500">Ingen medlemmer funnet</p>}
-        </div>
-      </Card>
-    </div>
+        <SectionCard title="Hvem bor her?" description="Medlemmer i kollektivet akkurat nå.">
+          {members.length === 0 && !loading ? (
+            <EmptyState
+              icon={Users}
+              title="Ingen medlemmer enda"
+              description="Inviter resten av kollektivet med koden deres."
+            />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {members.map((member) => (
+                <Badge key={member.id} variant="secondary" className="px-3 py-1.5">
+                  {member.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+    </PageStack>
   );
 }
