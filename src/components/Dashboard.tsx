@@ -8,7 +8,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
-import { Button } from './ui/button';
+import { AnimatedButton } from './ui/AnimatedButton';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { api } from '../lib/api';
@@ -139,9 +139,9 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
           title="Kommende oppgaver"
           description="Oppgaver som snart må gjøres."
           action={
-            <Button size="sm" variant="ghost" onClick={() => onNavigate('tasks')}>
+            <AnimatedButton onClick={() => onNavigate('tasks')}>
               Se alle
-            </Button>
+            </AnimatedButton>
           }
         >
           {upcomingTasks.length === 0 && !loading ? (
@@ -175,9 +175,9 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
           title="Nærmeste planer"
           description="Det som ligger først i kalenderen."
           action={
-            <Button size="sm" variant="ghost" onClick={() => onNavigate('calendar')}>
+            <AnimatedButton onClick={() => onNavigate('calendar')}>
               Åpne kalender
-            </Button>
+            </AnimatedButton>
           }
         >
           {upcomingEvents.length === 0 && !loading ? (
@@ -214,9 +214,9 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
           title="Siste felleskjøp"
           description="Nylig registrerte utgifter."
           action={
-            <Button size="sm" variant="ghost" onClick={() => onNavigate('economy')}>
+            <AnimatedButton onClick={() => onNavigate('economy')}>
               Se økonomi
-            </Button>
+            </AnimatedButton>
           }
         >
           {recentExpenses.length === 0 && !loading ? (

@@ -116,7 +116,7 @@ export function DrinkingGame({ currentUserName }: DrinkingGameProps) {
               Avslutt runden
             </Button>
           ) : (
-            <Button onClick={() => void startGame()}>
+            <Button variant="outline" onClick={() => void startGame()}>
               Start runde
             </Button>
           )
@@ -232,7 +232,7 @@ export function DrinkingGame({ currentUserName }: DrinkingGameProps) {
             </SectionCard>
           )}
 
-          <Button className="w-full sm:w-auto" onClick={() => void nextQuestion()}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => void nextQuestion()}>
             <Shuffle className="size-4" />
             Neste spørsmål
           </Button>

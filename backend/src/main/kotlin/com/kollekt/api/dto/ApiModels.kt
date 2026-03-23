@@ -75,6 +75,11 @@ data class UserDto(
     val id: Long,
     val name: String,
     val collectiveCode: String?,
+    val friends: List<FriendDto> = emptyList(),
+)
+
+data class FriendDto(
+    val name: String,
 )
 
 data class CreateUserRequest(

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Award, Flame, Star, Target, Trophy, Zap } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { Confetti } from './ui/Confetti';
+import { Sparkles } from './ui/Sparkles';
 import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { api } from '../lib/api';
@@ -34,6 +36,8 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
     },
   });
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [lastLevel, setLastLevel] = useState<number | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const load = async () => {
     const [leaderboardData, achievementData] = await Promise.all([
@@ -55,13 +59,28 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
     return disconnect;
   }, [currentUserName]);
 
+  // Confetti on level up
+  useEffect(() => {
+    const me = leaderboard.players.find((p) => p.name === currentUserName);
+    if (!me) return;
+    if (lastLevel !== null && me.level > lastLevel) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 2500);
+    }
+    setLastLevel(me.level);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaderboard.players, currentUserName]);
+
   const players = leaderboard.players;
   const weeklyStats = leaderboard.weeklyStats;
   const unlockedAchievements = achievements.filter((achievement) => achievement.unlocked);
 
   return (
     <PageStack>
-      <PageHeader
+      <div style={{ position: 'relative' }}>
+        <Sparkles count={22} color="#a5b4fc" size={2.5} style={{ zIndex: 0 }} />
+        <Confetti trigger={showConfetti} />
+        <PageHeader
         icon={Trophy}
         eyebrow="Poeng"
         title="Poengtavle"
@@ -78,7 +97,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
               {weeklyStats.totalTasks}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
             <p className="text-sm text-slate-500">Mest aktiv denne uken</p>
             <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
               {weeklyStats.topContributor || 'Ingen enda'}
@@ -174,7 +193,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
                               <span>{player.xp % 200}/200 XP</span>
                             </div>
                             <Progress
-                              className={isMe ? 'bg-white/20' : undefined}
+                              className={isMe ? 'bg-white' : undefined}
                               value={progressToNextLevel}
                             />
                           </div>
@@ -194,7 +213,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
                 {weeklyStats.avgPerPerson} XP
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
               <p className="text-sm text-slate-500">Antall deltakere</p>
               <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
                 {players.length}
@@ -279,6 +298,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </PageStack>
   );
 }
