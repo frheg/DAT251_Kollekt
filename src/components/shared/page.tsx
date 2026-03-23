@@ -37,23 +37,23 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <Card className={cn('border-slate-200/80 bg-white/92', className)}>
+    <Card className={cn('border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]', className)}>
       <div className="flex flex-col gap-5 p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
               <Icon className="size-5" />
             </div>
             <div className="space-y-1.5">
               {eyebrow && (
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
                   {eyebrow}
                 </p>
               )}
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl">
                 {title}
               </h1>
-              <p className="max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">{description}</p>
+              <p className="max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">{description}</p>
             </div>
           </div>
 
@@ -84,13 +84,13 @@ export function SectionCard({
   contentClassName,
 }: SectionCardProps) {
   return (
-    <Card className={cn('border-slate-200/80 bg-white/92', className)}>
+    <Card className={cn('border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]', className)}>
       <div className="flex flex-col gap-5 p-5 sm:p-6">
         {(title || description || action) && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              {title && <h2 className="text-lg font-semibold tracking-tight text-slate-950">{title}</h2>}
-              {description && <p className="text-sm leading-6 text-slate-600">{description}</p>}
+              {title && <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>}
+              {description && <p className="text-sm leading-6 text-[var(--muted-foreground)]">{description}</p>}
             </div>
             {action && <div className="flex flex-wrap gap-2">{action}</div>}
           </div>
@@ -171,18 +171,15 @@ interface StatusMessageProps {
 }
 
 export function StatusMessage({ tone = 'neutral', children }: StatusMessageProps) {
-  const classes =
-    tone === 'neutral'
-      ? 'border-slate-200 bg-slate-50 text-slate-700'
-      : tone === 'blue'
-        ? 'border-blue-200 bg-blue-50 text-blue-700'
-        : tone === 'emerald'
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : tone === 'amber'
-            ? 'border-amber-200 bg-amber-50 text-amber-700'
-            : tone === 'rose'
-              ? 'border-rose-200 bg-rose-50 text-rose-700'
-              : 'border-slate-200 bg-slate-50 text-slate-700';
+  // Map tones to theme variable classes
+  const toneClasses = {
+    neutral: 'border-border bg-muted text-muted-foreground',
+    blue: 'border-accent bg-accent/20 text-accent-foreground',
+    emerald: 'border-primary bg-primary/10 text-primary',
+    amber: 'border-ring bg-ring/10 text-ring',
+    rose: 'border-destructive bg-destructive/10 text-destructive',
+  };
+  const classes = toneClasses[tone as keyof typeof toneClasses] || toneClasses.neutral;
 
   return (
     <div aria-live="polite" className={cn('rounded-2xl border px-4 py-3 text-sm', classes)}>
@@ -195,7 +192,7 @@ export function SelectField({ className, ...props }: ComponentProps<'select'>) {
   return (
     <select
       className={cn(
-        'flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35',
+        'flex h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground shadow-sm outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35',
         className,
       )}
       {...props}

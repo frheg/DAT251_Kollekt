@@ -20,14 +20,14 @@ const badgeVariants = cva(
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "outline",
     },
   },
 );
 
 function Badge({
   className,
-  variant,
+  variant = "outline",
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> &

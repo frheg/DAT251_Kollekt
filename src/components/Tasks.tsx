@@ -1,3 +1,30 @@
+import { motion } from "framer-motion";
+
+// Animated Task Card with rewarding design
+type TaskCardProps = {
+  task: { id: number; title: string };
+  onComplete: (id: number) => void;
+};
+
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 30 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -30 }}
+    whileHover={{ scale: 1.03, boxShadow: "0 6px 32px #f472b655" }}
+    className="bg-white rounded-2xl p-4 mb-4 shadow transition-all flex items-center justify-between"
+  >
+    <span>{task.title}</span>
+    <motion.button
+      whileTap={{ scale: 0.8, rotate: 20 }}
+      onClick={() => onComplete(task.id)}
+      className="ml-2 text-green-500 text-xl font-bold"
+      aria-label="Complete task"
+    >
+      ✓
+    </motion.button>
+  </motion.div>
+);
 import { useEffect, useState } from 'react';
 import {
   Calendar,
@@ -71,10 +98,10 @@ function TaskRow({ task, onToggle }: TaskRowProps) {
     <div
       className={`rounded-2xl border px-4 py-4 shadow-sm transition ${
         task.completed
-          ? 'border-emerald-200 bg-emerald-50/70'
+          ? 'border-[var(--border)] bg-[var(--muted)]'
           : overdue
             ? 'border-rose-200 bg-rose-50/70'
-            : 'border-slate-200 bg-white'
+            : 'border-[var(--border)] bg-[var(--card)]'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -96,12 +123,12 @@ function TaskRow({ task, onToggle }: TaskRowProps) {
             <div className="space-y-2">
               <p
                 className={`text-base font-medium ${
-                  task.completed ? 'text-slate-500 line-through' : 'text-slate-950'
+                  task.completed ? 'text-[var(--muted-foreground)] line-through' : 'text-[var(--foreground)]'
                 }`}
               >
                 {task.title}
               </p>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
                 <Badge variant="secondary">
                   <User className="size-3" />
                   {task.assignee}
@@ -141,6 +168,8 @@ export function Tasks({ currentUserName }: TasksProps) {
     assignee: currentUserName,
     dueDate: '',
     category: 'OTHER' as TaskCategory,
+    xp: 10,
+    recurring: false,
   });
 
   const load = async () => {
@@ -218,8 +247,8 @@ export function Tasks({ currentUserName }: TasksProps) {
         assignee: taskForm.assignee,
         dueDate: taskForm.dueDate,
         category: taskForm.category,
-        xp: 10,
-        recurring: false,
+        xp: taskForm.xp,
+        recurring: taskForm.recurring,
       });
 
       setTasks((previous) => [...previous, createdTask]);
@@ -228,6 +257,8 @@ export function Tasks({ currentUserName }: TasksProps) {
         assignee: currentUserName,
         dueDate: '',
         category: 'OTHER',
+        xp: 10,
+        recurring: false,
       });
       setTaskError('');
       setIsTaskDialogOpen(false);
@@ -266,7 +297,7 @@ export function Tasks({ currentUserName }: TasksProps) {
                 Ny oppgave
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="bg-white">
               <DialogHeader>
                 <DialogTitle>Legg til oppgave</DialogTitle>
                 <DialogDescription>
@@ -304,6 +335,12 @@ export function Tasks({ currentUserName }: TasksProps) {
                         setTaskForm({ ...taskForm, assignee: event.target.value });
                       }}
                     >
+                      {/* Always include current user as an option */}
+                      {(!members.some((m) => m.name === currentUserName)) && (
+                        <option key="current-user" value={currentUserName}>
+                          {currentUserName}
+                        </option>
+                      )}
                       {members.map((member) => (
                         <option key={member.id} value={member.name}>
                           {member.name}
@@ -345,6 +382,29 @@ export function Tasks({ currentUserName }: TasksProps) {
                   </SelectField>
                 </div>
 
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="task-xp">XP</Label>
+                    <input
+                      id="task-xp"
+                      type="number"
+                      min={0}
+                      className="w-full rounded-md border border-slate-200 px-3 py-2 text-base"
+                      value={taskForm.xp}
+                      onChange={(e) => setTaskForm({ ...taskForm, xp: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mt-7">
+                    <input
+                      id="task-recurring"
+                      type="checkbox"
+                      checked={taskForm.recurring}
+                      onChange={(e) => setTaskForm({ ...taskForm, recurring: e.target.checked })}
+                    />
+                    <Label htmlFor="task-recurring">Gjentakende</Label>
+                  </div>
+                </div>
+
                 {taskError && <StatusMessage tone="rose">{taskError}</StatusMessage>}
 
                 <Button className="w-full" type="submit">
@@ -356,21 +416,39 @@ export function Tasks({ currentUserName }: TasksProps) {
         }
       >
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Dine åpne oppgaver</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+          <div className="rounded-2xl border px-4 py-4 shadow-sm"
+            style={{
+              background: 'var(--card)',
+              borderColor: 'var(--border)',
+              color: 'var(--muted-foreground)'
+            }}
+          >
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Dine åpne oppgaver</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: 'var(--foreground)' }}>
               {myTasks.length}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Fullføringsgrad</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+          <div className="rounded-2xl border px-4 py-4 shadow-sm"
+            style={{
+              background: 'var(--muted)',
+              borderColor: 'var(--border)',
+              color: 'var(--muted-foreground)'
+            }}
+          >
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Fullføringsgrad</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: 'var(--foreground)' }}>
               {completionRate}%
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Handleliste</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+          <div className="rounded-2xl border px-4 py-4 shadow-sm"
+            style={{
+              background: 'var(--card)',
+              borderColor: 'var(--border)',
+              color: 'var(--muted-foreground)'
+            }}
+          >
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Handleliste</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: 'var(--foreground)' }}>
               {pendingShoppingItems.length} igjen
             </p>
           </div>

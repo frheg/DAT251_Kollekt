@@ -35,6 +35,65 @@ class KollektService(
 ) {
     private val joinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
+    // --- User actions ---
+    @Transactional
+    fun resetPassword(
+        memberName: String,
+        newPassword: String,
+    ) {
+        val member =
+            memberRepository.findByName(memberName)
+                ?: throw IllegalArgumentException("User '$memberName' not found")
+        if (newPassword.length < 8) {
+            throw IllegalArgumentException("Password must be at least 8 characters")
+        }
+        val updated = member.copy(passwordHash = passwordEncoder.encode(newPassword))
+        memberRepository.save(updated)
+    }
+
+    @Transactional
+    fun deleteUser(memberName: String) {
+        val member =
+            memberRepository.findByName(memberName)
+                ?: throw IllegalArgumentException("User '$memberName' not found")
+        memberRepository.delete(member)
+    }
+
+    // --- Simple in-memory friend map for demonstration ---
+    // TODO: Replace with persistent storage (e.g., Friend entity/repository)
+    companion object {
+        private val friendsMap = mutableMapOf<String, MutableSet<String>>()
+    }
+
+    @Transactional
+    fun addFriend(
+        memberName: String,
+        friendName: String,
+    ) {
+        if (memberName == friendName) throw IllegalArgumentException("Cannot add yourself as a friend")
+        memberRepository.findByName(memberName)
+            ?: throw IllegalArgumentException("User '$memberName' not found")
+        memberRepository.findByName(friendName)
+            ?: throw IllegalArgumentException("Friend '$friendName' not found")
+        val friends = friendsMap.getOrPut(memberName) { mutableSetOf() }
+        if (!friends.add(friendName)) {
+            throw IllegalArgumentException("'$friendName' is already a friend")
+        }
+    }
+
+    @Transactional
+    fun removeFriend(
+        memberName: String,
+        friendName: String,
+    ) {
+        val friends =
+            friendsMap[memberName]
+                ?: throw IllegalArgumentException("No friends found for '$memberName'")
+        if (!friends.remove(friendName)) {
+            throw IllegalArgumentException("'$friendName' is not a friend")
+        }
+    }
+
     fun getTasks(memberName: String): List<TaskDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
         return taskRepository
@@ -50,11 +109,8 @@ class KollektService(
     ): TaskDto {
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
         val assignee = request.assignee.trim()
-        if (memberRepository.findByNameAndCollectiveCode(assignee, collectiveCode) == null
-        ) {
-            throw IllegalArgumentException(
-                "Assignee '$assignee' is not in your collective",
-            )
+        if (memberRepository.findByNameAndCollectiveCode(assignee, collectiveCode) == null) {
+            throw IllegalArgumentException("Assignee '$assignee' is not in your collective")
         }
         val saved =
             taskRepository.save(
@@ -70,8 +126,15 @@ class KollektService(
             )
         clearDashboardCache()
         clearLeaderboardCache()
-        eventPublisher.taskEvent("TASK_CREATED", saved.toDto())
-        realtimeUpdateService.publish(collectiveCode, "TASK_CREATED", saved.toDto())
+        eventPublisher.taskEvent(
+            "TASK_CREATED",
+            saved.toDto(),
+        )
+        realtimeUpdateService.publish(
+            collectiveCode,
+            "TASK_CREATED",
+            saved.toDto(),
+        )
         return saved.toDto()
     }
 
@@ -84,31 +147,28 @@ class KollektService(
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
         val task =
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
-                ?: throw IllegalArgumentException("Task $taskId not found")
+                ?: throw IllegalArgumentException(
+                    "Task $taskId not found",
+                )
 
         val targetCompleted = completed ?: !task.completed
-        if (task.completed == targetCompleted) {
-            return task.toDto()
-        }
+        if (task.completed == targetCompleted) return task.toDto()
 
         var awardedXp = 0
         val updated =
             if (targetCompleted) {
                 if (!task.xpAwarded) {
                     val member =
-                        memberRepository
-                            .findByNameAndCollectiveCodeForUpdate(
-                                memberName,
-                                collectiveCode,
-                            )
-                            ?: throw IllegalArgumentException(
-                                "User '$memberName' not found in collective",
-                            )
+                        memberRepository.findByNameAndCollectiveCodeForUpdate(memberName, collectiveCode)
+                            ?: throw IllegalArgumentException("User '$memberName' not found in collective")
                     awardedXp = task.xp
                     val updatedXp = member.xp + awardedXp
                     val updatedLevel = updatedXp / 200 + 1
                     memberRepository.save(
-                        member.copy(xp = updatedXp, level = updatedLevel),
+                        member.copy(
+                            xp = updatedXp,
+                            level = updatedLevel,
+                        ),
                     )
                 }
                 taskRepository.save(
@@ -131,7 +191,10 @@ class KollektService(
 
         clearDashboardCache()
         clearLeaderboardCache()
-        eventPublisher.taskEvent("TASK_TOGGLED", updated.toDto())
+        eventPublisher.taskEvent(
+            "TASK_TOGGLED",
+            updated.toDto(),
+        )
         realtimeUpdateService.publish(
             collectiveCode,
             "TASK_UPDATED",
@@ -142,11 +205,7 @@ class KollektService(
             ),
         )
         if (awardedXp > 0) {
-            val updatedMember =
-                memberRepository.findByNameAndCollectiveCode(
-                    memberName,
-                    collectiveCode,
-                )
+            val updatedMember = memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
             realtimeUpdateService.publish(
                 collectiveCode,
                 "XP_UPDATED",
@@ -164,9 +223,7 @@ class KollektService(
 
     fun getShoppingItems(memberName: String): List<ShoppingItemDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return shoppingItemRepository.findAllByCollectiveCode(collectiveCode).map {
-            it.toDto()
-        }
+        return shoppingItemRepository.findAllByCollectiveCode(collectiveCode).map { it.toDto() }
     }
 
     @Transactional
@@ -183,7 +240,10 @@ class KollektService(
                     collectiveCode = collectiveCode,
                 ),
             )
-        eventPublisher.taskEvent("SHOPPING_ITEM_CREATED", saved.toDto())
+        eventPublisher.taskEvent(
+            "SHOPPING_ITEM_CREATED",
+            saved.toDto(),
+        )
         return saved.toDto()
     }
 
@@ -197,7 +257,10 @@ class KollektService(
             shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
                 ?: throw IllegalArgumentException("Shopping item $itemId not found")
         val updated = shoppingItemRepository.save(item.copy(completed = !item.completed))
-        eventPublisher.taskEvent("SHOPPING_ITEM_TOGGLED", updated.toDto())
+        eventPublisher.taskEvent(
+            "SHOPPING_ITEM_TOGGLED",
+            updated.toDto(),
+        )
         return updated.toDto()
     }
 
@@ -211,7 +274,10 @@ class KollektService(
             shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
                 ?: throw IllegalArgumentException("Shopping item $itemId not found")
         shoppingItemRepository.deleteById(item.id)
-        eventPublisher.taskEvent("SHOPPING_ITEM_DELETED", mapOf("id" to itemId))
+        eventPublisher.taskEvent(
+            "SHOPPING_ITEM_DELETED",
+            mapOf("id" to itemId),
+        )
     }
 
     fun getEvents(memberName: String): List<EventDto> {
@@ -242,7 +308,10 @@ class KollektService(
                 ),
             )
         clearDashboardCache()
-        eventPublisher.chatEvent("EVENT_CREATED", saved.toDto())
+        eventPublisher.chatEvent(
+            "EVENT_CREATED",
+            saved.toDto(),
+        )
         return saved.toDto()
     }
 
@@ -269,8 +338,15 @@ class KollektService(
                     timestamp = LocalDateTime.now(),
                 ),
             )
-        eventPublisher.chatEvent("MESSAGE_CREATED", saved.toDto())
-        realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", saved.toDto())
+        eventPublisher.chatEvent(
+            "MESSAGE_CREATED",
+            saved.toDto(),
+        )
+        realtimeUpdateService.publish(
+            collectiveCode,
+            "MESSAGE_CREATED",
+            saved.toDto(),
+        )
         return saved.toDto()
     }
 
@@ -279,16 +355,16 @@ class KollektService(
         val name = request.name.trim()
         val password = request.password.trim()
         if (name.isBlank()) throw IllegalArgumentException("Name is required")
-        if (password.length < 8) {
-            throw IllegalArgumentException("Password must be at least 8 characters")
-        }
+        if (password.length < 8) throw IllegalArgumentException("Password must be at least 8 characters")
         if (memberRepository.findByName(name) != null) {
             throw IllegalArgumentException("User with name '$name' already exists")
         }
-
         val saved =
             memberRepository.save(
-                Member(name = name, passwordHash = passwordEncoder.encode(password)),
+                Member(
+                    name = name,
+                    passwordHash = passwordEncoder.encode(password),
+                ),
             )
         clearDashboardCache()
         clearLeaderboardCache()
@@ -305,9 +381,7 @@ class KollektService(
                 ?: throw IllegalArgumentException("User '$name' not found")
         val hash =
             user.passwordHash
-                ?: throw IllegalArgumentException(
-                    "User '$name' has no password configured",
-                )
+                ?: throw IllegalArgumentException("User '$name' has no password configured")
         if (!passwordEncoder.matches(password, hash)) {
             throw IllegalArgumentException("Invalid name or password")
         }
@@ -325,9 +399,7 @@ class KollektService(
         val refreshResult = tokenService.rotateRefreshToken(request.refreshToken)
         val user =
             memberRepository.findByName(refreshResult.subject)
-                ?: throw IllegalArgumentException(
-                    "User '${refreshResult.subject}' not found",
-                )
+                ?: throw IllegalArgumentException("User '${refreshResult.subject}' not found")
         return toAuthResponse(user)
     }
 
@@ -344,21 +416,14 @@ class KollektService(
     @Transactional
     fun createCollective(request: CreateCollectiveRequest): CollectiveDto {
         val collectiveName = request.name.trim()
-        if (collectiveName.isBlank()) {
-            throw IllegalArgumentException("Collective name is required")
-        }
-
+        if (collectiveName.isBlank()) throw IllegalArgumentException("Collective name is required")
         val owner =
             memberRepository.findById(request.ownerUserId).orElseThrow {
                 IllegalArgumentException("User ${request.ownerUserId} not found")
             }
-
         if (owner.collectiveCode != null) {
-            throw IllegalArgumentException(
-                "User ${owner.id} is already in a collective",
-            )
+            throw IllegalArgumentException("User ${owner.id} is already in a collective")
         }
-
         val joinCode = generateUniqueJoinCode()
         val collective =
             collectiveRepository.save(
@@ -368,7 +433,6 @@ class KollektService(
                     ownerMemberId = owner.id,
                 ),
             )
-
         memberRepository.save(owner.copy(collectiveCode = joinCode))
         clearDashboardCache()
         clearLeaderboardCache()
@@ -379,22 +443,19 @@ class KollektService(
     fun joinCollective(request: JoinCollectiveRequest): UserDto {
         val joinCode = request.joinCode.trim().uppercase()
         if (joinCode.isBlank()) throw IllegalArgumentException("Join code is required")
-
         val collective =
             collectiveRepository.findByJoinCode(joinCode)
-                ?: throw IllegalArgumentException(
-                    "Collective code '$joinCode' not found",
-                )
-
+                ?: throw IllegalArgumentException("Collective code '$joinCode' not found")
         val user =
-            memberRepository.findById(request.userId).orElseThrow {
-                IllegalArgumentException("User ${request.userId} not found")
-            }
-
+            memberRepository.findById(request.userId)
+                .orElseThrow {
+                    IllegalArgumentException(
+                        "User ${request.userId} not found",
+                    )
+                }
         if (user.collectiveCode != null) {
             throw IllegalArgumentException("User ${user.id} is already in a collective")
         }
-
         val updated = memberRepository.save(user.copy(collectiveCode = collective.joinCode))
         clearDashboardCache()
         clearLeaderboardCache()
@@ -442,29 +503,18 @@ class KollektService(
                 .map { it.name }
                 .toSet()
         if (collectiveMembers.isEmpty()) {
-            throw IllegalArgumentException(
-                "Collective '$collectiveCode' has no members",
-            )
+            throw IllegalArgumentException("Collective '$collectiveCode' has no members")
         }
-
         val requestedParticipants =
             request.participantNames
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
                 .toSet()
-        val participants =
-            if (requestedParticipants.isEmpty()) {
-                collectiveMembers
-            } else {
-                requestedParticipants
-            }
+        val participants = if (requestedParticipants.isEmpty()) collectiveMembers else requestedParticipants
         val invalidParticipants = participants - collectiveMembers
         if (invalidParticipants.isNotEmpty()) {
-            throw IllegalArgumentException(
-                "Participants not in collective: ${invalidParticipants.joinToString(", ")}",
-            )
+            throw IllegalArgumentException("Participants not in collective: ${invalidParticipants.joinToString(", ")}")
         }
-
         val saved =
             expenseRepository.save(
                 Expense(
@@ -479,7 +529,10 @@ class KollektService(
             )
         clearDashboardCache()
         clearLeaderboardCache()
-        eventPublisher.economyEvent("EXPENSE_CREATED", saved.toDto())
+        eventPublisher.economyEvent(
+            "EXPENSE_CREATED",
+            saved.toDto(),
+        )
         return saved.toDto()
     }
 
@@ -487,13 +540,11 @@ class KollektService(
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
         val checkpointExpenseId = latestSettledExpenseId(collectiveCode)
         val expenses =
-            expenseRepository.findAllByCollectiveCode(collectiveCode).filter {
-                it.id > checkpointExpenseId
-            }
+            expenseRepository
+                .findAllByCollectiveCode(collectiveCode)
+                .filter { it.id > checkpointExpenseId }
         if (expenses.isEmpty()) return emptyList()
-
-        val members =
-            memberRepository.findAllByCollectiveCode(collectiveCode).map { it.name }
+        val members = memberRepository.findAllByCollectiveCode(collectiveCode).map { it.name }
         return calculateBalances(expenses, members)
     }
 
@@ -503,12 +554,15 @@ class KollektService(
     ): PantSummaryDto {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
         val entries =
-            pantEntryRepository
-                .findAllByCollectiveCode(collectiveCode)
+            pantEntryRepository.findAllByCollectiveCode(collectiveCode)
                 .sortedByDescending { it.date }
                 .map { it.toDto() }
         val current = entries.sumOf { it.amount }
-        return PantSummaryDto(currentAmount = current, goalAmount = goal, entries = entries)
+        return PantSummaryDto(
+            currentAmount = current,
+            goalAmount = goal,
+            entries = entries,
+        )
     }
 
     @Transactional
@@ -527,7 +581,10 @@ class KollektService(
                     date = request.date,
                 ),
             )
-        eventPublisher.economyEvent("PANT_ADDED", saved.toDto())
+        eventPublisher.economyEvent(
+            "PANT_ADDED",
+            saved.toDto(),
+        )
         return saved.toDto()
     }
 
@@ -542,9 +599,7 @@ class KollektService(
     @Transactional
     fun settleUp(memberName: String): SettleUpResponse {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val lastExpenseId =
-            expenseRepository.findTopByCollectiveCodeOrderByIdDesc(collectiveCode)?.id
-                ?: 0L
+        val lastExpenseId = expenseRepository.findTopByCollectiveCodeOrderByIdDesc(collectiveCode)?.id ?: 0L
         val checkpoint =
             settlementCheckpointRepository.save(
                 SettlementCheckpoint(
@@ -595,12 +650,7 @@ class KollektService(
                         streak = (completedCount / 2).coerceAtMost(30),
                         badges =
                             when {
-                                index == 0 ->
-                                    listOf(
-                                        "TOP",
-                                        "STREAK",
-                                        "PRO",
-                                    )
+                                index == 0 -> listOf("TOP", "STREAK", "PRO")
                                 index < 3 -> listOf("STREAK", "PRO")
                                 else -> listOf("PRO")
                             },
@@ -623,7 +673,6 @@ class KollektService(
                         topContributor = top,
                     ),
             )
-
         redisTemplate.opsForValue().set(leaderboardKey, response)
         return response
     }
@@ -639,11 +688,11 @@ class KollektService(
             memberRepository.findByName(memberName)
                 ?: throw IllegalArgumentException("User '$memberName' not found")
         val collectiveCode = requireCollectiveCode(user)
-
         val leaderboard = getLeaderboard(memberName)
         val rank =
-            leaderboard.players.firstOrNull { it.name == user.name }?.rank
-                ?: leaderboard.players.size
+            leaderboard.players
+                .firstOrNull { it.name == user.name }
+                ?.rank ?: leaderboard.players.size
 
         val response =
             DashboardResponse(
@@ -672,7 +721,6 @@ class KollektService(
                         .take(3)
                         .map { it.toDto() },
             )
-
         redisTemplate.opsForValue().set(key, response)
         return response
     }
@@ -687,16 +735,12 @@ class KollektService(
 
     private fun clearDashboardCache() {
         val keys = redisTemplate.keys("dashboard:*")
-        if (!keys.isNullOrEmpty()) {
-            redisTemplate.delete(keys)
-        }
+        if (!keys.isNullOrEmpty()) redisTemplate.delete(keys)
     }
 
     private fun clearLeaderboardCache() {
         val keys = redisTemplate.keys("leaderboard:*")
-        if (!keys.isNullOrEmpty()) {
-            redisTemplate.delete(keys)
-        }
+        if (!keys.isNullOrEmpty()) redisTemplate.delete(keys)
     }
 
     private fun generateUniqueJoinCode(length: Int = 6): String {
@@ -710,7 +754,9 @@ class KollektService(
     private fun requireCollectiveCodeByMemberName(memberName: String): String {
         val member =
             memberRepository.findByName(memberName)
-                ?: throw IllegalArgumentException("User '$memberName' not found")
+                ?: throw IllegalArgumentException(
+                    "User '$memberName' not found",
+                )
         return requireCollectiveCode(member)
     }
 
@@ -722,9 +768,8 @@ class KollektService(
     }
 
     private fun latestSettledExpenseId(collectiveCode: String): Long {
-        return settlementCheckpointRepository.findTopByCollectiveCodeOrderByIdDesc(
-            collectiveCode,
-        )
+        return settlementCheckpointRepository
+            .findTopByCollectiveCodeOrderByIdDesc(collectiveCode)
             ?.lastExpenseId
             ?: 0L
     }
@@ -740,11 +785,7 @@ class KollektService(
         expenses.forEach { expense ->
             val participants =
                 (
-                    if (expense.participantNames.isEmpty()) {
-                        memberSet
-                    } else {
-                        expense.participantNames
-                    }
+                    if (expense.participantNames.isEmpty()) memberSet else expense.participantNames
                 )
                     .intersect(memberSet)
             if (participants.isEmpty()) return@forEach
@@ -754,8 +795,7 @@ class KollektService(
                 perMember[member] = perMember.getValue(member) - split
             }
             perMember[expense.paidBy] =
-                perMember.getOrDefault(expense.paidBy, 0.0) +
-                expense.amount.toDouble()
+                perMember.getOrDefault(expense.paidBy, 0.0) + expense.amount.toDouble()
         }
 
         return perMember
@@ -816,7 +856,12 @@ class KollektService(
 
     private fun ChatMessage.toDto() = MessageDto(id, sender, text, timestamp)
 
-    private fun Member.toUserDto() = UserDto(id, name, collectiveCode)
+    private fun Member.toUserDto(): UserDto {
+        val friends =
+            friendsMap[name]?.map { FriendDto(it) }
+                ?: emptyList()
+        return UserDto(id, name, collectiveCode, friends)
+    }
 
     private fun Collective.toDto() = CollectiveDto(id, name, joinCode)
 

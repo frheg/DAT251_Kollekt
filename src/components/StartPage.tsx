@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Home, KeyRound, LogIn, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
+import { AnimatedButton } from './ui/AnimatedButton';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Label } from './ui/label';
@@ -134,49 +134,48 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
   return (
     <div className="min-h-dvh px-4 py-4 sm:px-6 sm:py-6">
       <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="overflow-hidden border-slate-200/80 bg-slate-900 text-white shadow-xl">
+        <Card className="overflow-hidden border-border bg-card text-foreground shadow-xl">
           <div className="flex h-full flex-col justify-between gap-8 p-6 sm:p-8">
             <div className="space-y-6">
-              <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-white/10">
+              <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-background">
                 <Home className="size-6" />
               </div>
 
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Kollektiv Hub
                 </p>
-                <h1 className="max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">
+                <h1 className="max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl text-foreground">
                   Hold styr på hverdagen uten rot og dobbeltarbeid.
                 </h1>
-                <p className="max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-                  Samle oppgaver, kalender, fellesutgifter og meldinger i ett rolig grensesnitt som fungerer like godt fra mobilen som fra sofaen.
-                </p>
+                <p className="max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
+                  Samle oppgaver, kalender, fellesutgifter og meldinger på ett sted som er enkelt å bruke – enten du er på mobilen eller slapper av på sofaen.                </p>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white">1. Logg inn</p>
-                <p className="mt-1 text-sm text-slate-300">Bruk eksisterende bruker eller opprett en ny på under ett minutt.</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-sm font-medium text-foreground">1. Logg inn</p>
+                <p className="mt-1 text-sm text-muted-foreground">Bruk eksisterende bruker eller opprett en ny på under ett minutt.</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white">2. Samle gjengen</p>
-                <p className="mt-1 text-sm text-slate-300">Opprett kollektiv eller bli med via koden du har fått.</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-sm font-medium text-foreground">2. Samle gjengen</p>
+                <p className="mt-1 text-sm text-muted-foreground">Opprett kollektiv eller bli med via koden du har fått.</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white">3. Kom i gang</p>
-                <p className="mt-1 text-sm text-slate-300">Få oversikt over husarbeid, avtaler og felleskostnader med en gang.</p>
+              <div className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-sm font-medium text-foreground">3. Kom i gang</p>
+                <p className="mt-1 text-sm text-muted-foreground">Få oversikt over husarbeid, avtaler og felleskostnader med en gang.</p>
               </div>
             </div>
           </div>
         </Card>
 
-        <Card className="border-slate-200/80 bg-white/92">
+        <Card className="border-border bg-card">
           <div className="space-y-6 p-6 sm:p-8">
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Start her</p>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Kom inn i kollektivet</h2>
-              <p className="text-sm leading-6 text-slate-600">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Start her</p>
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">Kom inn i kollektivet</h2>
+              <p className="text-sm leading-6 text-muted-foreground">
                 Først logger du inn. Deretter velger du hvilket kollektiv du vil bruke.
               </p>
             </div>
@@ -184,8 +183,8 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
             {!currentUser && (
               <Tabs defaultValue="login" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="login">Logg inn</TabsTrigger>
-                  <TabsTrigger value="create">Ny bruker</TabsTrigger>
+                  <TabsTrigger value="login" className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Logg inn</TabsTrigger>
+                  <TabsTrigger value="create" className="text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Ny bruker</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="login" className="mt-4">
@@ -223,10 +222,10 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                       />
                     </div>
 
-                    <Button className="w-full" type="submit">
+                    <AnimatedButton className="w-full" type="submit">
                       <LogIn className="size-4" />
                       Logg inn
-                    </Button>
+                    </AnimatedButton>
                   </form>
                 </TabsContent>
 
@@ -265,10 +264,10 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                       />
                     </div>
 
-                    <Button className="w-full" type="submit">
+                    <AnimatedButton className="w-full" type="submit">
                       <UserPlus className="size-4" />
                       Opprett bruker
-                    </Button>
+                    </AnimatedButton>
                   </form>
                 </TabsContent>
               </Tabs>
@@ -276,19 +275,19 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
 
             {currentUser && !currentUser.collectiveCode && (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                  <p className="text-sm text-slate-600">Innlogget som</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-950">{currentUser.name}</p>
+                <div className="rounded-2xl border border-border bg-muted p-4 shadow-sm">
+                  <p className="text-sm text-muted-foreground">Innlogget som</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{currentUser.name}</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="rounded-2xl border border-border p-4 shadow-sm">
                   <div className="mb-4 flex items-start gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                    <div className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
                       <Users className="size-5" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-950">Opprett et nytt kollektiv</h3>
-                      <p className="text-sm leading-6 text-slate-600">
+                      <h3 className="font-semibold text-foreground">Opprett et nytt kollektiv</h3>
+                      <p className="text-sm leading-6 text-muted-foreground">
                         Du får en kode som du kan dele med resten av kollektivet.
                       </p>
                     </div>
@@ -314,20 +313,20 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                       />
                     </div>
 
-                    <Button className="w-full" type="submit">
+                    <AnimatedButton className="w-full" type="submit">
                       Opprett kollektiv
-                    </Button>
+                    </AnimatedButton>
                   </form>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="rounded-2xl border border-border p-4 shadow-sm">
                   <div className="mb-4 flex items-start gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                    <div className="flex size-10 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
                       <KeyRound className="size-5" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-950">Bli med med kode</h3>
-                      <p className="text-sm leading-6 text-slate-600">
+                      <h3 className="font-semibold text-foreground">Bli med med kode</h3>
+                      <p className="text-sm leading-6 text-muted-foreground">
                         Har noen allerede opprettet kollektivet? Skriv inn koden her.
                       </p>
                     </div>
@@ -353,10 +352,10 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                       />
                     </div>
 
-                    <Button className="w-full" variant="outline" type="submit">
+                    <AnimatedButton className="w-full" type="submit">
                       <KeyRound className="size-4" />
                       Bli med i kollektiv
-                    </Button>
+                    </AnimatedButton>
                   </form>
                 </div>
               </div>
@@ -364,9 +363,9 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
 
             {currentUser && currentUser.collectiveCode && (
               <div className="space-y-4">
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 shadow-sm">
+                <div className="rounded-2xl border border-primary bg-primary/10 p-4 text-primary-foreground shadow-sm">
                   <div className="flex items-start gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                    <div className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
                       <ShieldCheck className="size-5" />
                     </div>
                     <div className="space-y-1">
@@ -379,9 +378,9 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                   </div>
                 </div>
 
-                <Button className="w-full" onClick={() => onAuthenticated(currentUser)}>
+                <AnimatedButton className="w-full" onClick={() => onAuthenticated(currentUser)}>
                   Gå til oversikten
-                </Button>
+                </AnimatedButton>
               </div>
             )}
 

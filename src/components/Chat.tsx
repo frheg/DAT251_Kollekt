@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
 import { Avatar, AvatarFallback } from './ui/avatar';
-import { Button } from './ui/button';
+import { AnimatedButton } from './ui/AnimatedButton';
 import { Input } from './ui/input';
 import { api } from '../lib/api';
 import { connectCollectiveRealtime } from '../lib/realtime';
 import { formatTime, getAvatarToneClass, getInitials } from '../lib/ui';
 import { EmptyState, PageHeader, PageStack, SectionCard } from './shared/page';
 import type { ChatMessage } from '../lib/types';
+import { Button } from './ui/button';
 
 interface ChatProps {
   currentUserName: string;
@@ -112,9 +113,9 @@ export function Chat({ currentUserName }: ChatProps) {
         title="Felles chat"
         description="Bruk samtalen til raske avklaringer, påminnelser og det som ikke trenger et eget møte."
       >
-        <div className="max-w-sm rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Sist aktiv</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+        <div className="max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--muted)] px-4 py-4 shadow-sm">
+            <p className="text-sm text-[var(--muted-foreground)]">Sist aktiv</p>
+            <p className="mt-2 text-lg font-semibold tracking-tight text-[var(--foreground)]">
               {messages.length > 0
                 ? formatTime(messages[messages.length - 1].timestamp)
                 : 'Ingen meldinger enda'}
@@ -147,7 +148,7 @@ export function Chat({ currentUserName }: ChatProps) {
 
                   <div className={`max-w-[min(34rem,85%)] space-y-1 ${isMe ? 'items-end' : ''}`}>
                     <div
-                      className={`flex items-center gap-2 text-xs text-slate-500 ${
+                      className={`flex items-center gap-2 text-xs text-[var(--muted-foreground)] ${
                         isMe ? 'justify-end' : 'justify-start'
                       }`}
                     >
@@ -158,8 +159,8 @@ export function Chat({ currentUserName }: ChatProps) {
                     <div
                       className={`rounded-2xl px-4 py-3 shadow-sm ${
                         isMe
-                          ? 'rounded-tr-md bg-slate-900 text-white'
-                          : 'rounded-tl-md border border-slate-200 bg-white text-slate-900'
+                          ? 'rounded-tr-md bg-[var(--primary)] text-[var(--primary-foreground)]'
+                          : 'rounded-tl-md border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]'
                       }`}
                     >
                       <p className="whitespace-pre-wrap text-sm leading-6">{message.text}</p>
@@ -189,8 +190,9 @@ export function Chat({ currentUserName }: ChatProps) {
             placeholder="Skriv en melding"
             value={newMessage}
             onChange={(event) => setNewMessage(event.target.value)}
+            className="bg-[var(--input-background)] border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
           />
-          <Button className="sm:w-auto" type="submit">
+          <Button variant="outline" className="sm:w-auto bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]" type="submit">
             <Send className="size-4" />
             Send
           </Button>

@@ -9,7 +9,8 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { Button } from './ui/button';
+import { AnimatedButton } from './ui/AnimatedButton';
+import { motion } from 'framer-motion';
 import { Checkbox } from './ui/checkbox';
 import {
   Dialog,
@@ -33,6 +34,7 @@ import {
   StatusMessage,
 } from './shared/page';
 import type { AppUser, EconomySummary, Expense, PantEntry, SettleUpResponse } from '../lib/types';
+import { Button } from './ui/button';
 
 interface EconomyProps {
   currentUserName: string;
@@ -197,12 +199,12 @@ export function Economy({ currentUserName }: EconomyProps) {
         action={
           <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <AnimatedButton>
                 <Plus className="size-4" />
                 Legg til kjøp
-              </Button>
+              </AnimatedButton>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="bg-white">
               <DialogHeader>
                 <DialogTitle>Registrer et kjøp</DialogTitle>
                 <DialogDescription>
@@ -210,8 +212,11 @@ export function Economy({ currentUserName }: EconomyProps) {
                 </DialogDescription>
               </DialogHeader>
 
-              <form
+              <motion.form
                 className="space-y-4"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 22 }}
                 onSubmit={(event) => {
                   event.preventDefault();
                   void addExpense();
@@ -258,14 +263,16 @@ export function Economy({ currentUserName }: EconomyProps) {
 
                 <div className="space-y-2">
                   <Label>Deles mellom</Label>
-                  <div className="max-h-44 space-y-2 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="max-h-44 space-y-2 overflow-auto rounded-2xl border border-slate-200 bg-white p-3">
                     {collectiveMembers.map((member) => {
                       const checked = selectedParticipants.includes(member.name);
 
                       return (
-                        <label
+                        <motion.label
                           key={member.id}
-                          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm shadow-sm"
+                          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm shadow-sm hover:scale-[1.03] transition-transform"
+                          whileHover={{ scale: 1.03, backgroundColor: '#f3e8ff' }}
+                          whileTap={{ scale: 0.98 }}
                         >
                           <span className="flex items-center gap-2">
                             <Checkbox
@@ -279,7 +286,7 @@ export function Economy({ currentUserName }: EconomyProps) {
                           <span className={checked ? 'text-emerald-600' : 'text-slate-400'}>
                             {checked ? 'Med' : 'Utenfor'}
                           </span>
-                        </label>
+                        </motion.label>
                       );
                     })}
                   </div>
@@ -287,33 +294,46 @@ export function Economy({ currentUserName }: EconomyProps) {
 
                 {expenseError && <StatusMessage tone="rose">{expenseError}</StatusMessage>}
 
-                <Button className="w-full" type="submit">
+                <AnimatedButton className="w-full" type="submit">
                   Lagre kjøp
-                </Button>
-              </form>
+                </AnimatedButton>
+              </motion.form>
             </DialogContent>
           </Dialog>
         }
-      >
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white shadow-sm">
-            <p className="text-sm text-slate-300">Din saldo</p>
+      />
+        <motion.div
+          className="grid gap-3 sm:grid-cols-3"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 20 }}
+        >
+          <motion.div
+            className="rounded-2xl bg-slate-900 px-4 py-4 text-white shadow-xl"
+            whileHover={{ scale: 1.03, boxShadow: '0 4px 32px #a5b4fc55' }}
+          >
+            <p className="text-sm text-indigo-100">Din saldo</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight">{formatAmount(myBalance)}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          </motion.div>
+          <motion.div
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
+            whileHover={{ scale: 1.03, boxShadow: '0 4px 24px #fbbf24aa' }}
+          >
             <p className="text-sm text-slate-500">Du har lagt ut</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
               {formatAmount(myContributions)}
             </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+          </motion.div>
+          <motion.div
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm"
+            whileHover={{ scale: 1.03, boxShadow: '0 4px 24px #f472b6aa' }}
+          >
             <p className="text-sm text-slate-500">Din andel</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
               {formatAmount(myShare)}
             </p>
-          </div>
-        </div>
-      </PageHeader>
+          </motion.div>
+        </motion.div>
 
       <Tabs defaultValue="expenses" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
@@ -375,22 +395,22 @@ export function Economy({ currentUserName }: EconomyProps) {
                   return (
                     <div
                       key={expense.id}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
+                      className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-4 shadow-sm"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-slate-950">{expense.description}</p>
-                            <Badge variant="outline">{expense.category}</Badge>
+                            <p className="font-medium text-[var(--foreground)]">{expense.description}</p>
+                            <Badge variant="outline" className="text-[var(--muted-foreground)] border-[var(--border)]">{expense.category}</Badge>
                           </div>
-                          <p className="text-sm text-slate-600">
+                          <p className="text-sm text-[var(--muted-foreground)]">
                             Betalt av {expense.paidBy} · {formatShortDate(expense.date)}
                           </p>
-                          <p className="text-sm text-slate-500">
+                          <p className="text-sm text-[var(--muted-foreground)]">
                             Delt på {participantCount} personer · {formatAmount(perPerson)} per person
                           </p>
                         </div>
-                        <p className="text-lg font-semibold tracking-tight text-slate-950">
+                        <p className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
                           {formatAmount(expense.amount)}
                         </p>
                       </div>
@@ -407,9 +427,9 @@ export function Economy({ currentUserName }: EconomyProps) {
             title="Saldooversikt"
             description="Positive tall betyr at du skal ha penger tilbake. Negative tall betyr at du skylder."
             action={
-              <Button variant="outline" onClick={() => void settleUp()}>
+              <AnimatedButton onClick={() => void settleUp()}>
                 Gjør opp nå
-              </Button>
+              </AnimatedButton>
             }
           >
             {settleInfo && <StatusMessage tone="blue">{settleInfo}</StatusMessage>}
@@ -517,7 +537,7 @@ export function Economy({ currentUserName }: EconomyProps) {
               </div>
 
               <div className="flex items-end">
-                <Button className="w-full sm:w-auto" type="submit">
+                <Button variant="outline" className="w-full" type="submit">
                   <Plus className="size-4" />
                   Registrer
                 </Button>
