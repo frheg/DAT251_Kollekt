@@ -49,9 +49,9 @@ jobs:
       - name: Test
         run: ./gradlew test --no-daemon
 
-  docker-publish:
-    name: Publish Docker images
-    needs: [frontend-build, backend-build]
+  frontend-docker-publish:
+    name: Publish frontend Docker image
+    needs: frontend-build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -70,6 +70,21 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/kollekt-frontend:latest
+
+  backend-docker-publish:
+    name: Publish backend Docker image
+    needs: backend-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build & push backend image
         uses: docker/build-push-action@v6
