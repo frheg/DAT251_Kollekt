@@ -53,7 +53,6 @@ import java.time.LocalTime
 
 @ExtendWith(MockitoExtension::class)
 class KollektServiceTest {
-
     @Mock
     lateinit var invitationRepository: InvitationRepository
 
@@ -113,25 +112,26 @@ class KollektServiceTest {
         valueOps = mock()
         lenient().`when`(redisTemplate.opsForValue()).thenReturn(valueOps)
 
-        service = KollektService(
-            memberRepository,
-            collectiveRepository,
-            taskRepository,
-            shoppingItemRepository,
-            eventRepository,
-            chatMessageRepository,
-            expenseRepository,
-            settlementCheckpointRepository,
-            pantEntryRepository,
-            achievementRepository,
-            redisTemplate,
-            eventPublisher,
-            realtimeUpdateService,
-            passwordEncoder,
-            tokenService,
-            invitationRepository,
-            roomRepository,
-        )
+        service =
+            KollektService(
+                memberRepository,
+                collectiveRepository,
+                taskRepository,
+                shoppingItemRepository,
+                eventRepository,
+                chatMessageRepository,
+                expenseRepository,
+                settlementCheckpointRepository,
+                pantEntryRepository,
+                achievementRepository,
+                redisTemplate,
+                eventPublisher,
+                realtimeUpdateService,
+                passwordEncoder,
+                tokenService,
+                invitationRepository,
+                roomRepository,
+            )
     }
 
     @Test
@@ -281,17 +281,18 @@ class KollektServiceTest {
             expenseCaptor.firstValue.copy(id = 1)
         }
 
-        val result = service.createExpense(
-            CreateExpenseRequest(
-                description = "Pizza",
-                amount = 200,
-                paidBy = "Kasper",
-                category = "Mat",
-                date = LocalDate.parse("2026-03-01"),
-                participantNames = emptyList(),
-            ),
-            "Kasper",
-        )
+        val result =
+            service.createExpense(
+                CreateExpenseRequest(
+                    description = "Pizza",
+                    amount = 200,
+                    paidBy = "Kasper",
+                    category = "Mat",
+                    date = LocalDate.parse("2026-03-01"),
+                    participantNames = emptyList(),
+                ),
+                "Kasper",
+            )
 
         assertEquals(setOf("Kasper", "Emma"), expenseCaptor.firstValue.participantNames)
         assertEquals(listOf("Emma", "Kasper"), result.participantNames)
@@ -473,15 +474,17 @@ class KollektServiceTest {
     fun `getLeaderboard returns collective scoped cached value`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
 
-        val cached = LeaderboardResponse(
-            players = emptyList(),
-            weeklyStats = WeeklyStatsDto(
-                totalTasks = 0,
-                totalXp = 0,
-                avgPerPerson = 0,
-                topContributor = "N/A",
-            ),
-        )
+        val cached =
+            LeaderboardResponse(
+                players = emptyList(),
+                weeklyStats =
+                    WeeklyStatsDto(
+                        totalTasks = 0,
+                        totalXp = 0,
+                        avgPerPerson = 0,
+                        topContributor = "N/A",
+                    ),
+            )
 
         whenever(valueOps.get("leaderboard:ABC123")).thenReturn(cached)
 
@@ -494,15 +497,16 @@ class KollektServiceTest {
 
     @Test
     fun `getDashboard returns cached value`() {
-        val cached = DashboardResponse(
-            currentUserName = "Kasper",
-            currentUserXp = 1,
-            currentUserLevel = 1,
-            currentUserRank = 1,
-            upcomingTasks = emptyList(),
-            upcomingEvents = emptyList(),
-            recentExpenses = emptyList(),
-        )
+        val cached =
+            DashboardResponse(
+                currentUserName = "Kasper",
+                currentUserXp = 1,
+                currentUserLevel = 1,
+                currentUserRank = 1,
+                upcomingTasks = emptyList(),
+                upcomingEvents = emptyList(),
+                recentExpenses = emptyList(),
+            )
 
         whenever(valueOps.get("dashboard:Kasper")).thenReturn(cached)
 
