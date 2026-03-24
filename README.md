@@ -31,9 +31,10 @@ Dette starter:
 
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8080/api`
-- PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
 - Kafka: `localhost:9092`
+
+Database kjøres ikke lokalt i Compose. Backend kobler til Supabase via verdiene i `./.env`.
 
 ### 2) Kjør frontend lokalt uten container
 
@@ -47,8 +48,13 @@ npm run dev
 
 ```bash
 cd backend
-gradle bootRun
+set -a
+source ../.env
+set +a
+./gradlew bootRun
 ```
+
+Hvis direktekoblingen mot Supabase feiler lokalt eller i Docker, bruk pooler-connection string fra Supabase-dashboardet i stedet for `db.<project-ref>.supabase.co`.
 
 ## Viktige API-endepunkter
 
