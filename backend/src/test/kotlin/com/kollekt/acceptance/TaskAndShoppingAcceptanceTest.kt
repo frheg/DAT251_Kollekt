@@ -62,12 +62,12 @@ class TaskAndShoppingAcceptanceTest {
         val collectiveCode = "TEST-COLLECTIVE"
         if (memberRepository.findByName("Kasper") == null) {
             memberRepository.saveAndFlush(
-                Member(name = "Kasper", level = 1, xp = 0, collectiveCode = collectiveCode),
+                Member(name = "Kasper", email = "kasper@example.com", level = 1, xp = 0, collectiveCode = collectiveCode),
             )
         }
         if (memberRepository.findByName("Emma") == null) {
             memberRepository.saveAndFlush(
-                Member(name = "Emma", level = 1, xp = 0, collectiveCode = collectiveCode),
+                Member(name = "Emma", email = "emma@example.com", level = 1, xp = 0, collectiveCode = collectiveCode),
             )
         }
     }

@@ -56,7 +56,7 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `onboarding create user uses api onboarding users endpoint`() {
-        val request = CreateUserRequest(name = "Kasper", password = "verysecure")
+        val request = CreateUserRequest(name = "Kasper", email = "kasper@example.com", password = "verysecure")
         whenever(service.createUser(request))
             .thenReturn(
                 AuthResponse(
@@ -78,7 +78,7 @@ class ControllerEndpointContractTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .with(csrf())
                 .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"name":"Kasper","password":"verysecure"}"""),
+                .content("""{"name":"Kasper","email":"kasper@example.com","password":"verysecure"}"""),
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.user.name").value("Kasper"))

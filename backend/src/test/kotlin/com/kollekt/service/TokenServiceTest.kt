@@ -41,7 +41,7 @@ class TokenServiceTest {
     private val tokenValiditySeconds = 3600L
     private val refreshTokenValiditySeconds = 1209600L
 
-    private val member = Member(id = 1L, name = "Kasper", level = 1, xp = 0)
+    private val member = Member(id = 1L, name = "Kasper", email = "kasper@example.com", level = 1, xp = 0)
 
     /** Returns a fake signed Jwt that mirrors the claims set passed to the encoder. */
     private fun stubEncoder() {
