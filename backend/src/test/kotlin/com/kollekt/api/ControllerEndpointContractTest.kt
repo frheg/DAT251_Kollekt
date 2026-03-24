@@ -88,7 +88,7 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `task toggle uses api tasks toggle endpoint and values`() {
-        whenever(service.toggleTask(42, "Kasper", true))
+        whenever(service.toggleTask(42, "Kasper"))
             .thenReturn(
                 TaskDto(
                     id = 42,
@@ -112,7 +112,7 @@ class ControllerEndpointContractTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(42))
 
-        verify(service).toggleTask(42, "Kasper", true)
+        verify(service).toggleTask(42, "Kasper")
     }
 
     @Test

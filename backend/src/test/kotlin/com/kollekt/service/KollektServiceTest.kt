@@ -195,7 +195,7 @@ class KollektServiceTest {
         doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
         doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
 
-        val result = service.toggleTask(11, "Kasper", true)
+        val result = service.toggleTask(11, "Kasper")
 
         assertTrue(result.completed)
         val memberCaptor = argumentCaptor<Member>()
@@ -222,7 +222,7 @@ class KollektServiceTest {
                 ),
             )
 
-        val result = service.toggleTask(11, "Kasper", true)
+        val result = service.toggleTask(11, "Kasper")
 
         assertTrue(result.completed)
         verify(memberRepository, never()).findByNameAndCollectiveCodeForUpdate(any(), any())
