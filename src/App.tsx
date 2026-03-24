@@ -19,6 +19,7 @@ import { DrinkingGame } from './components/DrinkingGame';
 import { StartPage } from './components/StartPage';
 import { Button } from './components/ui/button';
 import { UserMenu } from './components/UserMenu';
+import { Notifications } from './components/Notifications';
 import { logoutSession, API_BASE, getAccessToken } from './lib/api';
 import { APP_VIEWS, type AppView } from './lib/app';
 import type { AppUser } from './lib/types';
@@ -31,6 +32,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from './components/ui/dialog';
+import { Profile } from './components/Profile';
 
 const VIEW_HASH_PREFIX = '#';
 
@@ -135,32 +137,32 @@ function ChangeCollectiveForm({
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus('loading');
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/collectives/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAccessToken()}`,
-        },
-        body: JSON.stringify({ memberName: currentUser.name, collectiveCode }),
-      });
-      if (!res.ok) throw new Error((await res.json())?.message || 'Kunne ikke bytte kollektiv');
-      setStatus('success');
-      setCollectiveCode('');
-      setTimeout(() => {
-        setStatus('idle');
-        onSuccess();
-        window.location.reload();
-      }, 1000);
-    } catch (err: any) {
-      setStatus('error');
-      setError(err.message || 'Noe gikk galt');
-    }
-  };
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setStatus('loading');
+      setError('');
+      try {
+        const res = await fetch(`${API_BASE}/onboarding/collectives/join`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${getAccessToken()}`,
+          },
+          body: JSON.stringify({ userId: currentUser.id, joinCode: collectiveCode.trim().toUpperCase() }),
+        });
+        if (!res.ok) throw new Error((await res.json())?.message || 'Kunne ikke bytte kollektiv');
+        setStatus('success');
+        setCollectiveCode('');
+        setTimeout(() => {
+          setStatus('idle');
+          onSuccess();
+          window.location.reload();
+        }, 1000);
+      } catch (err: any) {
+        setStatus('error');
+        setError(err.message || 'Noe gikk galt');
+      }
+    };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
@@ -196,7 +198,7 @@ function AddFriendForm({
   currentUser: AppUser;
   onSuccess: () => void;
 }) {
-  const [friendName, setFriendName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
 
@@ -206,19 +208,19 @@ function AddFriendForm({
     setError('');
     try {
       const res = await fetch(
-        `${API_BASE}/members/friends/add?memberName=${encodeURIComponent(currentUser.name)}`,
+        `${API_BASE}/members/invite`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${getAccessToken()}`,
           },
-          body: JSON.stringify({ friendName }),
+          body: JSON.stringify({ email: inviteEmail, collectiveCode: currentUser.collectiveCode }),
         }
       );
-      if (!res.ok) throw new Error((await res.json())?.message || 'Kunne ikke legge til venn');
+      if (!res.ok) throw new Error((await res.json())?.message || 'Kunne ikke sende invitasjon');
       setStatus('success');
-      setFriendName('');
+      setInviteEmail('');
       setTimeout(() => {
         setStatus('idle');
         onSuccess();
@@ -231,15 +233,15 @@ function AddFriendForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-      <label className="block text-sm font-medium text-slate-700" htmlFor="friendName">
-        Navn på venn
+      <label className="block text-sm font-medium text-slate-700" htmlFor="inviteEmail">
+        E-post til den du vil invitere
       </label>
       <input
-        id="friendName"
-        type="text"
+        id="inviteEmail"
+        type="email"
         className="w-full rounded-md border border-slate-200 px-3 py-2 text-base"
-        value={friendName}
-        onChange={(e) => setFriendName(e.target.value)}
+        value={inviteEmail}
+        onChange={(e) => setInviteEmail(e.target.value)}
         required
         disabled={status === 'loading'}
       />
@@ -247,23 +249,18 @@ function AddFriendForm({
         type="submit"
         className="w-full"
         variant="default"
-        disabled={status === 'loading' || !friendName.trim()}
+        disabled={status === 'loading' || !inviteEmail.trim()}
       >
-        {status === 'loading' ? 'Legger til...' : 'Legg til venn'}
+        {status === 'loading' ? 'Sender...' : 'Send invitasjon'}
       </Button>
-      {status === 'success' && <div className="text-green-600 text-sm">Venn lagt til!</div>}
+      {status === 'success' && <div className="text-green-600 text-sm">Invitasjon sendt!</div>}
       {status === 'error' && <div className="text-rose-600 text-sm">{error}</div>}
     </form>
   );
 }
 
-function ResetPasswordForm({
-  currentUser,
-  onSuccess,
-}: {
-  currentUser: AppUser;
-  onSuccess: () => void;
-}) {
+function ResetPasswordForm({ onSuccess }: { onSuccess: () => void }) {
+  const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
@@ -274,12 +271,11 @@ function ResetPasswordForm({
     setError('');
     try {
       const res = await fetch(
-        `${API_BASE}/members/reset-password?memberName=${encodeURIComponent(currentUser.name)}`,
+        `${API_BASE}/members/reset-password?email=${encodeURIComponent(email)}`,
         {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAccessToken()}`,
           },
           body: JSON.stringify({ newPassword }),
         }
@@ -296,9 +292,20 @@ function ResetPasswordForm({
       setError(err.message || 'Noe gikk galt');
     }
   };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      <label className="block text-sm font-medium text-slate-700" htmlFor="resetEmail">
+        E-post
+      </label>
+      <input
+        id="resetEmail"
+        type="email"
+        className="w-full rounded-md border border-slate-200 px-3 py-2 text-base"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        required
+        disabled={status === 'loading'}
+      />
       <label className="block text-sm font-medium text-slate-700" htmlFor="newPassword">
         Nytt passord
       </label>
@@ -307,7 +314,7 @@ function ResetPasswordForm({
         type="password"
         className="w-full rounded-md border border-slate-200 px-3 py-2 text-base"
         value={newPassword}
-        onChange={(e) => setNewPassword(e.target.value)}
+        onChange={e => setNewPassword(e.target.value)}
         required
         minLength={6}
         disabled={status === 'loading'}
@@ -315,9 +322,9 @@ function ResetPasswordForm({
       <button
         type="submit"
         className="w-full rounded-lg bg-indigo-600 py-2 font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-        disabled={status === 'loading' || !newPassword.trim()}
+        disabled={status === 'loading' || !email.trim() || !newPassword.trim()}
       >
-        {status === 'loading' ? 'Bytter...' : 'Bytt passord'}
+        Endre passord
       </button>
       {status === 'success' && <div className="text-green-600 text-sm">Passord endret!</div>}
       {status === 'error' && <div className="text-rose-600 text-sm">{error}</div>}
@@ -471,12 +478,11 @@ export default function App() {
             <DialogTitle>Min profil</DialogTitle>
             <DialogDescription>Se og rediger din profilinformasjon.</DialogDescription>
           </DialogHeader>
-          <ProfileForm
-            currentUser={currentUser}
-            onUpdate={(user) => {
-              setCurrentUser(user);
-              setShowProfile(false);
-            }}
+          <Profile
+            user={currentUser}
+            onStatusChange={status =>
+              setCurrentUser(user => user ? { ...user, status: status as AppUser['status'] } : user)
+            }
           />
         </DialogContent>
       </Dialog>
@@ -516,7 +522,6 @@ export default function App() {
             <DialogDescription>Her kan du endre passordet ditt.</DialogDescription>
           </DialogHeader>
           <ResetPasswordForm
-            currentUser={currentUser}
             onSuccess={() => setShowResetPassword(false)}
           />
         </DialogContent>
@@ -561,6 +566,7 @@ export default function App() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
+              <Notifications currentUser={currentUser} />
               <UserMenu
                 user={{ name: currentUser.name, avatarUrl: undefined }}
                 onAction={(action) => {

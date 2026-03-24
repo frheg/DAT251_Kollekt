@@ -84,6 +84,7 @@ data class FriendDto(
 
 data class CreateUserRequest(
     val name: String,
+    val email: String,
     val password: String,
 )
 
@@ -117,6 +118,14 @@ data class CollectiveDto(
 data class CreateCollectiveRequest(
     val name: String,
     val ownerUserId: Long,
+    val numRooms: Int,
+    val residents: List<String>,
+    val rooms: List<RoomRequest>,
+)
+
+data class RoomRequest(
+    val name: String,
+    val minutes: Int,
 )
 
 data class JoinCollectiveRequest(
