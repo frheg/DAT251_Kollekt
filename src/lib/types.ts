@@ -131,7 +131,9 @@ export interface DrinkingQuestion {
 export interface AppUser {
   id: number;
   name: string;
-  collectiveCode?: string | null;
+  email: string;
+  collectiveCode: string;
+  status: 'ACTIVE' | 'AWAY' | 'LEFT';
 }
 
 export interface AuthResponse {

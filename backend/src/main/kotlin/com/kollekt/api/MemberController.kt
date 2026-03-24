@@ -17,6 +17,34 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/members")
 class MemberController(private val service: KollektService) {
+    data class InviteRequest(val email: String, val collectiveCode: String)
+
+    data class StatusUpdateRequest(val memberName: String, val status: String)
+
+    @PostMapping("/invite")
+    fun inviteUser(
+        @RequestBody req: InviteRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) {
+        // Only allow inviting if the user is in the collective
+        service.inviteUserToCollective(req.email, req.collectiveCode, jwt.subject)
+    }
+
+    @PatchMapping("/status")
+    fun updateStatus(
+        @RequestBody req: StatusUpdateRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) {
+        requireTokenSubject(jwt, req.memberName)
+        val newStatus =
+            try {
+                com.kollekt.domain.MemberStatus.valueOf(req.status.uppercase())
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Invalid status")
+            }
+        service.updateMemberStatus(req.memberName, newStatus)
+    }
+
     @GetMapping("/collective")
     fun getCollectiveMembers(
         @RequestParam memberName: String,
@@ -28,13 +56,15 @@ class MemberController(private val service: KollektService) {
 
     @PatchMapping("/reset-password")
     fun resetPassword(
-        @RequestParam memberName: String,
+        @RequestParam(required = false) memberName: String?,
+        @RequestParam(required = false) email: String?,
         @RequestBody body: Map<String, String>,
-        @AuthenticationPrincipal jwt: Jwt,
     ) {
-        requireTokenSubject(jwt, memberName)
         val newPassword = body["newPassword"] ?: throw IllegalArgumentException("Missing newPassword")
-        service.resetPassword(memberName, newPassword)
+        if ((memberName.isNullOrBlank() && email.isNullOrBlank()) || newPassword.isBlank()) {
+            throw IllegalArgumentException("Provide either memberName or email and a newPassword")
+        }
+        service.resetPassword(memberName, email, newPassword)
     }
 
     @DeleteMapping("/delete")

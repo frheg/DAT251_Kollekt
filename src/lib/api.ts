@@ -156,9 +156,23 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...authHeader, ...(init?.headers || {}) },
+    // Merge headers safely
+    let mergedHeaders: Record<string, any> = {
+      'Content-Type': 'application/json',
+      ...(authHeader || {}),
+    };
+    if (init && init.headers) {
+      if (typeof init.headers === 'object' && !(init.headers instanceof Headers)) {
+        mergedHeaders = { ...mergedHeaders, ...init.headers };
+      } else if (init.headers instanceof Headers) {
+        init.headers.forEach((value, key) => {
+          mergedHeaders[key] = value;
+        });
+      } // If it's a string, ignore (rare, not recommended)
+    }
+    response = await fetch(`${API_BASE}${path}` , {
       ...init,
+      headers: mergedHeaders,
     });
   } catch (error) {
     throw new Error(getUserMessage(error, 'Kunne ikke koble til akkurat nå. Prøv igjen om litt.'));
@@ -196,6 +210,6 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
+  request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: (path: string) => request<void>(path, { method: 'DELETE' }),
 };

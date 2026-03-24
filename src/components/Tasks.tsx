@@ -38,6 +38,7 @@ import {
   User,
 } from 'lucide-react';
 import { Button } from './ui/button';
+import { useRef } from 'react';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -87,9 +88,11 @@ const categoryConfig: Record<
 interface TaskRowProps {
   task: Task;
   onToggle: (id: number) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
 }
 
-function TaskRow({ task, onToggle }: TaskRowProps) {
+function TaskRow({ task, onToggle, onEdit, onDelete }: TaskRowProps) {
   const category = categoryConfig[task.category] ?? categoryConfig.OTHER;
   const CategoryIcon = category.icon;
   const overdue = !task.completed && isOverdueDate(task.dueDate);
@@ -148,6 +151,12 @@ function TaskRow({ task, onToggle }: TaskRowProps) {
             <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
               <span>{formatShortDate(task.dueDate)}</span>
               <Badge className="bg-slate-900 text-white">+{task.xp} XP</Badge>
+                <Button size="icon" variant="ghost" aria-label="Rediger oppgave" onClick={() => onEdit(task)}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4.243 1.414 1.414-4.243a4 4 0 01.828-1.414z"></path></svg>
+                </Button>
+                <Button size="icon" variant="ghost" aria-label="Slett oppgave" onClick={() => onDelete(task)}>
+                  <Trash2 className="size-4 text-rose-600" />
+                </Button>
             </div>
           </div>
         </div>
@@ -171,6 +180,50 @@ export function Tasks({ currentUserName }: TasksProps) {
     xp: 10,
     recurring: false,
   });
+  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deleteTask, setDeleteTask] = useState<Task | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const handleEditTask = (task: Task) => {
+    setEditTask(task);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteTask = (task: Task) => {
+    setDeleteTask(task);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const submitEditTask = async (updated: Partial<Task>) => {
+    if (!editTask) return;
+    try {
+      const patch: any = {};
+      if (updated.title !== undefined) patch.title = updated.title;
+      if (updated.assignee !== undefined) patch.assignee = updated.assignee;
+      if (updated.dueDate !== undefined) patch.dueDate = updated.dueDate;
+      if (updated.category !== undefined) patch.category = updated.category;
+      if (updated.xp !== undefined) patch.xp = updated.xp;
+      if (updated.recurring !== undefined) patch.recurring = updated.recurring;
+      const result = await api.patch<Task>(`/tasks/${editTask.id}?memberName=${encodeURIComponent(currentUserName)}`, patch);
+      setTasks((prev) => prev.map((t) => (t.id === result.id ? result : t)));
+      setIsEditDialogOpen(false);
+      setEditTask(null);
+    } catch (error) {
+      setTaskError(getUserMessage(error, 'Kunne ikke oppdatere oppgaven.'));
+    }
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!deleteTask) return;
+    try {
+      await api.delete(`/tasks/${deleteTask.id}?memberName=${encodeURIComponent(currentUserName)}`);
+      setTasks((prev) => prev.filter((t) => t.id !== deleteTask.id));
+      setIsDeleteDialogOpen(false);
+      setDeleteTask(null);
+    } catch (error) {
+      setTaskError(getUserMessage(error, 'Kunne ikke slette oppgaven.'));
+    }
+  };
 
   const load = async () => {
     const [taskData, shoppingData, collectiveMembers] = await Promise.all([
@@ -476,7 +529,13 @@ export function Tasks({ currentUserName }: TasksProps) {
             ) : (
               <div className="space-y-3">
                 {activeTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onToggle={toggleTask}
+                    onEdit={handleEditTask}
+                    onDelete={handleDeleteTask}
+                  />
                 ))}
               </div>
             )}
@@ -489,11 +548,124 @@ export function Tasks({ currentUserName }: TasksProps) {
             >
               <div className="space-y-3">
                 {completedTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onToggle={toggleTask}
+                    onEdit={handleEditTask}
+                    onDelete={handleDeleteTask}
+                  />
                 ))}
               </div>
             </SectionCard>
           )}
+
+          {/* Edit Task Dialog - always rendered at top level */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="bg-white">
+              <DialogHeader>
+                <DialogTitle>Rediger oppgave</DialogTitle>
+              </DialogHeader>
+              {editTask && (
+                <form
+                  className="space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void submitEditTask(editTask);
+                  }}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-task-title">Tittel</Label>
+                    <Input
+                      id="edit-task-title"
+                      value={editTask.title}
+                      onChange={(e) => setEditTask({ ...editTask, title: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-task-assignee">Ansvarlig</Label>
+                      <SelectField
+                        id="edit-task-assignee"
+                        value={editTask.assignee}
+                        onChange={(e) => setEditTask({ ...editTask, assignee: e.target.value })}
+                      >
+                        {members.map((member) => (
+                          <option key={member.id} value={member.name}>
+                            {member.name}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-task-date">Frist</Label>
+                      <Input
+                        id="edit-task-date"
+                        type="date"
+                        value={editTask.dueDate}
+                        onChange={(e) => setEditTask({ ...editTask, dueDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-task-category">Kategori</Label>
+                    <SelectField
+                      id="edit-task-category"
+                      value={editTask.category}
+                      onChange={(e) => setEditTask({ ...editTask, category: e.target.value as TaskCategory })}
+                    >
+                      <option value="OTHER">Annet</option>
+                      <option value="CLEANING">Vasking</option>
+                      <option value="SHOPPING">Handling</option>
+                    </SelectField>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-task-xp">XP</Label>
+                      <input
+                        id="edit-task-xp"
+                        type="number"
+                        min={0}
+                        className="w-full rounded-md border border-slate-200 px-3 py-2 text-base"
+                        value={editTask.xp}
+                        onChange={(e) => setEditTask({ ...editTask, xp: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-7">
+                      <input
+                        id="edit-task-recurring"
+                        type="checkbox"
+                        checked={editTask.recurring}
+                        onChange={(e) => setEditTask({ ...editTask, recurring: e.target.checked })}
+                      />
+                      <Label htmlFor="edit-task-recurring">Gjentakende</Label>
+                    </div>
+                  </div>
+                  <Button className="w-full" type="submit">
+                    Lagre endringer
+                  </Button>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Task Dialog - always rendered at top level */}
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent className="bg-white">
+              <DialogHeader>
+                <DialogTitle>Slett oppgave</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">Er du sikker på at du vil slette denne oppgaven? Dette kan ikke angres.</div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                  Avbryt
+                </Button>
+                <Button variant="destructive" onClick={confirmDeleteTask}>
+                  Slett
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="mine" className="mt-4">
@@ -510,7 +682,13 @@ export function Tasks({ currentUserName }: TasksProps) {
             ) : (
               <div className="space-y-3">
                 {myTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onToggle={toggleTask}
+                    onEdit={handleEditTask}
+                    onDelete={handleDeleteTask}
+                  />
                 ))}
               </div>
             )}

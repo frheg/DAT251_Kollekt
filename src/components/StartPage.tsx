@@ -23,8 +23,15 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [collectiveName, setCollectiveName] = useState('');
+  const [rooms, setRooms] = useState<{ name: string; minutes: number }[]>([
+    { name: '', minutes: 10 },
+    { name: '', minutes: 10 },
+  ]);
+  const [residentNames, setResidentNames] = useState<string[]>([]);
+  const [residentInput, setResidentInput] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [error, setError] = useState('');
@@ -59,21 +66,24 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
 
   const createUser = async () => {
     const name = newUserName.trim();
+    const email = newUserEmail.trim().toLowerCase();
 
-    if (!name || !newUserPassword.trim()) {
-      setError('Velg et navn og et passord for å opprette bruker.');
+    if (!name || !email || !newUserPassword.trim()) {
+      setError('Velg et navn, e-post og et passord for å opprette bruker.');
       return;
     }
 
     try {
       const auth = await api.post<AuthResponse>('/onboarding/users', {
         name,
+        email,
         password: newUserPassword,
       });
       setAccessToken(auth.accessToken);
       setRefreshToken(auth.refreshToken);
       setCurrentUser(auth.user);
       setNewUserName('');
+      setNewUserEmail('');
       setNewUserPassword('');
       clearMessages();
       setInfo('Brukeren er klar. Velg eller opprett et kollektiv videre nedenfor.');
@@ -90,16 +100,29 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
       setError('Gi kollektivet et navn før du fortsetter.');
       return;
     }
-
+    if (rooms.length < 1 || rooms.some(r => !r.name.trim() || r.minutes < 1)) {
+      setError('Legg til minst ett rom med navn og minutter.');
+      return;
+    }
+    const residents = residentNames.filter(n => n.trim() && n !== currentUser.name);
     try {
       const created = await api.post<CollectiveDto>('/onboarding/collectives', {
         name,
         ownerUserId: currentUser.id,
+        numRooms: rooms.length,
+        rooms: rooms.map(r => ({ name: r.name, minutes: r.minutes })),
+        residents,
       });
 
       const updatedUser = { ...currentUser, collectiveCode: created.joinCode };
       setCurrentUser(updatedUser);
       setCollectiveName('');
+      setRooms([
+        { name: '', minutes: 10 },
+        { name: '', minutes: 10 },
+      ]);
+      setResidentNames([]);
+      setResidentInput('');
       clearMessages();
       setInfo(`Kollektivet er opprettet. Del koden ${created.joinCode} med de andre.`);
     } catch (err) {
@@ -251,6 +274,21 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="new-user-email">E-post</Label>
+                      <Input
+                        id="new-user-email"
+                        type="email"
+                        placeholder="din@email.no"
+                        value={newUserEmail}
+                        onChange={(event) => {
+                          clearMessages();
+                          setNewUserEmail(event.target.value);
+                        }}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="new-user-password">Passord</Label>
                       <Input
                         id="new-user-password"
@@ -300,6 +338,7 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                       void createCollective();
                     }}
                   >
+
                     <div className="space-y-2">
                       <Label htmlFor="collective-name">Navn på kollektivet</Label>
                       <Input
@@ -311,6 +350,88 @@ export function StartPage({ onAuthenticated }: StartPageProps) {
                           setCollectiveName(event.target.value);
                         }}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Rom i kollektivet</Label>
+                      <div className="flex flex-col gap-2">
+                        {rooms.map((room, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <Input
+                              placeholder="Navn på rom (f.eks. Kjøkken)"
+                              value={room.name}
+                              onChange={e => {
+                                const updated = [...rooms];
+                                updated[idx].name = e.target.value;
+                                setRooms(updated);
+                              }}
+                            />
+                            <Input
+                              type="number"
+                              min={1}
+                              style={{ width: 80 }}
+                              placeholder="Minutter"
+                              value={room.minutes}
+                              onChange={e => {
+                                const updated = [...rooms];
+                                updated[idx].minutes = Number(e.target.value);
+                                setRooms(updated);
+                              }}
+                            />
+                            <span className="text-xs text-muted-foreground">minutter</span>
+                            <button
+                              type="button"
+                              className="text-rose-500 hover:text-rose-700"
+                              onClick={() => setRooms(rooms.filter((_, i) => i !== idx))}
+                              aria-label="Fjern rom"
+                            >×</button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="text-blue-600 hover:underline text-sm mt-1 self-start"
+                          onClick={() => setRooms([...rooms, { name: '', minutes: 10 }])}
+                        >Legg til rom</button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="residents">Beboere (navn eller e-post, én per linje)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="residents"
+                          value={residentInput}
+                          onChange={e => setResidentInput(e.target.value)}
+                          placeholder="Navn eller e-post"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && residentInput.trim()) {
+                              setResidentNames(prev => [...prev, residentInput.trim()]);
+                              setResidentInput('');
+                              e.preventDefault();
+                            }
+                          }}
+                        />
+                        <AnimatedButton
+                          onClick={() => {
+                            if (residentInput.trim()) {
+                              setResidentNames(prev => [...prev, residentInput.trim()]);
+                              setResidentInput('');
+                            }
+                          }}
+                          type="button"
+                        >Legg til</AnimatedButton>
+                      </div>
+                      <ul className="mt-1 mb-2 flex flex-wrap gap-2">
+                        {residentNames.map((name, idx) => (
+                          <li key={idx} className="bg-slate-100 rounded px-2 py-1 text-xs flex items-center gap-1">
+                            {name}
+                            <button
+                              type="button"
+                              className="ml-1 text-rose-500 hover:text-rose-700"
+                              onClick={() => setResidentNames(prev => prev.filter((_, i) => i !== idx))}
+                              aria-label="Fjern beboer"
+                            >×</button>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
                     <AnimatedButton className="w-full" type="submit">

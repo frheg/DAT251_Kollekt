@@ -5,6 +5,7 @@ package com.kollekt.service
 import com.kollekt.api.dto.*
 import com.kollekt.domain.*
 import com.kollekt.repository.*
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.jwt.Jwt
@@ -32,23 +33,203 @@ class KollektService(
     private val realtimeUpdateService: RealtimeUpdateService,
     private val passwordEncoder: PasswordEncoder,
     private val tokenService: TokenService,
+    private val invitationRepository: InvitationRepository,
+    private val roomRepository: RoomRepository,
 ) {
     private val joinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-    // --- User actions ---
+    @Autowired(required = false)
+    private lateinit var invitationRealtimeService: InvitationRealtimeService
+
+    companion object {
+        // TODO: Replace with persistent storage (e.g., Friend entity/repository)
+        private val friendsMap = mutableMapOf<String, MutableSet<String>>()
+    }
+
+    // -------------------------------------------------------------------------
+    // Tasks
+    // -------------------------------------------------------------------------
+
+    fun getTasks(memberName: String): List<TaskDto> {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        return taskRepository.findAllByCollectiveCode(collectiveCode)
+            .sortedBy { it.dueDate }
+            .map { it.toDto() }
+    }
+
     @Transactional
-    fun resetPassword(
-        memberName: String,
-        newPassword: String,
-    ) {
-        val member =
-            memberRepository.findByName(memberName)
-                ?: throw IllegalArgumentException("User '$memberName' not found")
-        if (newPassword.length < 8) {
-            throw IllegalArgumentException("Password must be at least 8 characters")
+    fun createTask(
+        request: CreateTaskRequest,
+        actorName: String,
+    ): TaskDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+
+        if (memberRepository.findByNameAndCollectiveCode(request.assignee, collectiveCode) == null) {
+            throw IllegalArgumentException("Assignee '${request.assignee}' is not in your collective")
         }
-        val updated = member.copy(passwordHash = passwordEncoder.encode(newPassword))
-        memberRepository.save(updated)
+
+        val saved =
+            taskRepository.save(
+                TaskItem(
+                    title = request.title,
+                    assignee = request.assignee,
+                    collectiveCode = collectiveCode,
+                    dueDate = request.dueDate,
+                    category = request.category,
+                    xp = request.xp,
+                    recurring = request.recurring,
+                ),
+            )
+
+        clearDashboardCache()
+        clearLeaderboardCache()
+        eventPublisher.taskEvent("TASK_CREATED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "TASK_CREATED", saved.toDto())
+
+        return saved.toDto()
+    }
+
+    @Transactional
+    fun deleteTask(
+        taskId: Long,
+        memberName: String,
+    ) {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
+            ?: throw IllegalArgumentException("Task $taskId not found")
+        taskRepository.deleteById(taskId)
+        clearDashboardCache()
+        clearLeaderboardCache()
+        eventPublisher.taskEvent("TASK_DELETED", mapOf("id" to taskId))
+        realtimeUpdateService.publish(collectiveCode, "TASK_DELETED", mapOf("id" to taskId))
+    }
+
+    @Transactional
+    fun updateTask(
+        taskId: Long,
+        updates: Map<String, Any>,
+        memberName: String,
+    ): TaskDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val task =
+            taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
+                ?: throw IllegalArgumentException("Task $taskId not found")
+
+        val newTitle = updates["title"] as? String ?: task.title
+        val newAssignee = updates["assignee"] as? String ?: task.assignee
+        val newDueDate = (updates["dueDate"] as? String)?.let { LocalDate.parse(it) } ?: task.dueDate
+        val newCategory =
+            (updates["category"] as? String)?.let {
+                try {
+                    TaskCategory.valueOf(it)
+                } catch (_: Exception) {
+                    task.category
+                }
+            } ?: task.category
+        val newXp = (updates["xp"] as? Number)?.toInt() ?: task.xp
+        val newRecurring = updates["recurring"] as? Boolean ?: task.recurring
+
+        if (memberRepository.findByNameAndCollectiveCode(newAssignee, collectiveCode) == null) {
+            throw IllegalArgumentException("Assignee '$newAssignee' is not in your collective")
+        }
+
+        val saved =
+            taskRepository.save(
+                task.copy(
+                    title = newTitle,
+                    assignee = newAssignee,
+                    dueDate = newDueDate,
+                    category = newCategory,
+                    xp = newXp,
+                    recurring = newRecurring,
+                ),
+            )
+
+        clearDashboardCache()
+        clearLeaderboardCache()
+        eventPublisher.taskEvent("TASK_UPDATED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "TASK_UPDATED", saved.toDto())
+
+        return saved.toDto()
+    }
+
+    @Transactional
+    fun toggleTask(
+        taskId: Long,
+        memberName: String,
+    ): TaskDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val task =
+            taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
+                ?: throw IllegalArgumentException("Task $taskId not found")
+
+        val awardedXp = if (!task.completed && !task.xpAwarded && memberName == task.assignee) task.xp else 0
+
+        if (awardedXp > 0) {
+            val member =
+                memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
+                    ?: throw IllegalArgumentException("User '$memberName' not found in collective")
+
+            val updatedXp = member.xp + awardedXp
+            val updatedLevel = updatedXp / 200 + 1
+
+            memberRepository.save(
+                member.copy(
+                    xp = updatedXp,
+                    level = updatedLevel,
+                ),
+            )
+        }
+
+        val updated =
+            if (!task.completed) {
+                taskRepository.save(
+                    task.copy(
+                        completed = true,
+                        xpAwarded = (memberName == task.assignee),
+                        completedBy = memberName,
+                        completedAt = LocalDateTime.now(),
+                    ),
+                )
+            } else {
+                taskRepository.save(
+                    task.copy(
+                        completed = false,
+                        completedBy = null,
+                        completedAt = null,
+                        xpAwarded = false,
+                    ),
+                )
+            }
+        clearDashboardCache()
+        clearLeaderboardCache()
+        eventPublisher.taskEvent("TASK_TOGGLED", updated.toDto())
+        realtimeUpdateService.publish(
+            collectiveCode,
+            "TASK_UPDATED",
+            mapOf(
+                "task" to updated.toDto(),
+                "awardedXp" to awardedXp,
+                "updatedBy" to memberName,
+            ),
+        )
+
+        if (awardedXp > 0) {
+            val updatedMember = memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
+            realtimeUpdateService.publish(
+                collectiveCode,
+                "XP_UPDATED",
+                mapOf(
+                    "memberName" to memberName,
+                    "awardedXp" to awardedXp,
+                    "totalXp" to (updatedMember?.xp ?: 0),
+                    "level" to (updatedMember?.level ?: 1),
+                    "taskId" to taskId,
+                ),
+            )
+        }
+
+        return updated.toDto()
     }
 
     @Transactional
@@ -56,13 +237,41 @@ class KollektService(
         val member =
             memberRepository.findByName(memberName)
                 ?: throw IllegalArgumentException("User '$memberName' not found")
+
+        val collectiveCode = member.collectiveCode
         memberRepository.delete(member)
+
+        if (collectiveCode != null) {
+            val remainingMembers =
+                memberRepository.findAllByCollectiveCode(collectiveCode)
+                    .filter { it.name != memberName }
+
+            val memberNames = remainingMembers.map { it.name }.sorted()
+
+            if (memberNames.isNotEmpty()) {
+                val tasksToReassign =
+                    taskRepository.findAllByCollectiveCode(collectiveCode)
+                        .filter { it.assignee == memberName && !it.completed }
+
+                var idx = 0
+                for (task in tasksToReassign) {
+                    val newAssignee = memberNames[idx % memberNames.size]
+                    taskRepository.save(task.copy(assignee = newAssignee))
+                    idx++
+                }
+            }
+        }
     }
 
-    // --- Simple in-memory friend map for demonstration ---
-    // TODO: Replace with persistent storage (e.g., Friend entity/repository)
-    companion object {
-        private val friendsMap = mutableMapOf<String, MutableSet<String>>()
+    @Transactional
+    fun updateMemberStatus(
+        memberName: String,
+        newStatus: MemberStatus,
+    ) {
+        val member =
+            memberRepository.findByName(memberName)
+                ?: throw IllegalArgumentException("User '$memberName' not found")
+        memberRepository.save(member.copy(status = newStatus))
     }
 
     @Transactional
@@ -94,281 +303,49 @@ class KollektService(
         }
     }
 
-    fun getTasks(memberName: String): List<TaskDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return taskRepository
-            .findAllByCollectiveCode(collectiveCode)
-            .sortedBy { it.dueDate }
-            .map { it.toDto() }
-    }
-
-    @Transactional
-    fun createTask(
-        request: CreateTaskRequest,
-        actorName: String,
-    ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
-        val assignee = request.assignee.trim()
-        if (memberRepository.findByNameAndCollectiveCode(assignee, collectiveCode) == null) {
-            throw IllegalArgumentException("Assignee '$assignee' is not in your collective")
-        }
-        val saved =
-            taskRepository.save(
-                TaskItem(
-                    title = request.title,
-                    assignee = assignee,
-                    collectiveCode = collectiveCode,
-                    dueDate = request.dueDate,
-                    category = request.category,
-                    xp = request.xp,
-                    recurring = request.recurring,
-                ),
-            )
-        clearDashboardCache()
-        clearLeaderboardCache()
-        eventPublisher.taskEvent(
-            "TASK_CREATED",
-            saved.toDto(),
-        )
-        realtimeUpdateService.publish(
-            collectiveCode,
-            "TASK_CREATED",
-            saved.toDto(),
-        )
-        return saved.toDto()
-    }
-
-    @Transactional
-    fun toggleTask(
-        taskId: Long,
-        memberName: String,
-        completed: Boolean? = null,
-    ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val task =
-            taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
-                ?: throw IllegalArgumentException(
-                    "Task $taskId not found",
-                )
-
-        val targetCompleted = completed ?: !task.completed
-        if (task.completed == targetCompleted) return task.toDto()
-
-        var awardedXp = 0
-        val updated =
-            if (targetCompleted) {
-                if (!task.xpAwarded) {
-                    val member =
-                        memberRepository.findByNameAndCollectiveCodeForUpdate(memberName, collectiveCode)
-                            ?: throw IllegalArgumentException("User '$memberName' not found in collective")
-                    awardedXp = task.xp
-                    val updatedXp = member.xp + awardedXp
-                    val updatedLevel = updatedXp / 200 + 1
-                    memberRepository.save(
-                        member.copy(
-                            xp = updatedXp,
-                            level = updatedLevel,
-                        ),
-                    )
-                }
-                taskRepository.save(
-                    task.copy(
-                        completed = true,
-                        xpAwarded = true,
-                        completedBy = memberName,
-                        completedAt = LocalDateTime.now(),
-                    ),
-                )
-            } else {
-                taskRepository.save(
-                    task.copy(
-                        completed = false,
-                        completedBy = null,
-                        completedAt = null,
-                    ),
-                )
-            }
-
-        clearDashboardCache()
-        clearLeaderboardCache()
-        eventPublisher.taskEvent(
-            "TASK_TOGGLED",
-            updated.toDto(),
-        )
-        realtimeUpdateService.publish(
-            collectiveCode,
-            "TASK_UPDATED",
-            mapOf(
-                "task" to updated.toDto(),
-                "awardedXp" to awardedXp,
-                "updatedBy" to memberName,
-            ),
-        )
-        if (awardedXp > 0) {
-            val updatedMember = memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
-            realtimeUpdateService.publish(
-                collectiveCode,
-                "XP_UPDATED",
-                mapOf(
-                    "memberName" to memberName,
-                    "awardedXp" to awardedXp,
-                    "totalXp" to (updatedMember?.xp ?: 0),
-                    "level" to (updatedMember?.level ?: 1),
-                    "taskId" to taskId,
-                ),
-            )
-        }
-        return updated.toDto()
-    }
-
-    fun getShoppingItems(memberName: String): List<ShoppingItemDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return shoppingItemRepository.findAllByCollectiveCode(collectiveCode).map { it.toDto() }
-    }
-
-    @Transactional
-    fun createShoppingItem(
-        request: CreateShoppingItemRequest,
-        actorName: String,
-    ): ShoppingItemDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
-        val saved =
-            shoppingItemRepository.save(
-                ShoppingItem(
-                    item = request.item,
-                    addedBy = actorName,
-                    collectiveCode = collectiveCode,
-                ),
-            )
-        eventPublisher.taskEvent(
-            "SHOPPING_ITEM_CREATED",
-            saved.toDto(),
-        )
-        return saved.toDto()
-    }
-
-    @Transactional
-    fun toggleShoppingItem(
-        itemId: Long,
-        memberName: String,
-    ): ShoppingItemDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val item =
-            shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
-                ?: throw IllegalArgumentException("Shopping item $itemId not found")
-        val updated = shoppingItemRepository.save(item.copy(completed = !item.completed))
-        eventPublisher.taskEvent(
-            "SHOPPING_ITEM_TOGGLED",
-            updated.toDto(),
-        )
-        return updated.toDto()
-    }
-
-    @Transactional
-    fun deleteShoppingItem(
-        itemId: Long,
-        memberName: String,
-    ) {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val item =
-            shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
-                ?: throw IllegalArgumentException("Shopping item $itemId not found")
-        shoppingItemRepository.deleteById(item.id)
-        eventPublisher.taskEvent(
-            "SHOPPING_ITEM_DELETED",
-            mapOf("id" to itemId),
-        )
-    }
-
-    fun getEvents(memberName: String): List<EventDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return eventRepository
-            .findAllByCollectiveCode(collectiveCode)
-            .sortedBy { it.date }
-            .map { it.toDto() }
-    }
-
-    @Transactional
-    fun createEvent(
-        request: CreateEventRequest,
-        actorName: String,
-    ): EventDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
-        val saved =
-            eventRepository.save(
-                CalendarEvent(
-                    title = request.title,
-                    collectiveCode = collectiveCode,
-                    date = request.date,
-                    time = request.time,
-                    type = request.type,
-                    organizer = actorName,
-                    attendees = request.attendees,
-                    description = request.description,
-                ),
-            )
-        clearDashboardCache()
-        eventPublisher.chatEvent(
-            "EVENT_CREATED",
-            saved.toDto(),
-        )
-        return saved.toDto()
-    }
-
-    fun getMessages(memberName: String): List<MessageDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return chatMessageRepository
-            .findAllByCollectiveCode(collectiveCode)
-            .sortedBy { it.timestamp }
-            .map { it.toDto() }
-    }
-
-    @Transactional
-    fun createMessage(
-        request: CreateMessageRequest,
-        actorName: String,
-    ): MessageDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
-        val saved =
-            chatMessageRepository.save(
-                ChatMessage(
-                    sender = actorName,
-                    collectiveCode = collectiveCode,
-                    text = request.text,
-                    timestamp = LocalDateTime.now(),
-                ),
-            )
-        eventPublisher.chatEvent(
-            "MESSAGE_CREATED",
-            saved.toDto(),
-        )
-        realtimeUpdateService.publish(
-            collectiveCode,
-            "MESSAGE_CREATED",
-            saved.toDto(),
-        )
-        return saved.toDto()
-    }
-
     @Transactional
     fun createUser(request: CreateUserRequest): AuthResponse {
         val name = request.name.trim()
+        val email = request.email.trim().lowercase()
         val password = request.password.trim()
         if (name.isBlank()) throw IllegalArgumentException("Name is required")
+        if (email.isBlank()) throw IllegalArgumentException("Email is required")
         if (password.length < 8) throw IllegalArgumentException("Password must be at least 8 characters")
         if (memberRepository.findByName(name) != null) {
             throw IllegalArgumentException("User with name '$name' already exists")
+        }
+        if (memberRepository.findAll().any { it.email == email }) {
+            throw IllegalArgumentException("User with email '$email' already exists")
         }
         val saved =
             memberRepository.save(
                 Member(
                     name = name,
+                    email = email,
                     passwordHash = passwordEncoder.encode(password),
                 ),
             )
         clearDashboardCache()
         clearLeaderboardCache()
         return toAuthResponse(saved)
+    }
+
+    @Transactional
+    fun resetPassword(
+        memberName: String?,
+        email: String?,
+        newPassword: String,
+    ) {
+        val member =
+            when {
+                !email.isNullOrBlank() ->
+                    memberRepository.findAll()
+                        .find { it.email.equals(email.trim(), ignoreCase = true) }
+                !memberName.isNullOrBlank() -> memberRepository.findByName(memberName.trim())
+                else -> null
+            } ?: throw IllegalArgumentException("User not found")
+
+        memberRepository.save(member.copy(passwordHash = passwordEncoder.encode(newPassword)))
     }
 
     fun login(request: LoginRequest): AuthResponse {
@@ -413,6 +390,10 @@ class KollektService(
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Collective
+    // -------------------------------------------------------------------------
+
     @Transactional
     fun createCollective(request: CreateCollectiveRequest): CollectiveDto {
         val collectiveName = request.name.trim()
@@ -424,7 +405,9 @@ class KollektService(
         if (owner.collectiveCode != null) {
             throw IllegalArgumentException("User ${owner.id} is already in a collective")
         }
+
         val joinCode = generateUniqueJoinCode()
+
         val collective =
             collectiveRepository.save(
                 Collective(
@@ -433,33 +416,240 @@ class KollektService(
                     ownerMemberId = owner.id,
                 ),
             )
+
+        // Persist rooms for this collective
+        request.rooms.forEach { roomReq ->
+            roomRepository.save(
+                Room(
+                    name = roomReq.name,
+                    minutes = roomReq.minutes,
+                    collective = collective,
+                ),
+            )
+        }
+
         memberRepository.save(owner.copy(collectiveCode = joinCode))
+
+        val residentNames =
+            request.residents
+                .map { it.trim() }
+                .filter { it.isNotBlank() && it != owner.name }
+
+        residentNames.forEach { name ->
+            val existing = memberRepository.findByName(name)
+            if (existing == null) {
+                memberRepository.save(
+                    Member(
+                        name = name,
+                        email = "${name.lowercase()}@example.com",
+                        collectiveCode = joinCode,
+                    ),
+                )
+            } else if (existing.collectiveCode == null) {
+                memberRepository.save(existing.copy(collectiveCode = joinCode))
+            }
+        }
+
+        val allResidents = listOf(owner.name) + residentNames
+        val today = LocalDate.now()
+        val weeks = 4
+        val numMembers = allResidents.size
+        // For each room, create a recurring cleaning task with XP = minutes
+        for ((roomIdx, room) in request.rooms.withIndex()) {
+            for (week in 0 until weeks) {
+                val assigneeIdx = (week + roomIdx) % numMembers
+                val assignee = allResidents[assigneeIdx]
+                val dueDate = today.plusWeeks(week.toLong())
+                taskRepository.save(
+                    TaskItem(
+                        title = "Vask ${room.name}",
+                        assignee = assignee,
+                        collectiveCode = joinCode,
+                        dueDate = dueDate,
+                        category = TaskCategory.CLEANING,
+                        xp = room.minutes,
+                        recurring = true,
+                    ),
+                )
+            }
+        }
+
         clearDashboardCache()
         clearLeaderboardCache()
         return collective.toDto()
+    }
+
+    private fun regenerateRecurringTasksForCollective(collectiveCode: String) {
+        val members =
+            memberRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { it.status == MemberStatus.ACTIVE }
+        if (members.isEmpty()) return
+
+        // Fetch rooms for this collective
+        val collective = collectiveRepository.findByJoinCode(collectiveCode) ?: return
+        val rooms = roomRepository.findAllByCollectiveId(collective.id)
+
+        // Fetch user-created recurring tasks (not room-based)
+        val manualRecurringTasks =
+            taskRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { it.recurring && it.category != TaskCategory.CLEANING }
+
+        val today = LocalDate.now()
+        val weeks = 4
+
+        val futureTasks =
+            taskRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { !it.completed && it.dueDate.isAfter(today.minusDays(1)) }
+        futureTasks.forEach { taskRepository.deleteById(it.id) }
+        val memberNames = members.map { it.name }.sorted()
+
+        // Gather all recurring tasks for rotation (room-based and manual)
+        data class RotTask(val title: String, val xp: Int, val category: TaskCategory, val template: TaskItem?)
+        val rotTasks = mutableListOf<RotTask>()
+        rooms.forEach { room ->
+            rotTasks.add(
+                RotTask(
+                    title = "Vask ${room.name}",
+                    xp = room.minutes,
+                    category = TaskCategory.CLEANING,
+                    template = null,
+                ),
+            )
+        }
+        manualRecurringTasks.forEach { manualTask ->
+            rotTasks.add(
+                RotTask(
+                    title = manualTask.title,
+                    xp = manualTask.xp,
+                    category = manualTask.category,
+                    template = manualTask,
+                ),
+            )
+        }
+
+        // For each week, assign tasks to members to balance XP
+        for (week in 0 until weeks) {
+            // Track XP assigned to each member this week
+            val xpPerMember = mutableMapOf<String, Int>()
+            memberNames.forEach { xpPerMember[it] = 0 }
+
+            // Sort tasks by XP descending for better balancing
+            val tasksThisWeek = rotTasks.sortedByDescending { it.xp }
+            val assignments = mutableListOf<Pair<RotTask, String>>()
+
+            for (task in tasksThisWeek) {
+                // Assign to member with least XP so far this week
+                val assignee = xpPerMember.minByOrNull { it.value }!!.key
+                assignments.add(task to assignee)
+                xpPerMember[assignee] = xpPerMember[assignee]!! + task.xp
+            }
+
+            // Save tasks for this week
+            val dueDate = today.plusWeeks(week.toLong())
+            for ((task, assignee) in assignments) {
+                if (task.template == null) {
+                    // Room-based cleaning task
+                    taskRepository.save(
+                        TaskItem(
+                            title = task.title,
+                            assignee = assignee,
+                            collectiveCode = collectiveCode,
+                            dueDate = dueDate,
+                            category = task.category,
+                            xp = task.xp,
+                            recurring = true,
+                        ),
+                    )
+                } else {
+                    // Manual recurring task
+                    taskRepository.save(
+                        task.template.copy(
+                            id = 0,
+                            assignee = assignee,
+                            dueDate = dueDate,
+                            completed = false,
+                            xpAwarded = false,
+                            completedBy = null,
+                            completedAt = null,
+                        ),
+                    )
+                }
+            }
+        }
+
+        clearDashboardCache()
+        clearLeaderboardCache()
     }
 
     @Transactional
     fun joinCollective(request: JoinCollectiveRequest): UserDto {
         val joinCode = request.joinCode.trim().uppercase()
         if (joinCode.isBlank()) throw IllegalArgumentException("Join code is required")
+
         val collective =
             collectiveRepository.findByJoinCode(joinCode)
                 ?: throw IllegalArgumentException("Collective code '$joinCode' not found")
+
         val user =
-            memberRepository.findById(request.userId)
-                .orElseThrow {
-                    IllegalArgumentException(
-                        "User ${request.userId} not found",
-                    )
-                }
+            memberRepository.findById(request.userId).orElseThrow {
+                IllegalArgumentException("User ${request.userId} not found")
+            }
+
         if (user.collectiveCode != null) {
             throw IllegalArgumentException("User ${user.id} is already in a collective")
         }
+
         val updated = memberRepository.save(user.copy(collectiveCode = collective.joinCode))
+
+        val invitation = invitationRepository.findByEmailAndCollectiveCode(user.email, joinCode)
+        if (invitation != null && !invitation.accepted) {
+            invitationRepository.save(
+                invitation.copy(
+                    accepted = true,
+                    acceptedAt = LocalDateTime.now(),
+                ),
+            )
+        }
+
+        regenerateRecurringTasksForCollective(joinCode)
         clearDashboardCache()
         clearLeaderboardCache()
         return updated.toUserDto()
+    }
+
+    fun inviteUserToCollective(
+        email: String,
+        collectiveCode: String,
+        inviterName: String,
+    ) {
+        val inviter =
+            memberRepository.findByName(inviterName)
+                ?: throw IllegalArgumentException("Inviter not found")
+        if (inviter.collectiveCode != collectiveCode) {
+            throw IllegalArgumentException("You are not a member of this collective")
+        }
+
+        val normalizedEmail = email.trim().lowercase()
+        val existing = invitationRepository.findByEmailAndCollectiveCode(normalizedEmail, collectiveCode)
+        if (existing != null) {
+            throw IllegalArgumentException("This user has already been invited to this collective.")
+        }
+
+        val invitation =
+            invitationRepository.save(
+                Invitation(
+                    email = normalizedEmail,
+                    collectiveCode = collectiveCode,
+                    invitedBy = inviter.name,
+                ),
+            )
+
+        try {
+            invitationRealtimeService.publish(normalizedEmail, "INVITATION_CREATED", invitation)
+        } catch (_: Exception) {
+        }
+
+        println("[INVITE] Sent invite to $email for collective $collectiveCode (invited by ${inviter.name})")
     }
 
     fun getCollectiveCodeForUser(userId: Long): CollectiveCodeDto {
@@ -469,24 +659,144 @@ class KollektService(
             }
         val code =
             user.collectiveCode
-                ?: throw IllegalArgumentException(
-                    "User $userId is not in a collective",
-                )
+                ?: throw IllegalArgumentException("User $userId is not in a collective")
         return CollectiveCodeDto(code)
     }
 
     fun getCollectiveMembers(memberName: String): List<UserDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return memberRepository
-            .findAllByCollectiveCode(collectiveCode)
+        return memberRepository.findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.name }
             .map { it.toUserDto() }
     }
 
+    // -------------------------------------------------------------------------
+    // Shopping
+    // -------------------------------------------------------------------------
+
+    fun getShoppingItems(memberName: String): List<ShoppingItemDto> {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        return shoppingItemRepository.findAllByCollectiveCode(collectiveCode).map { it.toDto() }
+    }
+
+    @Transactional
+    fun createShoppingItem(
+        request: CreateShoppingItemRequest,
+        actorName: String,
+    ): ShoppingItemDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val saved =
+            shoppingItemRepository.save(
+                ShoppingItem(
+                    item = request.item,
+                    addedBy = actorName,
+                    collectiveCode = collectiveCode,
+                ),
+            )
+        eventPublisher.taskEvent("SHOPPING_ITEM_CREATED", saved.toDto())
+        return saved.toDto()
+    }
+
+    @Transactional
+    fun toggleShoppingItem(
+        itemId: Long,
+        memberName: String,
+    ): ShoppingItemDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val item =
+            shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
+                ?: throw IllegalArgumentException("Shopping item $itemId not found")
+        val updated = shoppingItemRepository.save(item.copy(completed = !item.completed))
+        eventPublisher.taskEvent("SHOPPING_ITEM_TOGGLED", updated.toDto())
+        return updated.toDto()
+    }
+
+    @Transactional
+    fun deleteShoppingItem(
+        itemId: Long,
+        memberName: String,
+    ) {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val item =
+            shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
+                ?: throw IllegalArgumentException("Shopping item $itemId not found")
+        shoppingItemRepository.deleteById(item.id)
+        eventPublisher.taskEvent("SHOPPING_ITEM_DELETED", mapOf("id" to itemId))
+    }
+
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
+
+    fun getEvents(memberName: String): List<EventDto> {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        return eventRepository.findAllByCollectiveCode(collectiveCode)
+            .sortedBy { it.date }
+            .map { it.toDto() }
+    }
+
+    @Transactional
+    fun createEvent(
+        request: CreateEventRequest,
+        actorName: String,
+    ): EventDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val saved =
+            eventRepository.save(
+                CalendarEvent(
+                    title = request.title,
+                    collectiveCode = collectiveCode,
+                    date = request.date,
+                    time = request.time,
+                    type = request.type,
+                    organizer = actorName,
+                    attendees = request.attendees,
+                    description = request.description,
+                ),
+            )
+        clearDashboardCache()
+        eventPublisher.chatEvent("EVENT_CREATED", saved.toDto())
+        return saved.toDto()
+    }
+
+    // -------------------------------------------------------------------------
+    // Chat
+    // -------------------------------------------------------------------------
+
+    fun getMessages(memberName: String): List<MessageDto> {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        return chatMessageRepository.findAllByCollectiveCode(collectiveCode)
+            .sortedBy { it.timestamp }
+            .map { it.toDto() }
+    }
+
+    @Transactional
+    fun createMessage(
+        request: CreateMessageRequest,
+        actorName: String,
+    ): MessageDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val saved =
+            chatMessageRepository.save(
+                ChatMessage(
+                    sender = actorName,
+                    collectiveCode = collectiveCode,
+                    text = request.text,
+                    timestamp = LocalDateTime.now(),
+                ),
+            )
+        eventPublisher.chatEvent("MESSAGE_CREATED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", saved.toDto())
+        return saved.toDto()
+    }
+
+    // -------------------------------------------------------------------------
+    // Economy
+    // -------------------------------------------------------------------------
+
     fun getExpenses(memberName: String): List<ExpenseDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return expenseRepository
-            .findAllByCollectiveCode(collectiveCode)
+        return expenseRepository.findAllByCollectiveCode(collectiveCode)
             .sortedByDescending { it.date }
             .map { it.toDto() }
     }
@@ -498,23 +808,26 @@ class KollektService(
     ): ExpenseDto {
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
         val collectiveMembers =
-            memberRepository
-                .findAllByCollectiveCode(collectiveCode)
+            memberRepository.findAllByCollectiveCode(collectiveCode)
                 .map { it.name }
                 .toSet()
+
         if (collectiveMembers.isEmpty()) {
             throw IllegalArgumentException("Collective '$collectiveCode' has no members")
         }
+
         val requestedParticipants =
             request.participantNames
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
                 .toSet()
+
         val participants = if (requestedParticipants.isEmpty()) collectiveMembers else requestedParticipants
         val invalidParticipants = participants - collectiveMembers
         if (invalidParticipants.isNotEmpty()) {
             throw IllegalArgumentException("Participants not in collective: ${invalidParticipants.joinToString(", ")}")
         }
+
         val saved =
             expenseRepository.save(
                 Expense(
@@ -527,12 +840,10 @@ class KollektService(
                     participantNames = participants,
                 ),
             )
+
         clearDashboardCache()
         clearLeaderboardCache()
-        eventPublisher.economyEvent(
-            "EXPENSE_CREATED",
-            saved.toDto(),
-        )
+        eventPublisher.economyEvent("EXPENSE_CREATED", saved.toDto())
         return saved.toDto()
     }
 
@@ -540,10 +851,11 @@ class KollektService(
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
         val checkpointExpenseId = latestSettledExpenseId(collectiveCode)
         val expenses =
-            expenseRepository
-                .findAllByCollectiveCode(collectiveCode)
+            expenseRepository.findAllByCollectiveCode(collectiveCode)
                 .filter { it.id > checkpointExpenseId }
+
         if (expenses.isEmpty()) return emptyList()
+
         val members = memberRepository.findAllByCollectiveCode(collectiveCode).map { it.name }
         return calculateBalances(expenses, members)
     }
@@ -581,10 +893,7 @@ class KollektService(
                     date = request.date,
                 ),
             )
-        eventPublisher.economyEvent(
-            "PANT_ADDED",
-            saved.toDto(),
-        )
+        eventPublisher.economyEvent("PANT_ADDED", saved.toDto())
         return saved.toDto()
     }
 
@@ -608,6 +917,7 @@ class KollektService(
                     lastExpenseId = lastExpenseId,
                 ),
             )
+
         eventPublisher.economyEvent(
             "BALANCES_SETTLED",
             mapOf(
@@ -617,6 +927,7 @@ class KollektService(
                 "settledAt" to checkpoint.createdAt.toString(),
             ),
         )
+
         return SettleUpResponse(
             collectiveCode = collectiveCode,
             settledBy = memberName,
@@ -624,6 +935,10 @@ class KollektService(
             settledAt = checkpoint.createdAt,
         )
     }
+
+    // -------------------------------------------------------------------------
+    // Leaderboard / Dashboard / Achievements
+    // -------------------------------------------------------------------------
 
     fun getLeaderboard(memberName: String): LeaderboardResponse {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
@@ -633,14 +948,10 @@ class KollektService(
 
         val tasks = taskRepository.findAllByCollectiveCode(collectiveCode)
         val players =
-            memberRepository
-                .findAllByCollectiveCode(collectiveCode)
+            memberRepository.findAllByCollectiveCode(collectiveCode)
                 .sortedByDescending { it.xp }
                 .mapIndexed { index, member ->
-                    val completedCount =
-                        tasks.count {
-                            it.assignee == member.name && it.completed
-                        }
+                    val completedCount = tasks.count { it.assignee == member.name && it.completed }
                     LeaderboardPlayerDto(
                         rank = index + 1,
                         name = member.name,
@@ -673,6 +984,7 @@ class KollektService(
                         topContributor = top,
                     ),
             )
+
         redisTemplate.opsForValue().set(leaderboardKey, response)
         return response
     }
@@ -689,10 +1001,7 @@ class KollektService(
                 ?: throw IllegalArgumentException("User '$memberName' not found")
         val collectiveCode = requireCollectiveCode(user)
         val leaderboard = getLeaderboard(memberName)
-        val rank =
-            leaderboard.players
-                .firstOrNull { it.name == user.name }
-                ?.rank ?: leaderboard.players.size
+        val rank = leaderboard.players.firstOrNull { it.name == user.name }?.rank ?: leaderboard.players.size
 
         val response =
             DashboardResponse(
@@ -701,26 +1010,24 @@ class KollektService(
                 currentUserLevel = user.level,
                 currentUserRank = rank,
                 upcomingTasks =
-                    taskRepository
-                        .findAllByCollectiveCode(collectiveCode)
+                    taskRepository.findAllByCollectiveCode(collectiveCode)
                         .filter { !it.completed }
                         .sortedBy { it.dueDate }
                         .take(3)
                         .map { it.toDto() },
                 upcomingEvents =
-                    eventRepository
-                        .findAllByCollectiveCode(collectiveCode)
+                    eventRepository.findAllByCollectiveCode(collectiveCode)
                         .filter { it.date >= LocalDate.now() }
                         .sortedBy { it.date }
                         .take(3)
                         .map { it.toDto() },
                 recentExpenses =
-                    expenseRepository
-                        .findAllByCollectiveCode(collectiveCode)
+                    expenseRepository.findAllByCollectiveCode(collectiveCode)
                         .sortedByDescending { it.date }
                         .take(3)
                         .map { it.toDto() },
             )
+
         redisTemplate.opsForValue().set(key, response)
         return response
     }
@@ -732,6 +1039,10 @@ class KollektService(
         val questions = buildDrinkingQuestions(topPlayer, bottomPlayer)
         return questions[Random.nextInt(questions.size)]
     }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
 
     private fun clearDashboardCache() {
         val keys = redisTemplate.keys("dashboard:*")
@@ -754,17 +1065,13 @@ class KollektService(
     private fun requireCollectiveCodeByMemberName(memberName: String): String {
         val member =
             memberRepository.findByName(memberName)
-                ?: throw IllegalArgumentException(
-                    "User '$memberName' not found",
-                )
+                ?: throw IllegalArgumentException("User '$memberName' not found")
         return requireCollectiveCode(member)
     }
 
     private fun requireCollectiveCode(member: Member): String {
         return member.collectiveCode
-            ?: throw IllegalArgumentException(
-                "User '${member.name}' must join a collective first",
-            )
+            ?: throw IllegalArgumentException("User '${member.name}' must join a collective first")
     }
 
     private fun latestSettledExpenseId(collectiveCode: String): Long {
@@ -779,6 +1086,7 @@ class KollektService(
         members: List<String>,
     ): List<BalanceDto> {
         if (members.isEmpty()) return emptyList()
+
         val perMember = members.associateWith { 0.0 }.toMutableMap()
         val memberSet = members.toSet()
 
@@ -786,22 +1094,19 @@ class KollektService(
             val participants =
                 (
                     if (expense.participantNames.isEmpty()) memberSet else expense.participantNames
-                )
-                    .intersect(memberSet)
+                ).intersect(memberSet)
+
             if (participants.isEmpty()) return@forEach
 
             val split = expense.amount.toDouble() / participants.size.toDouble()
             participants.forEach { member ->
                 perMember[member] = perMember.getValue(member) - split
             }
-            perMember[expense.paidBy] =
-                perMember.getOrDefault(expense.paidBy, 0.0) + expense.amount.toDouble()
+            perMember[expense.paidBy] = perMember.getOrDefault(expense.paidBy, 0.0) + expense.amount.toDouble()
         }
 
         return perMember
-            .map { (name, amount) ->
-                BalanceDto(name = name, amount = amount.roundToInt())
-            }
+            .map { (name, amount) -> BalanceDto(name = name, amount = amount.roundToInt()) }
             .sortedByDescending { it.amount }
     }
 
@@ -810,31 +1115,11 @@ class KollektService(
         bottomPlayer: String,
     ): List<DrinkingQuestionDto> =
         listOf(
-            DrinkingQuestionDto(
-                "$topPlayer, som leaderboard-leder, del ut 3 slurker!",
-                "distribute",
-                topPlayer,
-            ),
-            DrinkingQuestionDto(
-                "$bottomPlayer, du er sist på leaderboardet. Drikk 2!",
-                "drink",
-                bottomPlayer,
-            ),
-            DrinkingQuestionDto(
-                "Alle som har glemt å tømme søppel denne uken drikker 2!",
-                "everyone",
-                null,
-            ),
-            DrinkingQuestionDto(
-                "Pek på hvem som mest sannsynlig glemmer å handle. De drikker 1!",
-                "vote",
-                null,
-            ),
-            DrinkingQuestionDto(
-                "Rock, paper, scissors mellom topp 2 på leaderboard. Taper drikker 3!",
-                "challenge",
-                null,
-            ),
+            DrinkingQuestionDto("$topPlayer, som leaderboard-leder, del ut 3 slurker!", "distribute", topPlayer),
+            DrinkingQuestionDto("$bottomPlayer, du er sist på leaderboardet. Drikk 2!", "drink", bottomPlayer),
+            DrinkingQuestionDto("Alle som har glemt å tømme søppel denne uken drikker 2!", "everyone", null),
+            DrinkingQuestionDto("Pek på hvem som mest sannsynlig glemmer å handle. De drikker 1!", "vote", null),
+            DrinkingQuestionDto("Rock, paper, scissors mellom topp 2 på leaderboard. Taper drikker 3!", "challenge", null),
         )
 
     private fun toAuthResponse(member: Member): AuthResponse {
@@ -848,6 +1133,10 @@ class KollektService(
         )
     }
 
+    // -------------------------------------------------------------------------
+    // Extension mappers
+    // -------------------------------------------------------------------------
+
     private fun TaskItem.toDto() = TaskDto(id, title, assignee, dueDate, category, completed, xp, recurring)
 
     private fun ShoppingItem.toDto() = ShoppingItemDto(id, item, addedBy, completed)
@@ -857,9 +1146,7 @@ class KollektService(
     private fun ChatMessage.toDto() = MessageDto(id, sender, text, timestamp)
 
     private fun Member.toUserDto(): UserDto {
-        val friends =
-            friendsMap[name]?.map { FriendDto(it) }
-                ?: emptyList()
+        val friends = friendsMap[name]?.map { FriendDto(it) } ?: emptyList()
         return UserDto(id, name, collectiveCode, friends)
     }
 
