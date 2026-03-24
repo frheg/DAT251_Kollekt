@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/invitations")
 class InvitationController(private val invitationRepository: InvitationRepository) {
     @GetMapping
-    fun getInvitationsForEmail(@RequestParam email: String): List<Invitation> {
+    fun getInvitationsForEmail(
+        @RequestParam email: String,
+    ): List<Invitation> {
         return invitationRepository.findAllByEmail(email.trim().lowercase())
     }
 }

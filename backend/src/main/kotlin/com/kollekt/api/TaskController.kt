@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController
 class TaskController(
     private val service: KollektService,
 ) {
-
     @GetMapping
     fun getTasks(
         @RequestParam memberName: String,

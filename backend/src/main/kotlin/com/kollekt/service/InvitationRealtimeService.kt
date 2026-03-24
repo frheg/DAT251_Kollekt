@@ -14,26 +14,37 @@ class InvitationRealtimeService(
 ) {
     private val sessionsByEmail = ConcurrentHashMap<String, MutableSet<WebSocketSession>>()
 
-    fun register(email: String, session: WebSocketSession) {
+    fun register(
+        email: String,
+        session: WebSocketSession,
+    ) {
         sessionsByEmail.computeIfAbsent(email) { CopyOnWriteArraySet() }.add(session)
     }
 
-    fun unregister(email: String, session: WebSocketSession) {
+    fun unregister(
+        email: String,
+        session: WebSocketSession,
+    ) {
         sessionsByEmail[email]?.remove(session)
         if (sessionsByEmail[email].isNullOrEmpty()) {
             sessionsByEmail.remove(email)
         }
     }
 
-    fun publish(email: String, type: String, payload: Any? = null) {
-        val message = objectMapper.writeValueAsString(
-            mapOf(
-                "type" to type,
-                "email" to email,
-                "timestamp" to Instant.now().toString(),
-                "payload" to payload,
-            ),
-        )
+    fun publish(
+        email: String,
+        type: String,
+        payload: Any? = null,
+    ) {
+        val message =
+            objectMapper.writeValueAsString(
+                mapOf(
+                    "type" to type,
+                    "email" to email,
+                    "timestamp" to Instant.now().toString(),
+                    "payload" to payload,
+                ),
+            )
         sessionsByEmail[email]?.filter { it.isOpen }?.forEach { session ->
             try {
                 session.sendMessage(TextMessage(message))
