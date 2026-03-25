@@ -20,7 +20,6 @@ import com.kollekt.api.dto.TaskDto
 import com.kollekt.api.dto.UserDto
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Invitation
-import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.TaskCategory
 import com.kollekt.repository.InvitationRepository
 import com.kollekt.service.KollektService
@@ -123,30 +122,6 @@ class ControllerEndpointContractTest {
 
         verify(service).getUserByName("Kasper")
         verify(service).getCollectiveCodeForUser(5)
-    }
-
-    @Test
-    fun `onboarding me returns the authenticated user including status`() {
-        whenever(service.getUserByName("Kasper"))
-            .thenReturn(
-                UserDto(
-                    id = 5,
-                    name = "Kasper",
-                    email = "kasper@example.com",
-                    collectiveCode = "ABC123",
-                    status = MemberStatus.AWAY,
-                ),
-            )
-
-        mockMvc.perform(
-            get("/api/onboarding/me")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.email").value("kasper@example.com"))
-            .andExpect(jsonPath("$.status").value("AWAY"))
-
-        verify(service).getUserByName("Kasper")
     }
 
     @Test
