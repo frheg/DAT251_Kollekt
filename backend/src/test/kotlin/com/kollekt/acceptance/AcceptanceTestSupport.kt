@@ -9,9 +9,9 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.CommandLineRunner
-import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.kafka.core.KafkaAdmin
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 
 abstract class AcceptanceTestSupport {
