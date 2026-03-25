@@ -20,7 +20,7 @@ import { StartPage } from './components/StartPage';
 import { Button } from './components/ui/button';
 import { UserMenu } from './components/UserMenu';
 import { Notifications } from './components/Notifications';
-import { logoutSession, API_BASE, getAccessToken } from './lib/api';
+import { api, logoutSession, API_BASE, getAccessToken } from './lib/api';
 import { APP_VIEWS, type AppView } from './lib/app';
 import type { AppUser } from './lib/types';
 import { ThemeProvider } from './components/ThemeProvider';
@@ -409,6 +409,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!getAccessToken()) return;
+
+    let cancelled = false;
+
+    void api.get<AppUser>('/onboarding/me')
+      .then((user) => {
+        if (cancelled) return;
+        setCurrentUser(user);
+        localStorage.setItem('kollekt-user', JSON.stringify(user));
+      })
+      .catch(() => {
+        // Keep the locally cached user if the refresh fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const onHashChange = () => {
       const view = parseViewFromHash(window.location.hash);
       if (view) setCurrentView(view);
@@ -480,9 +500,11 @@ export default function App() {
           </DialogHeader>
           <Profile
             user={currentUser}
-            onStatusChange={status =>
-              setCurrentUser(user => user ? { ...user, status: status as AppUser['status'] } : user)
-            }
+            onStatusChange={(status) => {
+              const updatedUser = { ...currentUser, status };
+              setCurrentUser(updatedUser);
+              localStorage.setItem('kollekt-user', JSON.stringify(updatedUser));
+            }}
           />
         </DialogContent>
       </Dialog>
