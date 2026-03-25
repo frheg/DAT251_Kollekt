@@ -9,7 +9,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.CommandLineRunner
-import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.kafka.core.KafkaAdmin
 import org.springframework.test.web.servlet.MockMvc
@@ -20,18 +20,18 @@ abstract class AcceptanceTestSupport {
     @Autowired lateinit var memberRepository: MemberRepository
 
     // Keep acceptance tests deterministic: don't require Redis/Kafka/Security.
-    @MockBean lateinit var redisTemplate: RedisTemplate<String, Any>
+    @MockitoBean lateinit var redisTemplate: RedisTemplate<String, Any>
 
-    @MockBean lateinit var eventPublisher: IntegrationEventPublisher
+    @MockitoBean lateinit var eventPublisher: IntegrationEventPublisher
 
-    @MockBean(name = "seedData")
+    @MockitoBean(name = "seedData")
     lateinit var seedData: CommandLineRunner
 
     // Prevent KafkaAdmin from trying to connect to localhost:9092 in CI (no broker available).
-    @MockBean lateinit var kafkaAdmin: KafkaAdmin
+    @MockitoBean lateinit var kafkaAdmin: KafkaAdmin
 
     // TokenStoreService is used by SecurityConfig; mock it to avoid Redis dependency.
-    @MockBean lateinit var tokenStoreService: TokenStoreService
+    @MockitoBean lateinit var tokenStoreService: TokenStoreService
 
     @BeforeEach
     fun setUpAcceptanceContext() {
