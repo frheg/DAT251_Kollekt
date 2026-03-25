@@ -1,7 +1,6 @@
 package com.kollekt.api
 
 import com.kollekt.api.dto.AchievementDto
-import com.kollekt.api.dto.AchievementDto
 import com.kollekt.api.dto.AuthResponse
 import com.kollekt.api.dto.BalanceDto
 import com.kollekt.api.dto.CollectiveCodeDto
@@ -206,7 +205,7 @@ class ControllerEndpointContractTest {
                     category = TaskCategory.CLEANING,
                     completed = true,
                     xp = 10,
-                    recurrenceRule = null,
+                    recurring = false,
                 ),
             )
 
