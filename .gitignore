@@ -5,6 +5,7 @@ dist/
 
 backend/.gradle/
 backend/build/
+backend/bin/
 
 .DS_Store
 .idea/
