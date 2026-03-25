@@ -19,6 +19,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
 
 # Minimal app properties so beans can resolve in the test context.
 app:
