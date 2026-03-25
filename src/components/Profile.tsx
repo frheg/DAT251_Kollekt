@@ -1,14 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, getUserMessage } from '../lib/api';
+import type { MemberStatus } from '../lib/types';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import { Input } from './ui/input';
 
-export function Profile({ user, onStatusChange }: { user: { name: string; status?: string }, onStatusChange?: (status: string) => void }) {
-  const [status, setStatus] = useState(user.status || 'ACTIVE');
+interface ProfileProps {
+  user: {
+    name: string;
+    status?: MemberStatus;
+  };
+  onStatusChange?: (status: MemberStatus) => void;
+}
+
+export function Profile({ user, onStatusChange }: ProfileProps) {
+  const [status, setStatus] = useState<MemberStatus>(user.status ?? 'ACTIVE');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
-  const updateStatus = async (newStatus: string) => {
+
+  useEffect(() => {
+    setStatus(user.status ?? 'ACTIVE');
+  }, [user.status]);
+
+  const updateStatus = async (newStatus: MemberStatus) => {
     try {
       await api.patch('/members/status', { memberName: user.name, status: newStatus });
       setStatus(newStatus);

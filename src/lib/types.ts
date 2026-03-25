@@ -128,12 +128,14 @@ export interface DrinkingQuestion {
   targetedPlayer?: string;
 }
 
+export type MemberStatus = 'ACTIVE' | 'AWAY' | 'LEFT';
+
 export interface AppUser {
   id: number;
   name: string;
   email: string;
   collectiveCode: string;
-  status: 'ACTIVE' | 'AWAY' | 'LEFT';
+  status: MemberStatus;
 }
 
 export interface AuthResponse {

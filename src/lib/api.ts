@@ -203,7 +203,18 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  if (contentType.includes('application/json')) {
+    return JSON.parse(text) as T;
+  }
+
+  return text as T;
 }
 
 export const api = {
