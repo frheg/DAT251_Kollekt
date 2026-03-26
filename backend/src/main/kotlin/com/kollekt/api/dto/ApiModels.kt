@@ -15,7 +15,7 @@ data class TaskDto(
     val category: TaskCategory,
     val completed: Boolean,
     val xp: Int,
-    val recurring: Boolean,
+    val recurrenceRule: String? = null,
 )
 
 data class CreateTaskRequest(
@@ -24,7 +24,7 @@ data class CreateTaskRequest(
     val dueDate: LocalDate,
     val category: TaskCategory = TaskCategory.OTHER,
     val xp: Int = 10,
-    val recurring: Boolean = false,
+    val recurrenceRule: String? = null,
 )
 
 data class ShoppingItemDto(

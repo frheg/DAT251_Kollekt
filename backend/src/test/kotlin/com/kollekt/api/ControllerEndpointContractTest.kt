@@ -205,7 +205,7 @@ class ControllerEndpointContractTest {
                     category = TaskCategory.CLEANING,
                     completed = true,
                     xp = 10,
-                    recurring = false,
+                    recurrenceRule = null,
                 ),
             )
 

@@ -19,7 +19,7 @@ import { DrinkingGame } from './components/DrinkingGame';
 import { StartPage } from './components/StartPage';
 import { Button } from './components/ui/button';
 import { UserMenu } from './components/UserMenu';
-import { Notifications } from './components/Notifications';
+import { NotificationDropdown } from "./components/NotificationDropdown" 
 import { api, logoutSession, API_BASE, getAccessToken } from './lib/api';
 import { APP_VIEWS, type AppView } from './lib/app';
 import type { AppUser } from './lib/types';
@@ -588,7 +588,8 @@ export default function App() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Notifications currentUser={currentUser} />
+              {/* Notification Dropdown next to UserMenu */}
+              <NotificationDropdown userName={currentUser.name} />
               <UserMenu
                 user={{ name: currentUser.name, avatarUrl: undefined }}
                 onAction={(action) => {
