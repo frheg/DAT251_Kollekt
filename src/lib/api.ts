@@ -1,3 +1,10 @@
+// Late approval (regret missed task)
+export async function regretTask(taskId: string, memberName: string) {
+  return api.post(`/tasks/${taskId}/regret?memberName=${encodeURIComponent(memberName)}`, {});
+}
+export async function markAllNotificationsAsRead(userName: string): Promise<void> {
+  await api.post(`/notifications/${userName}/read`, {});
+}
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 const TOKEN_KEY = 'kollekt-access-token';

@@ -8,7 +8,12 @@ export interface Task {
   category: TaskCategory;
   completed: boolean;
   xp: number;
-  recurring: boolean;
+  /**
+   * Recurrence rule for the task. Examples: 'NONE', 'DAILY', 'WEEKLY', 'MONTHLY', or RFC 5545 RRULE string.
+   * If null or 'NONE', the task does not repeat.
+   */
+  recurrenceRule: string | null;
+  assignmentReason?: string; // Optional: why this user was assigned
 }
 
 export interface ShoppingItem {

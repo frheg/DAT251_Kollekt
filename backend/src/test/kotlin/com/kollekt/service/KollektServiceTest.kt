@@ -104,6 +104,9 @@ class KollektServiceTest {
     @Mock
     lateinit var tokenService: TokenService
 
+    @Mock
+    lateinit var notificationService: NotificationService
+
     private lateinit var valueOps: ValueOperations<String, Any>
     private lateinit var service: KollektService
 
@@ -131,6 +134,7 @@ class KollektServiceTest {
                 tokenService,
                 invitationRepository,
                 roomRepository,
+                notificationService,
             )
     }
 
@@ -183,7 +187,7 @@ class KollektServiceTest {
                 dueDate = LocalDate.parse("2026-03-05"),
                 category = TaskCategory.CLEANING,
                 xp = 10,
-                recurring = false,
+                recurrenceRule = null,
             ),
             "Kasper",
         )

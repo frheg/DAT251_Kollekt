@@ -44,6 +44,28 @@ class TaskController(
         return service.createTask(request, jwt.subject)
     }
 
+    @PostMapping("/{taskId}/regret")
+    fun regretTask(
+        @PathVariable taskId: Long,
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): TaskDto {
+        requireTokenSubject(jwt, memberName)
+        return service.regretTask(taskId, memberName)
+    }
+
+    @PatchMapping("/{taskId}/feedback")
+    fun giveTaskFeedback(
+        @PathVariable taskId: Long,
+        @RequestParam memberName: String,
+        @RequestBody feedback: Map<String, String>,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): TaskDto {
+        requireTokenSubject(jwt, memberName)
+        val feedbackText = feedback["feedback"] ?: ""
+        return service.giveTaskFeedback(taskId, memberName, feedbackText)
+    }
+
     @PatchMapping("/{taskId}")
     fun updateTask(
         @PathVariable taskId: Long,
