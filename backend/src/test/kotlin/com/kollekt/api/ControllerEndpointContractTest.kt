@@ -1,7 +1,6 @@
 package com.kollekt.api
 
 import com.kollekt.api.dto.AchievementDto
-import com.kollekt.api.dto.AchievementDto
 import com.kollekt.api.dto.AuthResponse
 import com.kollekt.api.dto.BalanceDto
 import com.kollekt.api.dto.CollectiveCodeDto
