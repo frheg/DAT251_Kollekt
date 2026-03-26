@@ -79,21 +79,6 @@ jacoco {
 
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
-    classDirectories.setFrom(
-        files(
-            classDirectories.files.map {
-                fileTree(it) {
-                    exclude(
-                        "**/com/kollekt/domain/**",
-                        "**/com/kollekt/repository/**",
-                        "**/com/kollekt/api/**",
-                        "**/com/kollekt/config/**",
-                        "**/com/kollekt/KollektApplication*",
-                    )
-                }
-            },
-        ),
-    )
     reports {
         xml.required.set(true)
         html.required.set(true)
@@ -109,7 +94,7 @@ tasks.jacocoTestCoverageVerification {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                minimum = "0.60".toBigDecimal()
+                minimum = "0.90".toBigDecimal()
             }
         }
     }
