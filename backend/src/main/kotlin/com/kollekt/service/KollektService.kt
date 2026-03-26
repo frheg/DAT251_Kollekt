@@ -82,8 +82,9 @@ class KollektService(
     @Transactional
     fun deleteExpiredTasks() {
         val thresholdDate = LocalDate.now().minusDays(5)
-        val expiredTasks = taskRepository.findAll()
-            .filter { !it.completed && it.dueDate.isBefore(thresholdDate) }
+        val expiredTasks =
+            taskRepository.findAll()
+                .filter { !it.completed && it.dueDate.isBefore(thresholdDate) }
         if (expiredTasks.isNotEmpty()) {
             taskRepository.deleteAll(expiredTasks)
         }
@@ -324,7 +325,6 @@ class KollektService(
         return updated.toDto()
     }
 
-    
     @Transactional
     fun regretTask(
         taskId: Long,
@@ -701,7 +701,6 @@ class KollektService(
             }
         }
 
-
         val allResidents = listOf(owner.name) + residentNames
         val today = LocalDate.now()
         val numMembers = allResidents.size
@@ -737,35 +736,45 @@ class KollektService(
     }
 
     private fun regenerateRecurringTasksForCollective(collectiveCode: String) {
-        val members = memberRepository.findAllByCollectiveCode(collectiveCode)
-            .filter { it.status == MemberStatus.ACTIVE }
+        val members =
+            memberRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { it.status == MemberStatus.ACTIVE }
         if (members.isEmpty()) return
         val collective = collectiveRepository.findByJoinCode(collectiveCode) ?: return
         val memberNames = members.map { it.name }.sorted()
 
         // Gather all recurring tasks to be assigned for the next period
-        val allRecurringTasks = taskRepository.findAllByCollectiveCode(collectiveCode)
-            .filter { isRecurringTask(it.recurrenceRule) }
+        val allRecurringTasks =
+            taskRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { isRecurringTask(it.recurrenceRule) }
         val groupedTasks = allRecurringTasks.groupBy { Pair(it.title, normalizeRecurrenceRule(it.recurrenceRule) ?: "WEEKLY") }
 
         // Build a list of (template, nextDueDate) for all tasks to assign this week
-        data class TaskTemplate(val title: String, val recurrenceRule: String, val category: TaskCategory, val xp: Int, val template: TaskItem, val nextDueDate: java.time.LocalDate)
+        data class TaskTemplate(
+            val title: String,
+            val recurrenceRule: String,
+            val category: TaskCategory,
+            val xp: Int,
+            val template: TaskItem,
+            val nextDueDate: java.time.LocalDate,
+        )
         val tasksToAssign = mutableListOf<TaskTemplate>()
         for ((key, tasks) in groupedTasks) {
             val (title, recurrenceRule) = key
             val template = tasks.maxByOrNull { it.dueDate } ?: continue
             val lastDueDate = template.dueDate
-            val nextDueDate = when (recurrenceRule.uppercase()) {
-                "WEEKLY" -> lastDueDate.plusWeeks(1)
-                "MONTHLY" -> lastDueDate.plusMonths(1)
-                else -> lastDueDate.plusWeeks(1)
-            }
+            val nextDueDate =
+                when (recurrenceRule.uppercase()) {
+                    "WEEKLY" -> lastDueDate.plusWeeks(1)
+                    "MONTHLY" -> lastDueDate.plusMonths(1)
+                    else -> lastDueDate.plusWeeks(1)
+                }
             // Remove any uncompleted future tasks for this title/recurrenceRule/collective/nextDueDate
             allRecurringTasks.filter {
                 it.title == title &&
-                (normalizeRecurrenceRule(it.recurrenceRule) ?: "WEEKLY") == recurrenceRule &&
-                !it.completed &&
-                it.dueDate == nextDueDate
+                    (normalizeRecurrenceRule(it.recurrenceRule) ?: "WEEKLY") == recurrenceRule &&
+                    !it.completed &&
+                    it.dueDate == nextDueDate
             }.forEach { taskRepository.deleteById(it.id) }
             tasksToAssign.add(TaskTemplate(title, recurrenceRule, template.category, template.xp, template, nextDueDate))
         }
