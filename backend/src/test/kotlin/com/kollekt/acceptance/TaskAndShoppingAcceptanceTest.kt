@@ -43,8 +43,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                             }
                             """.trimIndent(),
                         ),
-                )
-                .andDo(print())
+                ).andDo(print())
                 .andExpect(status().isCreated)
                 .andExpect(jsonPath("$.id").isNumber)
                 .andExpect(jsonPath("$.title").value("Tomme soppla"))
@@ -60,8 +59,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                 get("/api/tasks")
                     .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("\$[*].title").value(hasItem("Tomme soppla")))
 
         // Toggle marks completed
@@ -70,8 +68,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                 patch("/api/tasks/{id}/toggle", id)
                     .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(id))
             .andExpect(jsonPath("$.completed").value(true))
     }
@@ -92,8 +89,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                             }
                             """.trimIndent(),
                         ),
-                )
-                .andDo(print())
+                ).andDo(print())
                 .andExpect(status().isCreated)
                 .andExpect(jsonPath("$.id").isNumber)
                 .andExpect(jsonPath("$.item").value("Dopapir"))
@@ -108,8 +104,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                 get("/api/tasks/shopping")
                     .param("memberName", "Emma")
                     .with(jwt().jwt { it.subject("Emma") }),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("\$[*].item").value(hasItem("Dopapir")))
 
         // Toggle completed
@@ -118,8 +113,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                 patch("/api/tasks/shopping/{id}/toggle", itemId)
                     .param("memberName", "Emma")
                     .with(jwt().jwt { it.subject("Emma") }),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(itemId))
             .andExpect(jsonPath("$.completed").value(true))
 
@@ -129,7 +123,6 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                 delete("/api/tasks/shopping/{id}", itemId)
                     .param("memberName", "Emma")
                     .with(jwt().jwt { it.subject("Emma") }),
-            )
-            .andExpect(status().isNoContent)
+            ).andExpect(status().isNoContent)
     }
 }

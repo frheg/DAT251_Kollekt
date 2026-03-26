@@ -50,7 +50,8 @@ class TokenServiceTest {
             val subject = params.claims.subject ?: "unknown"
             val jti = params.claims.id ?: "jti"
             val now = Instant.now()
-            Jwt.withTokenValue("signed.$subject.$jti")
+            Jwt
+                .withTokenValue("signed.$subject.$jti")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject(subject)
                 .jti(jti)
@@ -106,7 +107,8 @@ class TokenServiceTest {
     fun `rotateRefreshToken returns subject when token is valid`() {
         val now = Instant.now()
         val refreshJwt =
-            Jwt.withTokenValue("refresh-token")
+            Jwt
+                .withTokenValue("refresh-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .jti("jti-123")
@@ -128,7 +130,8 @@ class TokenServiceTest {
     fun `rotateRefreshToken throws when token_type is not refresh`() {
         val now = Instant.now()
         val accessJwt =
-            Jwt.withTokenValue("access-token")
+            Jwt
+                .withTokenValue("access-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .jti("jti-abc")
@@ -148,7 +151,8 @@ class TokenServiceTest {
     fun `rotateRefreshToken throws when token is not active in store`() {
         val now = Instant.now()
         val refreshJwt =
-            Jwt.withTokenValue("refresh-token")
+            Jwt
+                .withTokenValue("refresh-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .jti("jti-456")
@@ -180,7 +184,8 @@ class TokenServiceTest {
     fun `revokeAccessToken stores jti with remaining ttl`() {
         val now = Instant.now()
         val jwt =
-            Jwt.withTokenValue("access-token")
+            Jwt
+                .withTokenValue("access-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .jti("jti-789")
@@ -199,7 +204,8 @@ class TokenServiceTest {
         // Build a JWT without an id claim — Jwt.Builder requires id() but we
         // can fake it with an empty string then intercept; easiest is to mock.
         val jwt =
-            Jwt.withTokenValue("no-jti-token")
+            Jwt
+                .withTokenValue("no-jti-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .issuedAt(now)
@@ -219,7 +225,8 @@ class TokenServiceTest {
     fun `revokeRefreshToken calls store revoke when token is valid`() {
         val now = Instant.now()
         val refreshJwt =
-            Jwt.withTokenValue("refresh-token")
+            Jwt
+                .withTokenValue("refresh-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .jti("jti-r1")
@@ -239,7 +246,8 @@ class TokenServiceTest {
     fun `revokeRefreshToken throws when token_type is not refresh`() {
         val now = Instant.now()
         val accessJwt =
-            Jwt.withTokenValue("access-token")
+            Jwt
+                .withTokenValue("access-token")
                 .header("alg", MacAlgorithm.HS256.name)
                 .subject("Kasper")
                 .jti("jti-a1")
