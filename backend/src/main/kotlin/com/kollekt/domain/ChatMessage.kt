@@ -16,4 +16,6 @@ data class ChatMessage(
     @Column(nullable = true) val collectiveCode: String? = null,
     @Column(nullable = false, length = 1500) val text: String,
     @Column(nullable = false) val timestamp: LocalDateTime,
+    @Column(nullable = false, columnDefinition = "TEXT") val reactions: String = "{}",
+    @Column(nullable = true, columnDefinition = "TEXT") val poll: String? = null,
 )

@@ -1,11 +1,13 @@
 package com.kollekt.service
 
 import com.kollekt.api.dto.CreateExpenseRequest
+import com.kollekt.api.dto.CreatePollRequest
 import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.api.dto.DashboardResponse
 import com.kollekt.api.dto.LeaderboardResponse
 import com.kollekt.api.dto.WeeklyStatsDto
 import com.kollekt.domain.CalendarEvent
+import com.kollekt.domain.ChatMessage
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Expense
 import com.kollekt.domain.Member
@@ -50,6 +52,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
 class KollektServiceTest {
@@ -266,6 +269,113 @@ class KollektServiceTest {
 
         assertFalse(result.completed)
         verify(memberRepository, never()).save(any<Member>())
+    }
+
+    @Test
+    fun `addReaction enforces one reaction per user and publishes update`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(chatMessageRepository.findById(11)).thenReturn(
+            Optional.of(
+                ChatMessage(
+                    id = 11,
+                    sender = "Emma",
+                    collectiveCode = "ABC123",
+                    text = "Hei",
+                    timestamp = LocalDateTime.now(),
+                    reactions = """{"😂":["Kasper"],"❤️":["Emma"]}""",
+                ),
+            ),
+        )
+
+        val savedCaptor = argumentCaptor<ChatMessage>()
+        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer { savedCaptor.firstValue }
+
+        val updated = service.addReaction(11, "👍", "Kasper")
+
+        assertTrue(updated.reactions.any { it.emoji == "👍" && it.users == listOf("Kasper") })
+        assertFalse(updated.reactions.any { it.emoji == "😂" })
+        assertTrue(updated.reactions.any { it.emoji == "❤️" && it.users == listOf("Emma") })
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_REACTION_UPDATED"), eq(updated))
+    }
+
+    @Test
+    fun `removeReaction removes user from emoji and publishes update`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(chatMessageRepository.findById(12)).thenReturn(
+            Optional.of(
+                ChatMessage(
+                    id = 12,
+                    sender = "Emma",
+                    collectiveCode = "ABC123",
+                    text = "Hei",
+                    timestamp = LocalDateTime.now(),
+                    reactions = """{"👍":["Kasper","Emma"]}""",
+                ),
+            ),
+        )
+
+        val savedCaptor = argumentCaptor<ChatMessage>()
+        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer { savedCaptor.firstValue }
+
+        val updated = service.removeReaction(12, "👍", "Kasper")
+
+        assertEquals(listOf("Emma"), updated.reactions.firstOrNull { it.emoji == "👍" }?.users)
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_REACTION_UPDATED"), eq(updated))
+    }
+
+    @Test
+    fun `createPoll stores poll payload and publishes created message`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+
+        val savedCaptor = argumentCaptor<ChatMessage>()
+        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer {
+            savedCaptor.firstValue.copy(id = 77)
+        }
+
+        val created =
+            service.createPoll(
+                CreatePollRequest(
+                    question = "Hvem lager middag?",
+                    options = listOf("Kasper", "Emma"),
+                ),
+                "Kasper",
+            )
+
+        assertEquals(77L, created.id)
+        assertEquals("📊 Hvem lager middag?", created.text)
+        assertEquals("Hvem lager middag?", created.poll?.question)
+        assertEquals(listOf("Kasper", "Emma"), created.poll?.options?.map { it.text })
+        verify(eventPublisher).chatEvent(eq("MESSAGE_CREATED"), eq(created))
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_CREATED"), eq(created))
+    }
+
+    @Test
+    fun `votePoll moves users vote between options and publishes update`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(chatMessageRepository.findById(13)).thenReturn(
+            Optional.of(
+                ChatMessage(
+                    id = 13,
+                    sender = "Emma",
+                    collectiveCode = "ABC123",
+                    text = "📊 Hvem?",
+                    timestamp = LocalDateTime.now(),
+                    poll = """{"question":"Hvem?","options":[{"id":0,"text":"A","users":["Kasper"]},{"id":1,"text":"B","users":[]}]}""",
+                ),
+            ),
+        )
+
+        val savedCaptor = argumentCaptor<ChatMessage>()
+        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer { savedCaptor.firstValue }
+
+        val updated = service.votePoll(13, 1, "Kasper")
+        val poll = updated.poll ?: error("Poll should be present")
+
+        val optionA = poll.options.first { it.id == 0 }
+        val optionB = poll.options.first { it.id == 1 }
+        assertTrue(optionA.users.isEmpty())
+        assertEquals(listOf("Kasper"), optionB.users)
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_POLL_UPDATED"), eq(updated))
     }
 
     @Test
