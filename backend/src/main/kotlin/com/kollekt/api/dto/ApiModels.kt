@@ -65,6 +65,28 @@ data class MessageDto(
     val sender: String,
     val text: String,
     val timestamp: LocalDateTime,
+    val reactions: List<ReactionDto> = emptyList(),
+    val poll: PollDto? = null,
+)
+
+data class PollDto(
+    val question: String,
+    val options: List<PollOptionDto>,
+)
+
+data class PollOptionDto(
+    val id: Int,
+    val text: String,
+    val users: List<String>,
+)
+
+data class CreatePollRequest(
+    val question: String,
+    val options: List<String>,
+)
+
+data class VotePollRequest(
+    val optionId: Int,
 )
 
 data class CreateMessageRequest(
@@ -248,4 +270,17 @@ data class DrinkingQuestionDto(
     val text: String,
     val type: String,
     val targetedPlayer: String?,
+)
+
+data class ReactionDto(
+    val emoji: String,
+    val users: List<String>,
+)
+
+data class AddReactionRequest(
+    val emoji: String,
+)
+
+data class RemoveReactionRequest(
+    val emoji: String,
 )
