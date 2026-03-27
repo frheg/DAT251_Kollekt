@@ -2,6 +2,8 @@
 
 package com.kollekt.service
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.kollekt.api.dto.*
 import com.kollekt.domain.*
 import com.kollekt.repository.*
@@ -38,6 +40,8 @@ class KollektService(
     private val roomRepository: RoomRepository,
     private val notificationService: NotificationService,
 ) {
+    private val objectMapper = jacksonObjectMapper()
+    private val allowedReactionEmojis = setOf("👍", "❤️", "😂", "🎉", "😮")
     private val joinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
     @Autowired(required = false)
@@ -1032,6 +1036,212 @@ class KollektService(
         return saved.toDto()
     }
 
+    @Transactional
+    fun addReaction(
+        messageId: Long,
+        emoji: String,
+        actorName: String,
+    ): MessageDto {
+        require(emoji in allowedReactionEmojis) { "Unsupported reaction" }
+
+        val message =
+            chatMessageRepository.findById(messageId)
+                .orElseThrow { IllegalArgumentException("Message not found") }
+
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        require(message.collectiveCode == collectiveCode) { "Message not found" }
+
+        val reactions =
+            message
+                .reactionMap()
+                .mapValues { (_, users) -> users.toMutableSet() }
+                .toMutableMap()
+
+        // Ensure one reaction per user: remove user from all emojis first
+        reactions.values.forEach { users -> users.remove(actorName) }
+        reactions.entries.removeIf { (_, users) -> users.isEmpty() }
+
+        val users = reactions.getOrPut(emoji) { mutableSetOf() }
+        users.add(actorName)
+
+        val updated =
+            chatMessageRepository.save(
+                message.copy(reactions = objectMapper.writeValueAsString(reactions.toJsonMap())),
+            )
+
+        val dto = updated.toDto()
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_REACTION_UPDATED", dto)
+        return dto
+    }
+
+    @Transactional
+    fun removeReaction(
+        messageId: Long,
+        emoji: String,
+        actorName: String,
+    ): MessageDto {
+        require(emoji in allowedReactionEmojis) { "Unsupported reaction" }
+
+        val message =
+            chatMessageRepository.findById(messageId)
+                .orElseThrow { IllegalArgumentException("Message not found") }
+
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        require(message.collectiveCode == collectiveCode) { "Message not found" }
+
+        val reactions = message.reactionMap().toMutableMap()
+        val users = reactions[emoji]?.toMutableSet() ?: mutableSetOf()
+        users.remove(actorName)
+
+        if (users.isEmpty()) {
+            reactions.remove(emoji)
+        } else {
+            reactions[emoji] = users
+        }
+
+        val updated =
+            chatMessageRepository.save(
+                message.copy(reactions = objectMapper.writeValueAsString(reactions.toJsonMap())),
+            )
+
+        val dto = updated.toDto()
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_REACTION_UPDATED", dto)
+        return dto
+    }
+
+    private fun ChatMessage.reactionMap(): Map<String, Set<String>> {
+        if (reactions.isBlank()) return emptyMap()
+        return try {
+            objectMapper.readValue<Map<String, Set<String>>>(reactions)
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun Map<String, Set<String>>.toJsonMap(): Map<String, List<String>> = mapValues { (_, value) -> value.toList().sorted() }
+
+    @Transactional
+    fun createPoll(
+        request: CreatePollRequest,
+        actorName: String,
+    ): MessageDto {
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+
+        val question = request.question.trim()
+        require(question.isNotBlank()) { "Poll question is required" }
+
+        val options = request.options.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        require(options.size in 2..6) { "Poll must have between 2 and 6 unique options" }
+
+        val payload =
+            PollPayload(
+                question = question,
+                options =
+                    options.mapIndexed { index, text ->
+                        PollOptionPayload(id = index, text = text, users = emptyList())
+                    },
+            )
+
+        val saved =
+            chatMessageRepository.save(
+                ChatMessage(
+                    sender = actorName,
+                    collectiveCode = collectiveCode,
+                    text = "📊 $question",
+                    timestamp = LocalDateTime.now(),
+                    poll = objectMapper.writeValueAsString(payload),
+                ),
+            )
+
+        val dto = saved.toDto()
+        eventPublisher.chatEvent("MESSAGE_CREATED", dto)
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
+        return dto
+    }
+
+    @Transactional
+    fun votePoll(
+        messageId: Long,
+        optionId: Int,
+        actorName: String,
+    ): MessageDto {
+        val message =
+            chatMessageRepository.findById(messageId)
+                .orElseThrow { IllegalArgumentException("Message not found") }
+
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        require(message.collectiveCode == collectiveCode) { "Message not found" }
+
+        val poll = message.pollPayload() ?: throw IllegalArgumentException("Message is not a poll")
+        require(poll.options.any { it.id == optionId }) { "Invalid poll option" }
+
+        val updatedOptions =
+            poll.options.map { option ->
+                val usersWithoutActor = option.users.filter { it != actorName }
+                if (option.id == optionId) {
+                    option.copy(users = (usersWithoutActor + actorName).distinct().sorted())
+                } else {
+                    option.copy(users = usersWithoutActor.sorted())
+                }
+            }
+
+        val updatedPoll = poll.copy(options = updatedOptions)
+
+        val updated =
+            chatMessageRepository.save(
+                message.copy(
+                    poll = objectMapper.writeValueAsString(updatedPoll),
+                ),
+            )
+
+        val dto = updated.toDto()
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_POLL_UPDATED", dto)
+        return dto
+    }
+
+    // poll
+    private data class PollPayload(
+        val question: String,
+        val options: List<PollOptionPayload>,
+    )
+
+    private data class PollOptionPayload(
+        val id: Int,
+        val text: String,
+        val users: List<String> = emptyList(),
+    )
+
+    private fun ChatMessage.pollPayload(): PollPayload? {
+        val raw = poll?.trim().orEmpty()
+        if (raw.isBlank()) return null
+        return try {
+            objectMapper.readValue<PollPayload>(raw)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun ChatMessage.toDto() =
+        MessageDto(
+            id = id,
+            sender = sender,
+            text = text,
+            timestamp = timestamp,
+            reactions =
+                reactionMap()
+                    .map { (emoji, users) -> ReactionDto(emoji, users.toList().sorted()) }
+                    .sortedBy { it.emoji },
+            poll =
+                pollPayload()?.let { payload ->
+                    PollDto(
+                        question = payload.question,
+                        options =
+                            payload.options
+                                .sortedBy { it.id }
+                                .map { PollOptionDto(id = it.id, text = it.text, users = it.users.sorted()) },
+                    )
+                },
+        )
     // -------------------------------------------------------------------------
     // Economy
     // -------------------------------------------------------------------------
@@ -1413,8 +1623,6 @@ class KollektService(
     private fun ShoppingItem.toDto() = ShoppingItemDto(id, item, addedBy, completed)
 
     private fun CalendarEvent.toDto() = EventDto(id, title, date, time, type, organizer, attendees, description)
-
-    private fun ChatMessage.toDto() = MessageDto(id, sender, text, timestamp)
 
     private fun Member.toUserDto(): UserDto {
         val friends = friendsMap[name]?.map { FriendDto(it) } ?: emptyList()
