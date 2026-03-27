@@ -487,6 +487,15 @@ export default function App() {
     );
   }
 
+  // Show onboarding if user is logged in but not in a collective
+  if (!currentUser.collectiveCode) {
+    return (
+      <ThemeProvider>
+        <StartPage onAuthenticated={handleAuthenticated} />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <ThemeSelector open={showTheme} onClose={() => setShowTheme(false)} />
@@ -600,6 +609,20 @@ export default function App() {
                   else if (action === 'addFriends') setShowAddFriends(true);
                   else if (action === 'resetPassword') setShowResetPassword(true);
                   else if (action === 'deleteUser') setShowDeleteUser(true);
+                  else if (action === 'leaveCollective') handleLeaveCollective();
+                  function handleLeaveCollective() {
+                    if (!currentUser) return;
+                    (async () => {
+                      try {
+                        await api.patch<void>(`/members/leave-collective?memberName=${encodeURIComponent(currentUser.name)}`);
+                        const updatedUser: AppUser = { ...currentUser, collectiveCode: '' };
+                        setCurrentUser(updatedUser);
+                        localStorage.setItem('kollekt-user', JSON.stringify(updatedUser));
+                      } catch (err) {
+                        alert('Kunne ikke forlate kollektivet. Prøv igjen.');
+                      }
+                    })();
+                  }
                 }}
               />
             </div>

@@ -5,10 +5,10 @@ import { LogOut, Settings, User, Palette, Home, Users, Trash2, KeyRound, Plus } 
 const menuItems = [
   { icon: <User />, label: "Min profil", action: "profile" },
   { icon: <Palette />, label: "Farger & tema", action: "theme" },
-  { icon: <Home />, label: "Bytt kollektiv", action: "changeHome" },
   { icon: <Users />, label: "Legg til venner", action: "addFriends" },
   { icon: <KeyRound />, label: "Bytt passord", action: "resetPassword" },
   { icon: <Trash2 />, label: "Slett bruker", action: "deleteUser" },
+  { icon: <Home />, label: "Forlat kollektiv", action: "leaveCollective" },
   { icon: <LogOut />, label: "Logg ut", action: "logout" },
 ];
 
