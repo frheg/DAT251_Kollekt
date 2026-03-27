@@ -21,6 +21,15 @@ class MemberController(private val service: KollektService) {
 
     data class StatusUpdateRequest(val memberName: String, val status: String)
 
+    @PatchMapping("/leave-collective")
+    fun leaveCollective(
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) {
+        requireTokenSubject(jwt, memberName)
+        service.leaveCollective(memberName)
+    }
+
     @PostMapping("/invite")
     fun inviteUser(
         @RequestBody req: InviteRequest,
