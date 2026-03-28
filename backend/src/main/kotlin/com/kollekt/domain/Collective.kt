@@ -16,6 +16,7 @@ data class Collective(
     @Column(nullable = false) val name: String,
     @Column(nullable = false, unique = true) val joinCode: String,
     @Column(nullable = false) val ownerMemberId: Long,
+    @Column(nullable = true) val monthlyPrize: String? = null,
     @OneToMany(mappedBy = "collective", fetch = FetchType.LAZY, cascade = [jakarta.persistence.CascadeType.ALL], orphanRemoval = true)
     val rooms: List<Room> = emptyList(),
 )

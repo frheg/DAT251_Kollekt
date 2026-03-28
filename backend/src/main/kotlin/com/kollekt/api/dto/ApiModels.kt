@@ -7,6 +7,12 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
+enum class LeaderboardPeriod {
+    OVERALL,
+    YEAR,
+    MONTH,
+}
+
 data class TaskDto(
     val id: Long,
     val title: String,
@@ -219,6 +225,7 @@ data class WeeklyStatsDto(
 data class LeaderboardResponse(
     val players: List<LeaderboardPlayerDto>,
     val weeklyStats: WeeklyStatsDto,
+    val monthlyPrize: String? = null,
 )
 
 data class PantSummaryDto(
@@ -248,4 +255,8 @@ data class DrinkingQuestionDto(
     val text: String,
     val type: String,
     val targetedPlayer: String?,
+)
+
+data class MonthlyPrizeRequest(
+    val prize: String?,
 )

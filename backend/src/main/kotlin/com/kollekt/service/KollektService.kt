@@ -1189,19 +1189,41 @@ class KollektService(
     // Leaderboard / Dashboard / Achievements
     // -------------------------------------------------------------------------
 
-    fun getLeaderboard(memberName: String): LeaderboardResponse {
+    fun getLeaderboard(
+        memberName: String,
+        period: LeaderboardPeriod = LeaderboardPeriod.OVERALL,
+    ): LeaderboardResponse {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val leaderboardKey = "leaderboard:$collectiveCode"
+        val collective = collectiveRepository.findByJoinCode(collectiveCode)
+            ?: throw IllegalArgumentException("Collective not found")
+        val leaderboardKey = "leaderboard:$collectiveCode:$period"
         val cached = redisTemplate.opsForValue().get(leaderboardKey)
         if (cached is LeaderboardResponse) return cached
 
-        val tasks = taskRepository.findAllByCollectiveCode(collectiveCode)
+        val allTasks = taskRepository.findAllByCollectiveCode(collectiveCode)
+        val now = LocalDateTime.now()
+
+        // Filter tasks based on period
+        val filteredTasks =
+            when (period) {
+                LeaderboardPeriod.OVERALL -> allTasks.filter { it.completed }
+                LeaderboardPeriod.YEAR ->
+                    allTasks.filter {
+                        it.completed && it.completedAt?.year == now.year
+                    }
+                LeaderboardPeriod.MONTH ->
+                    allTasks.filter {
+                        it.completed &&
+                            it.completedAt?.year == now.year &&
+                            it.completedAt?.month == now.month
+                    }
+            }
 
         val players =
             memberRepository.findAllByCollectiveCode(collectiveCode)
                 .sortedByDescending { it.xp }
                 .mapIndexed { index, member ->
-                    val completedCount = tasks.count { it.assignee == member.name && it.completed }
+                    val completedCount = filteredTasks.count { it.assignee == member.name }
 
                     LeaderboardPlayerDto(
                         rank = index + 1,
@@ -1219,8 +1241,8 @@ class KollektService(
                     )
                 }
 
-        val totalTasks = tasks.count { it.completed }
-        val totalXp = players.sumOf { it.xp }
+        val totalTasks = filteredTasks.size
+        val totalXp = filteredTasks.sumOf { it.xp }
         val avgPerPerson = if (players.isNotEmpty()) totalXp / players.size else 0
         val top = players.firstOrNull()?.name ?: "N/A"
 
@@ -1234,10 +1256,30 @@ class KollektService(
                         avgPerPerson = avgPerPerson,
                         topContributor = top,
                     ),
+                monthlyPrize = collective.monthlyPrize,
             )
 
         redisTemplate.opsForValue().set(leaderboardKey, response)
         return response
+    }
+
+    fun getMonthlyPrize(memberName: String): String? {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collective = collectiveRepository.findByJoinCode(collectiveCode)
+            ?: throw IllegalArgumentException("Collective not found")
+        return collective.monthlyPrize
+    }
+
+    fun setMonthlyPrize(memberName: String, prize: String?) {
+        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collective = collectiveRepository.findByJoinCode(collectiveCode)
+            ?: throw IllegalArgumentException("Collective not found")
+
+        val updatedCollective = collective.copy(monthlyPrize = prize)
+        collectiveRepository.save(updatedCollective)
+
+        // Clear leaderboard cache since monthly prize affects leaderboard response
+        clearLeaderboardCache()
     }
 
     fun getAchievements(): List<AchievementDto> = achievementRepository.findAll().map { it.toDto() }

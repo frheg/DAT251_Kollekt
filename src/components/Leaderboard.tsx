@@ -13,7 +13,7 @@ import {
   PageStack,
   SectionCard,
 } from './shared/page';
-import type { Achievement, LeaderboardResponse } from '../lib/types';
+import type { Achievement, LeaderboardResponse, LeaderboardPeriod } from '../lib/types';
 
 interface LeaderboardProps {
   currentUserName: string;
@@ -23,6 +23,22 @@ const rankStyles: Record<number, string> = {
   1: 'bg-amber-100 text-amber-700',
   2: 'bg-slate-200 text-slate-700',
   3: 'bg-orange-100 text-orange-700',
+};
+
+const getPeriodText = (period: LeaderboardPeriod) => {
+  switch (period) {
+    case 'OVERALL': return { short: 'totalt', long: 'hele perioden', points: 'Poeng totalt' };
+    case 'YEAR': return { short: 'året', long: 'dette året', points: 'Poeng dette året' };
+    case 'MONTH': return { short: 'måneden', long: 'denne måneden', points: 'Poeng denne måneden' };
+  }
+};
+
+const getPeriodDescription = (period: LeaderboardPeriod) => {
+  switch (period) {
+    case 'OVERALL': return 'Se hvordan innsatsen fordeler seg i kollektivet totalt.';
+    case 'YEAR': return 'Se hvordan innsatsen fordeler seg i kollektivet dette året.';
+    case 'MONTH': return 'Se hvordan innsatsen fordeler seg i kollektivet denne måneden.';
+  }
 };
 
 export function Leaderboard({ currentUserName }: LeaderboardProps) {
@@ -38,10 +54,11 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [lastLevel, setLastLevel] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [period, setPeriod] = useState<LeaderboardPeriod>('OVERALL');
 
   const load = async () => {
     const [leaderboardData, achievementData] = await Promise.all([
-      api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`),
+      api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}&period=${period}`),
       api.get<Achievement[]>('/achievements'),
     ]);
 
@@ -57,7 +74,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
       }
     });
     return disconnect;
-  }, [currentUserName]);
+  }, [currentUserName, period]);
 
   // Confetti on level up
   useEffect(() => {
@@ -84,11 +101,11 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
         icon={Trophy}
         eyebrow="Poeng"
         title="Poengtavle"
-        description="Se hvordan innsatsen fordeler seg i kollektivet denne uken."
+        description={getPeriodDescription(period)}
       >
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white shadow-sm">
-            <p className="text-sm text-slate-300">Poeng denne uken</p>
+            <p className="text-sm text-slate-300">{getPeriodText(period).points}</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight">{weeklyStats.totalXp} XP</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
@@ -98,7 +115,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Mest aktiv denne uken</p>
+            <p className="text-sm text-slate-500">Mest aktiv {getPeriodText(period).short}</p>
             <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
               {weeklyStats.topContributor || 'Ingen enda'}
             </p>
@@ -106,16 +123,33 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
         </div>
       </PageHeader>
 
-      <Tabs defaultValue="ranking" className="w-full">
+      <Tabs defaultValue="ranking" className="w-full mt-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="ranking">Rangering</TabsTrigger>
           <TabsTrigger value="milestones">Milepæler</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ranking" className="mt-4 space-y-4">
+          <div className="w-full mb-6">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm w-full">
+              {(['OVERALL', 'YEAR', 'MONTH'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    period === p
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {p === 'OVERALL' ? 'Totalt' : p === 'YEAR' ? 'År' : 'Måned'}
+                </button>
+              ))}
+            </div>
+          </div>
           <SectionCard
             title="Alle i kollektivet"
-            description="Poeng, nivå og antall fullførte oppgaver per person."
+            description={`Poeng, nivå og antall fullførte oppgaver per person ${getPeriodText(period).long}.`}
           >
             {players.length === 0 ? (
               <EmptyState
@@ -205,6 +239,22 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
               </div>
             )}
           </SectionCard>
+
+          {period === 'MONTH' && leaderboard.monthlyPrize && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-2xl">
+                  🏆
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-amber-700">Månedens premie</p>
+                  <p className="mt-1 text-lg font-semibold text-amber-900">
+                    {leaderboard.monthlyPrize}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">

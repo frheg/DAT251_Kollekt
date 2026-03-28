@@ -490,7 +490,7 @@ class KollektServiceTest {
                     ),
             )
 
-        whenever(valueOps.get("leaderboard:ABC123")).thenReturn(cached)
+        whenever(valueOps.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
 
         val result = service.getLeaderboard("Kasper")
 

@@ -95,7 +95,7 @@ export interface LeaderboardPlayer {
   badges: string[];
 }
 
-export interface WeeklyStats {
+export interface PeriodStats {
   totalTasks: number;
   totalXp: number;
   avgPerPerson: number;
@@ -104,7 +104,8 @@ export interface WeeklyStats {
 
 export interface LeaderboardResponse {
   players: LeaderboardPlayer[];
-  weeklyStats: WeeklyStats;
+  weeklyStats: PeriodStats;
+  monthlyPrize?: string;
 }
 
 export interface Achievement {
@@ -133,7 +134,7 @@ export interface DrinkingQuestion {
   targetedPlayer?: string;
 }
 
-export type MemberStatus = 'ACTIVE' | 'AWAY' | 'LEFT';
+export type LeaderboardPeriod = 'OVERALL' | 'YEAR' | 'MONTH';
 
 export interface AppUser {
   id: number;
