@@ -47,6 +47,25 @@ class NotificationService(
         )
     }
 
+    fun createGroupNotification(
+        userNames: List<String>,
+        message: String,
+        type: String,
+    ) {
+        val now = Instant.now()
+        val notifications =
+            userNames.map { userName ->
+                Notification(
+                    userName = userName,
+                    message = message,
+                    type = type,
+                    timestamp = now,
+                    read = false,
+                )
+            }
+        notificationRepository.saveAll(notifications)
+    }
+
     fun getNotificationsForUser(userName: String): List<Notification> {
         return notificationRepository.findAllByUserName(userName)
     }

@@ -36,13 +36,6 @@ export interface CalendarEvent {
   description?: string;
 }
 
-export interface ChatMessage {
-  id: number;
-  sender: string;
-  text: string;
-  timestamp: string;
-}
-
 export interface Expense {
   id: number;
   description: string;
@@ -150,4 +143,29 @@ export interface AuthResponse {
   tokenType: string;
   expiresIn: number;
   user: AppUser;
+}
+
+export interface ChatReaction {
+  emoji: string;
+  users: string[];
+}
+
+export interface ChatPollOption {
+  id: number;
+  text: string;
+  users: string[];
+}
+
+export interface ChatPoll {
+  question: string;
+  options: ChatPollOption[];
+}
+
+export interface ChatMessage {
+  id: number;
+  sender: string;
+  text: string;
+  timestamp: string;
+  reactions: ChatReaction[];
+  poll?: ChatPoll | null;
 }
