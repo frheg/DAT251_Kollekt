@@ -14,8 +14,10 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.Base64
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -42,6 +44,7 @@ class KollektService(
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val allowedReactionEmojis = setOf("👍", "❤️", "😂", "🎉", "😮")
+    private val maxChatImageBytes = 5 * 1024 * 1024L
     private val joinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
     @Autowired(required = false)
@@ -1021,12 +1024,14 @@ class KollektService(
         actorName: String,
     ): MessageDto {
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val normalizedText = request.text.trim()
+        require(normalizedText.isNotBlank()) { "Message text is required" }
         val saved =
             chatMessageRepository.save(
                 ChatMessage(
                     sender = actorName,
                     collectiveCode = collectiveCode,
-                    text = request.text,
+                    text = normalizedText,
                     timestamp = LocalDateTime.now(),
                 ),
             )
@@ -1034,6 +1039,40 @@ class KollektService(
         eventPublisher.chatEvent("MESSAGE_CREATED", saved.toDto())
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", saved.toDto())
         return saved.toDto()
+    }
+
+    @Transactional
+    fun createImageMessage(
+        image: MultipartFile,
+        caption: String?,
+        actorName: String,
+    ): MessageDto {
+        require(!image.isEmpty) { "Image is required" }
+        val contentType = image.contentType?.trim().orEmpty().lowercase()
+        require(contentType.startsWith("image/")) { "Only image uploads are supported" }
+        require(image.size <= maxChatImageBytes) { "Image is too large (max 5 MB)" }
+
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val normalizedCaption = caption?.trim().orEmpty()
+        val payload = Base64.getEncoder().encodeToString(image.bytes)
+
+        val saved =
+            chatMessageRepository.save(
+                ChatMessage(
+                    sender = actorName,
+                    collectiveCode = collectiveCode,
+                    text = normalizedCaption,
+                    imageData = payload,
+                    imageMimeType = contentType,
+                    imageFileName = image.originalFilename?.take(255),
+                    timestamp = LocalDateTime.now(),
+                ),
+            )
+
+        val dto = saved.toDto()
+        eventPublisher.chatEvent("MESSAGE_CREATED", dto)
+        realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
+        return dto
     }
 
     @Transactional
@@ -1226,6 +1265,9 @@ class KollektService(
             id = id,
             sender = sender,
             text = text,
+            imageData = imageData,
+            imageMimeType = imageMimeType,
+            imageFileName = imageFileName,
             timestamp = timestamp,
             reactions =
                 reactionMap()

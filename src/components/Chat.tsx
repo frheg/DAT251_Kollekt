@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, MessageSquare, Plus, Send, X } from 'lucide-react';
+import { BarChart3, ImagePlus, MessageSquare, Plus, Send, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Input } from './ui/input';
 import { api, getUserMessage } from '../lib/api';
@@ -14,6 +14,16 @@ interface ChatProps {
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '🎉', '😮'] as const;
+const SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+]);
 
 function sortByTimestamp(left: ChatMessage, right: ChatMessage) {
   return new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime();
@@ -74,14 +84,32 @@ function hasUserReacted(message: ChatMessage, emoji: string, userName: string) {
   );
 }
 
+function getChatImageSrc(message: ChatMessage): string | null {
+  const rawData = message.imageData?.trim();
+  if (!rawData) return null;
+
+  if (rawData.startsWith('data:')) {
+    return rawData;
+  }
+
+  const mimeType = message.imageMimeType?.trim().toLowerCase();
+  if (!mimeType) return null;
+
+  const normalizedData = rawData.replace(/\s+/g, '');
+  return `data:${mimeType};base64,${normalizedData}`;
+}
+
 export function Chat({ currentUserName }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showPollComposer, setShowPollComposer] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
     try {
@@ -164,6 +192,43 @@ export function Chat({ currentUserName }: ChatProps) {
     }
   };
 
+  const openImagePicker = () => {
+    if (isUploadingImage) return;
+    fileInputRef.current?.click();
+  };
+
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setSubmitError('Velg en bildefil (png, jpg, webp, osv.).');
+      return;
+    }
+
+    if (!SUPPORTED_IMAGE_MIME_TYPES.has(file.type.toLowerCase())) {
+      setSubmitError('Filtypen støttes ikke i chatten. Bruk JPG, JPEG, PNG, WEBP, GIF eller HEIC.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const caption = newMessage.trim();
+    if (caption.length > 0) {
+      formData.append('caption', caption);
+    }
+
+    try {
+      setIsUploadingImage(true);
+      const created = await api.postForm<ChatMessage>('/chat/images', formData);
+      setMessages((previous) => appendUniqueMessage(previous, created));
+      setNewMessage('');
+      setSubmitError('');
+    } catch (error) {
+      setSubmitError(getUserMessage(error, 'Kunne ikke laste opp bildet akkurat nå.'));
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const createPoll = async () => {
     const question = pollQuestion.trim();
     const options = pollOptions.map((option) => option.trim()).filter((option) => option.length > 0);
@@ -222,6 +287,7 @@ export function Chat({ currentUserName }: ChatProps) {
           <div className="max-h-[60dvh] space-y-4 overflow-y-auto pr-1">
             {messages.map((message) => {
               const isMe = message.sender === currentUserName;
+              const imageSrc = getChatImageSrc(message);
 
               return (
                 <div key={message.id} className={`group flex gap-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -242,7 +308,7 @@ export function Chat({ currentUserName }: ChatProps) {
                     </div>
 
                     <div
-                      className={`rounded-2xl px-4 py-3 shadow-sm ${
+                      className={`w-fit max-w-full overflow-hidden rounded-2xl px-4 py-3 shadow-sm ${
                         isMe
                           ? 'rounded-tr-md bg-[var(--primary)] text-[var(--primary-foreground)]'
                           : 'rounded-tl-md border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]'
@@ -250,6 +316,29 @@ export function Chat({ currentUserName }: ChatProps) {
                     >
                       {!message.poll && message.text && (
                         <p className="whitespace-pre-wrap text-sm leading-6">{message.text}</p>
+                      )}
+
+                      {!message.poll && imageSrc && (
+                        <button
+                          type="button"
+                          className="mt-2 inline-block max-w-full text-left"
+                          onClick={() =>
+                            setExpandedImage({
+                              src: imageSrc,
+                              alt: message.imageFileName ?? 'Opplastet bilde',
+                            })
+                          }
+                          aria-label="Åpne bilde i stor visning"
+                        >
+                          <span className="inline-block max-w-[min(22rem,62vw)] overflow-hidden rounded-xl">
+                            <img
+                              src={imageSrc}
+                              alt="Opplastet bilde"
+                              className="block h-auto max-h-[18rem] w-auto max-w-full object-contain"
+                              loading="lazy"
+                            />
+                          </span>
+                        </button>
                       )}
 
                       {message.poll && (
@@ -405,6 +494,33 @@ export function Chat({ currentUserName }: ChatProps) {
           </div>
         ) : null}
 
+        {expandedImage && (
+          <div
+            className="fixed inset-0 z-50 overflow-hidden bg-black/85 p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Bildevisning"
+            onClick={() => setExpandedImage(null)}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white hover:bg-black/75"
+              onClick={() => setExpandedImage(null)}
+              aria-label="Lukk bildevisning"
+            >
+              <X className="size-5" />
+            </button>
+            <div className="flex h-full w-full items-center justify-center overflow-hidden">
+              <img
+                src={expandedImage.src}
+                alt={expandedImage.alt}
+                className="block h-full w-full rounded-xl object-contain shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              />
+            </div>
+          </div>
+        )}
+
         <form
           className="flex flex-col gap-2 sm:flex-row"
           onSubmit={(event) => {
@@ -412,6 +528,20 @@ export function Chat({ currentUserName }: ChatProps) {
             void sendMessage();
           }}
         >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void uploadImage(file);
+              }
+              event.target.value = '';
+            }}
+          />
+
           <Input
             placeholder="Skriv en melding"
             value={newMessage}
@@ -430,9 +560,21 @@ export function Chat({ currentUserName }: ChatProps) {
           </Button>
 
           <Button
+            type="button"
+            variant="outline"
+            className="sm:w-auto bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]"
+            onClick={openImagePicker}
+            disabled={isUploadingImage}
+          >
+            <ImagePlus className="size-4" />
+            {isUploadingImage ? 'Laster opp...' : 'Bilde'}
+          </Button>
+
+          <Button
             variant="outline"
             className="sm:w-auto bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]"
             type="submit"
+            disabled={isUploadingImage}
           >
             <Send className="size-4" />
             Send

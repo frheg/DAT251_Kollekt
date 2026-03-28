@@ -12,6 +12,7 @@ import com.kollekt.service.KollektService
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -32,6 +33,14 @@ class ChatController(private val service: KollektService) {
         @RequestBody request: CreateMessageRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): MessageDto = service.createMessage(request, jwt.subject)
+
+    @PostMapping("/images")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun createImageMessage(
+        @RequestParam("image") image: MultipartFile,
+        @RequestParam("caption", required = false) caption: String?,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): MessageDto = service.createImageMessage(image, caption, jwt.subject)
 
     @PostMapping("/polls")
     @ResponseStatus(HttpStatus.CREATED)

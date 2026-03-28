@@ -5,7 +5,7 @@ export async function regretTask(taskId: string, memberName: string) {
 export async function markAllNotificationsAsRead(userName: string): Promise<void> {
   await api.post(`/notifications/${userName}/read`, {});
 }
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const TOKEN_KEY = 'kollekt-access-token';
 const REFRESH_TOKEN_KEY = 'kollekt-refresh-token';
@@ -163,9 +163,10 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
   let response: Response;
 
   try {
+    const isFormDataBody = init?.body instanceof FormData;
     // Merge headers safely
     let mergedHeaders: Record<string, any> = {
-      'Content-Type': 'application/json',
+      ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
       ...(authHeader || {}),
     };
     if (init && init.headers) {
@@ -227,7 +228,12 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  postForm: <T>(path: string, body: FormData) => request<T>(path, { method: 'POST', body }),
   patch: <T>(path: string, body?: unknown) =>
   request<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
-  delete: (path: string) => request<void>(path, { method: 'DELETE' }),
+  delete: <T = void>(path: string, body?: unknown) =>
+      request<T>(path, {
+        method: 'DELETE',
+        body: body ? JSON.stringify(body) : undefined,
+      }),
 };
