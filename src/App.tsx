@@ -399,6 +399,11 @@ export default function App() {
   const [showDeleteUser, setShowDeleteUser] = useState(false);
 
   useEffect(() => {
+    if (!getAccessToken()) {
+      localStorage.removeItem('kollekt-user');
+      return;
+    }
+
     const storedUser = localStorage.getItem('kollekt-user');
     if (!storedUser) return;
     try {
@@ -420,7 +425,11 @@ export default function App() {
         localStorage.setItem('kollekt-user', JSON.stringify(user));
       })
       .catch(() => {
-        // Keep the locally cached user if the refresh fails.
+        if (cancelled) return;
+        if (!getAccessToken()) {
+          setCurrentUser(null);
+          localStorage.removeItem('kollekt-user');
+        }
       });
 
     return () => {
