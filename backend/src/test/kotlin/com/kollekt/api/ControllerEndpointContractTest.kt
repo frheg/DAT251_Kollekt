@@ -37,6 +37,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.http.MediaType
+import org.springframework.mock.web.MockMultipartFile
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
@@ -44,6 +45,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -337,6 +339,36 @@ class ControllerEndpointContractTest {
             .andExpect(jsonPath("$.sender").value("Kasper"))
 
         verify(service).createMessage(request, "Kasper")
+    }
+
+    @Test
+    fun `chat image upload uses api chat images endpoint`() {
+        val file = MockMultipartFile("image", "roommate.png", "image/png", byteArrayOf(1, 2, 3))
+        val expected =
+            MessageDto(
+                id = 4,
+                sender = "Kasper",
+                text = "Ny plante",
+                imageData = "AQID",
+                imageMimeType = "image/png",
+                imageFileName = "roommate.png",
+                timestamp = LocalDateTime.parse("2026-03-04T10:16:00"),
+            )
+        whenever(service.createImageMessage(any(), anyOrNull(), any())).thenReturn(expected)
+
+        val request =
+            multipart("/api/chat/images")
+                .file(file)
+                .param("caption", "Ny plante")
+                .with(csrf())
+                .with(jwt().jwt { it.subject("Kasper") })
+
+        mockMvc.perform(request)
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.imageMimeType").value("image/png"))
+            .andExpect(jsonPath("$.imageFileName").value("roommate.png"))
+
+        verify(service).createImageMessage(any(), anyOrNull(), any())
     }
 
     @Test
