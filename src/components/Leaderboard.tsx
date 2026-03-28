@@ -55,6 +55,10 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
   const [lastLevel, setLastLevel] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [period, setPeriod] = useState<LeaderboardPeriod>('OVERALL');
+  const [isEditingPrize, setIsEditingPrize] = useState(false);
+  const [editedPrize, setEditedPrize] = useState('');
+  const [isSavingPrize, setIsSavingPrize] = useState(false);
+  const [prizeSaveError, setPrizeSaveError] = useState<string | null>(null);
 
   const load = async () => {
     const [leaderboardData, achievementData] = await Promise.all([
@@ -65,6 +69,32 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
     setLeaderboard(leaderboardData);
     setAchievements(achievementData);
   };
+
+  const saveMonthlyPrize = async () => {
+    setIsSavingPrize(true);
+    setPrizeSaveError(null);
+    try {
+      await api.post(`/monthly-prize?memberName=${encodeURIComponent(currentUserName)}`, {
+        prize: editedPrize.trim() === '' ? null : editedPrize.trim(),
+      });
+      setIsEditingPrize(false);
+      await load();
+    } catch (error) {
+      setPrizeSaveError(error instanceof Error ? error.message : 'Noe gikk galt ved lagring');
+    } finally {
+      setIsSavingPrize(false);
+    }
+  };
+
+  useEffect(() => {
+    setLastLevel(null);
+    if (period === 'MONTH') {
+      setEditedPrize(leaderboard.monthlyPrize ?? '');
+    } else {
+      setIsEditingPrize(false);
+      setPrizeSaveError(null);
+    }
+  }, [period, leaderboard.monthlyPrize]);
 
   useEffect(() => {
     void load();
@@ -240,17 +270,72 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
             )}
           </SectionCard>
 
-          {period === 'MONTH' && leaderboard.monthlyPrize && (
+          {period === 'MONTH' && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-2xl">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-2xl">
                   🏆
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-amber-700">Månedens premie</p>
-                  <p className="mt-1 text-lg font-semibold text-amber-900">
-                    {leaderboard.monthlyPrize}
-                  </p>
+
+                  {!isEditingPrize ? (
+                    <div>
+                      {leaderboard.monthlyPrize ? (
+                        <p className="mt-1 text-lg font-semibold text-amber-900">
+                          {leaderboard.monthlyPrize}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-lg text-slate-500">
+                          Ingen premie er satt for denne måneden.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <textarea
+                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
+                      rows={3}
+                      value={editedPrize}
+                      onChange={(event) => setEditedPrize(event.target.value)}
+                      placeholder="Skriv månedens premie, f.eks. gratis pizza"
+                    />
+                  )}
+
+                  {prizeSaveError && <p className="mt-2 text-sm text-red-600">{prizeSaveError}</p>}
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {!isEditingPrize ? (
+                      <button
+                        onClick={() => {
+                          setIsEditingPrize(true);
+                          setEditedPrize(leaderboard.monthlyPrize ?? '');
+                        }}
+                        className="rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800"
+                      >
+                        {leaderboard.monthlyPrize ? 'Endre premie' : 'Legg til premie'}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => void saveMonthlyPrize()}
+                          disabled={isSavingPrize}
+                          className="rounded-md bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                        >
+                          {isSavingPrize ? 'Lagrer...' : 'Lagre'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingPrize(false);
+                            setEditedPrize(leaderboard.monthlyPrize ?? '');
+                            setPrizeSaveError(null);
+                          }}
+                          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          Avbryt
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
