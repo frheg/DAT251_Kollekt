@@ -50,6 +50,9 @@ class KollektService(
     @Autowired(required = false)
     private lateinit var invitationRealtimeService: InvitationRealtimeService
 
+    @Autowired(required = false)
+    private lateinit var googleCalendarService: GoogleCalendarService
+
     companion object {
         // TODO: Replace with persistent storage (e.g., Friend entity/repository)
         private val friendsMap = mutableMapOf<String, MutableSet<String>>()
@@ -1127,7 +1130,7 @@ class KollektService(
         actorName: String,
     ): EventDto {
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
-        val saved =
+        var saved =
             eventRepository.save(
                 CalendarEvent(
                     title = request.title,
@@ -1141,9 +1144,67 @@ class KollektService(
                 ),
             )
 
+        if (request.syncToGoogle && ::googleCalendarService.isInitialized) {
+            val member = memberRepository.findByName(actorName)
+            if (member != null) {
+                val googleEventId = googleCalendarService.createGoogleEvent(member, saved)
+                if (googleEventId != null) {
+                    saved = eventRepository.save(saved.copy(googleEventId = googleEventId))
+                }
+            }
+        }
+
         clearDashboardCache()
         eventPublisher.chatEvent("EVENT_CREATED", saved.toDto())
         return saved.toDto()
+    }
+
+    @Transactional
+    fun deleteEvent(
+        eventId: Long,
+        actorName: String,
+    ) {
+        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val event =
+            eventRepository.findById(eventId)
+                .orElseThrow { IllegalArgumentException("Event $eventId not found") }
+        require(event.collectiveCode == collectiveCode) { "Event not in your collective" }
+        if (event.googleEventId != null && ::googleCalendarService.isInitialized) {
+            val member = memberRepository.findByName(actorName)
+            if (member != null) {
+                googleCalendarService.deleteGoogleEvent(member, event.googleEventId)
+            }
+        }
+        eventRepository.delete(event)
+        clearDashboardCache()
+        eventPublisher.chatEvent("EVENT_DELETED", mapOf("id" to eventId))
+    }
+
+    fun saveGoogleCalendarTokens(
+        memberName: String,
+        code: String,
+    ) {
+        val member =
+            memberRepository.findByName(memberName)
+                ?: throw IllegalArgumentException("Member $memberName not found")
+        val (accessToken, refreshToken) = googleCalendarService.exchangeCode(code)
+        memberRepository.save(
+            member.copy(
+                googleAccessToken = accessToken,
+                googleRefreshToken = refreshToken ?: member.googleRefreshToken,
+            ),
+        )
+    }
+
+    fun isGoogleCalendarConnected(memberName: String): Boolean {
+        if (!::googleCalendarService.isInitialized) return false
+        val member = memberRepository.findByName(memberName) ?: return false
+        return googleCalendarService.isConnected(member)
+    }
+
+    fun disconnectGoogleCalendar(memberName: String) {
+        val member = memberRepository.findByName(memberName) ?: return
+        memberRepository.save(member.copy(googleAccessToken = null, googleRefreshToken = null))
     }
 
     // -------------------------------------------------------------------------

@@ -54,7 +54,7 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
   useEffect(() => {
     void load();
     const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
-      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED') {
+      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED' || event.type === 'EVENT_CREATED' || event.type === 'EVENT_DELETED') {
         void load();
       }
     });

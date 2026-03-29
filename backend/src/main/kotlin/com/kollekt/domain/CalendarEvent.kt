@@ -32,4 +32,5 @@ data class CalendarEvent(
     @Column(nullable = false) val organizer: String,
     @Column(nullable = false) val attendees: Int = 1,
     val description: String? = null,
+    @Column(nullable = true) val googleEventId: String? = null,
 )

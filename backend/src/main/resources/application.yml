@@ -45,3 +45,8 @@ app:
     task-events: task-events
     chat-events: chat-events
     economy-events: economy-events
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/google-calendar/callback}
+    frontend-url: ${GOOGLE_FRONTEND_URL:http://localhost:5173}

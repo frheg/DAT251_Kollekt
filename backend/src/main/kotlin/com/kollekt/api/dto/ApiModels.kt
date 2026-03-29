@@ -58,6 +58,7 @@ data class CreateEventRequest(
     val organizer: String,
     val attendees: Int = 1,
     val description: String? = null,
+    val syncToGoogle: Boolean = false,
 )
 
 data class MessageDto(
