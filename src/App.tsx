@@ -19,7 +19,7 @@ import { DrinkingGame } from './components/DrinkingGame';
 import { StartPage } from './components/StartPage';
 import { Button } from './components/ui/button';
 import { UserMenu } from './components/UserMenu';
-import { NotificationDropdown } from "./components/NotificationDropdown" 
+import { NotificationDropdown } from './components/NotificationDropdown';
 import { api, logoutSession, API_BASE, getAccessToken } from './lib/api';
 import { APP_VIEWS, type AppView } from './lib/app';
 import type { AppUser } from './lib/types';

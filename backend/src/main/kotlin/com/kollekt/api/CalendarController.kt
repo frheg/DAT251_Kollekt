@@ -28,4 +28,11 @@ class CalendarController(private val service: KollektService) {
         @RequestBody request: CreateEventRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): EventDto = service.createEvent(request, jwt.subject)
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteEvent(
+        @PathVariable id: Long,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) = service.deleteEvent(id, jwt.subject)
 }

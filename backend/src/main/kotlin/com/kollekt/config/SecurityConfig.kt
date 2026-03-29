@@ -47,6 +47,7 @@ class SecurityConfig(
                     "/api/onboarding/users",
                     "/api/onboarding/login",
                     "/api/onboarding/refresh",
+                    "/api/google-calendar/callback",
                 )
                     .permitAll()
                 it.requestMatchers("/ws/**").permitAll()
