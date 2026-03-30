@@ -31,4 +31,6 @@ data class Member(
     @Column(nullable = true, length = 2048) val chemistry: String? = null,
     @Column(nullable = true, length = 2048) val preferences: String? = null,
     @Column(nullable = true, length = 2048) val assignmentHistory: String? = null,
+    @Column(nullable = true, columnDefinition = "TEXT") val googleAccessToken: String? = null,
+    @Column(nullable = true, length = 512) val googleRefreshToken: String? = null,
 )
