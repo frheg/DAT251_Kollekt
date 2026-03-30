@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/economy")
-class EconomyController(private val service: KollektService) {
+class EconomyController(
+    private val service: KollektService,
+) {
     @GetMapping("/expenses")
     fun getExpenses(
         @RequestParam memberName: String,

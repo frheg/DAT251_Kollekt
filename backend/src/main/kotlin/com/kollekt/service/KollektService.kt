@@ -69,7 +69,8 @@ class KollektService(
     fun notifyUpcomingTaskDeadlines() {
         val reminderDate = LocalDate.now().plusDays(reminderDaysBeforeDue)
         val tasksDueSoon =
-            taskRepository.findAll()
+            taskRepository
+                .findAll()
                 .filter { !it.completed && it.dueDate == reminderDate }
         for (task in tasksDueSoon) {
             // Send notification to assignee (real-time and persistent)
@@ -96,7 +97,8 @@ class KollektService(
     fun deleteExpiredTasks() {
         val thresholdDate = LocalDate.now().minusDays(5)
         val expiredTasks =
-            taskRepository.findAll()
+            taskRepository
+                .findAll()
                 .filter { !it.completed && it.dueDate.isBefore(thresholdDate) }
         if (expiredTasks.isNotEmpty()) {
             taskRepository.deleteAll(expiredTasks)
@@ -105,7 +107,8 @@ class KollektService(
 
     fun getTasks(memberName: String): List<TaskDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return taskRepository.findAllByCollectiveCode(collectiveCode)
+        return taskRepository
+            .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.dueDate }
             .map { it.toDto() }
     }
@@ -217,17 +220,21 @@ class KollektService(
 
         val newRecurrenceRule =
             when {
-                recurrenceRuleExplicit != null ->
+                recurrenceRuleExplicit != null -> {
                     normalizeRecurrenceRule(recurrenceRuleExplicit)
+                }
 
-                recurringExplicit == false ->
+                recurringExplicit == false -> {
                     null
+                }
 
-                recurringExplicit == true ->
+                recurringExplicit == true -> {
                     normalizeRecurrenceRule(task.recurrenceRule, recurringFallback = true)
+                }
 
-                else ->
+                else -> {
                     normalizeRecurrenceRule(task.recurrenceRule)
+                }
             }
 
         val newRecurring = isRecurringTask(newRecurrenceRule)
@@ -387,36 +394,44 @@ class KollektService(
 
         if (collectiveCode != null) {
             val remainingMembers =
-                memberRepository.findAllByCollectiveCode(collectiveCode)
+                memberRepository
+                    .findAllByCollectiveCode(collectiveCode)
                     .filter { it.name != memberName }
 
             val memberNames = remainingMembers.map { it.name }.sorted()
 
             if (memberNames.isNotEmpty()) {
                 val tasksToReassign =
-                    taskRepository.findAllByCollectiveCode(collectiveCode)
+                    taskRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .filter { it.assignee == memberName && !it.completed }
 
                 // Build a map of current uncompleted task counts and total XP per member
                 val uncompletedTasks =
-                    taskRepository.findAllByCollectiveCode(collectiveCode)
+                    taskRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .filter { !it.completed && it.assignee in memberNames }
 
-                data class MemberLoad(val count: Int, val xp: Int)
+                data class MemberLoad(
+                    val count: Int,
+                    val xp: Int,
+                )
                 val memberLoad =
-                    memberNames.associateWith { m ->
-                        MemberLoad(
-                            count = uncompletedTasks.count { it.assignee == m },
-                            xp = uncompletedTasks.filter { it.assignee == m }.sumOf { it.xp },
-                        )
-                    }.toMutableMap()
+                    memberNames
+                        .associateWith { m ->
+                            MemberLoad(
+                                count = uncompletedTasks.count { it.assignee == m },
+                                xp = uncompletedTasks.filter { it.assignee == m }.sumOf { it.xp },
+                            )
+                        }.toMutableMap()
 
                 for (task in tasksToReassign) {
                     // Find the member with the lowest (task count, then xp)
                     val newAssignee =
-                        memberLoad.entries.minWithOrNull(
-                            compareBy<Map.Entry<String, MemberLoad>> { it.value.count }.thenBy { it.value.xp },
-                        )?.key ?: memberNames.first()
+                        memberLoad.entries
+                            .minWithOrNull(
+                                compareBy<Map.Entry<String, MemberLoad>> { it.value.count }.thenBy { it.value.xp },
+                            )?.key ?: memberNames.first()
                     taskRepository.save(task.copy(assignee = newAssignee))
                     val prev = memberLoad[newAssignee] ?: MemberLoad(0, 0)
                     memberLoad[newAssignee] = MemberLoad(prev.count + 1, prev.xp + (task.xp))
@@ -436,36 +451,44 @@ class KollektService(
         memberRepository.save(member.copy(collectiveCode = null))
         if (collectiveCode != null) {
             val remainingMembers =
-                memberRepository.findAllByCollectiveCode(collectiveCode)
+                memberRepository
+                    .findAllByCollectiveCode(collectiveCode)
                     .filter { it.name != memberName }
 
             val memberNames = remainingMembers.map { it.name }.sorted()
 
             if (memberNames.isNotEmpty()) {
                 val tasksToReassign =
-                    taskRepository.findAllByCollectiveCode(collectiveCode)
+                    taskRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .filter { it.assignee == memberName && !it.completed }
 
                 // Build a map of current uncompleted task counts and total XP per member
                 val uncompletedTasks =
-                    taskRepository.findAllByCollectiveCode(collectiveCode)
+                    taskRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .filter { !it.completed && it.assignee in memberNames }
 
-                data class MemberLoad(val count: Int, val xp: Int)
+                data class MemberLoad(
+                    val count: Int,
+                    val xp: Int,
+                )
                 val memberLoad =
-                    memberNames.associateWith { m ->
-                        MemberLoad(
-                            count = uncompletedTasks.count { it.assignee == m },
-                            xp = uncompletedTasks.filter { it.assignee == m }.sumOf { it.xp },
-                        )
-                    }.toMutableMap()
+                    memberNames
+                        .associateWith { m ->
+                            MemberLoad(
+                                count = uncompletedTasks.count { it.assignee == m },
+                                xp = uncompletedTasks.filter { it.assignee == m }.sumOf { it.xp },
+                            )
+                        }.toMutableMap()
 
                 for (task in tasksToReassign) {
                     // Find the member with the lowest (task count, then xp)
                     val newAssignee =
-                        memberLoad.entries.minWithOrNull(
-                            compareBy<Map.Entry<String, MemberLoad>> { it.value.count }.thenBy { it.value.xp },
-                        )?.key ?: memberNames.first()
+                        memberLoad.entries
+                            .minWithOrNull(
+                                compareBy<Map.Entry<String, MemberLoad>> { it.value.count }.thenBy { it.value.xp },
+                            )?.key ?: memberNames.first()
                     taskRepository.save(task.copy(assignee = newAssignee))
                     val prev = memberLoad[newAssignee] ?: MemberLoad(0, 0)
                     memberLoad[newAssignee] = MemberLoad(prev.count + 1, prev.xp + (task.xp))
@@ -478,7 +501,8 @@ class KollektService(
     fun penalizeMissedTasks() {
         val today = LocalDate.now()
         val overdueTasks =
-            taskRepository.findAll()
+            taskRepository
+                .findAll()
                 .filter { !it.completed && it.dueDate.isBefore(today) }
         for (task in overdueTasks) {
             val member = memberRepository.findByNameAndCollectiveCode(task.assignee, task.collectiveCode ?: "")
@@ -509,7 +533,8 @@ class KollektService(
                     // Notify all ACTIVE members in the collective (except assignee)
                     val collectiveCode = task.collectiveCode ?: ""
                     val activeMembers =
-                        memberRepository.findAllByCollectiveCode(collectiveCode)
+                        memberRepository
+                            .findAllByCollectiveCode(collectiveCode)
                             .filter { it.status == MemberStatus.ACTIVE && it.name != task.assignee }
                             .map { it.name }
                     if (activeMembers.isNotEmpty()) {
@@ -656,14 +681,19 @@ class KollektService(
     ) {
         val member =
             when {
-                !email.isNullOrBlank() ->
-                    memberRepository.findAll()
+                !email.isNullOrBlank() -> {
+                    memberRepository
+                        .findAll()
                         .find { it.email.equals(email.trim(), ignoreCase = true) }
+                }
 
-                !memberName.isNullOrBlank() ->
+                !memberName.isNullOrBlank() -> {
                     memberRepository.findByName(memberName.trim())
+                }
 
-                else -> null
+                else -> {
+                    null
+                }
             } ?: throw IllegalArgumentException("User not found")
 
         memberRepository.save(member.copy(passwordHash = passwordEncoder.encode(newPassword)))
@@ -812,7 +842,8 @@ class KollektService(
 
     private fun regenerateRecurringTasksForCollective(collectiveCode: String) {
         val members =
-            memberRepository.findAllByCollectiveCode(collectiveCode)
+            memberRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .filter { it.status == MemberStatus.ACTIVE }
         if (members.isEmpty()) return
         val collective = collectiveRepository.findByJoinCode(collectiveCode) ?: return
@@ -820,7 +851,8 @@ class KollektService(
 
         // Gather all recurring tasks to be assigned for the next period
         val allRecurringTasks =
-            taskRepository.findAllByCollectiveCode(collectiveCode)
+            taskRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .filter { isRecurringTask(it.recurrenceRule) }
         val groupedTasks = allRecurringTasks.groupBy { Pair(it.title, normalizeRecurrenceRule(it.recurrenceRule) ?: "WEEKLY") }
 
@@ -846,12 +878,13 @@ class KollektService(
                     else -> lastDueDate.plusWeeks(1)
                 }
             // Remove any uncompleted future tasks for this title/recurrenceRule/collective/nextDueDate
-            allRecurringTasks.filter {
-                it.title == title &&
-                    (normalizeRecurrenceRule(it.recurrenceRule) ?: "WEEKLY") == recurrenceRule &&
-                    !it.completed &&
-                    it.dueDate == nextDueDate
-            }.forEach { taskRepository.deleteById(it.id) }
+            allRecurringTasks
+                .filter {
+                    it.title == title &&
+                        (normalizeRecurrenceRule(it.recurrenceRule) ?: "WEEKLY") == recurrenceRule &&
+                        !it.completed &&
+                        it.dueDate == nextDueDate
+                }.forEach { taskRepository.deleteById(it.id) }
             val lastAssignee = template.assignee
             tasksToAssign.add(TaskTemplate(title, recurrenceRule, template.category, template.xp, template, nextDueDate, lastAssignee))
         }
@@ -968,7 +1001,8 @@ class KollektService(
         // Reassign all uncompleted recurring tasks for today and future
         val today = LocalDate.now()
         val allRecurringTasks =
-            taskRepository.findAllByCollectiveCode(joinCode)
+            taskRepository
+                .findAllByCollectiveCode(joinCode)
                 .filter {
                     isRecurringTask(it.recurrenceRule) &&
                         !it.completed &&
@@ -976,7 +1010,8 @@ class KollektService(
                 }
 
         val members =
-            memberRepository.findAllByCollectiveCode(joinCode)
+            memberRepository
+                .findAllByCollectiveCode(joinCode)
                 .filter { it.status == MemberStatus.ACTIVE }
 
         val memberNames = members.map { it.name }.sorted()
@@ -1052,7 +1087,8 @@ class KollektService(
 
     fun getCollectiveMembers(memberName: String): List<UserDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return memberRepository.findAllByCollectiveCode(collectiveCode)
+        return memberRepository
+            .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.name }
             .map { it.toUserDto() }
     }
@@ -1119,7 +1155,8 @@ class KollektService(
 
     fun getEvents(memberName: String): List<EventDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return eventRepository.findAllByCollectiveCode(collectiveCode)
+        return eventRepository
+            .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.date }
             .map { it.toDto() }
     }
@@ -1166,7 +1203,8 @@ class KollektService(
     ) {
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
         val event =
-            eventRepository.findById(eventId)
+            eventRepository
+                .findById(eventId)
                 .orElseThrow { IllegalArgumentException("Event $eventId not found") }
         require(event.collectiveCode == collectiveCode) { "Event not in your collective" }
         if (event.googleEventId != null && ::googleCalendarService.isInitialized) {
@@ -1213,7 +1251,8 @@ class KollektService(
 
     fun getMessages(memberName: String): List<MessageDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return chatMessageRepository.findAllByCollectiveCode(collectiveCode)
+        return chatMessageRepository
+            .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.timestamp }
             .map { it.toDto() }
     }
@@ -1248,7 +1287,11 @@ class KollektService(
         actorName: String,
     ): MessageDto {
         require(!image.isEmpty) { "Image is required" }
-        val contentType = image.contentType?.trim().orEmpty().lowercase()
+        val contentType =
+            image.contentType
+                ?.trim()
+                .orEmpty()
+                .lowercase()
         require(contentType.startsWith("image/")) { "Only image uploads are supported" }
         require(image.size <= maxChatImageBytes) { "Image is too large (max 5 MB)" }
 
@@ -1284,7 +1327,8 @@ class KollektService(
         require(emoji in allowedReactionEmojis) { "Unsupported reaction" }
 
         val message =
-            chatMessageRepository.findById(messageId)
+            chatMessageRepository
+                .findById(messageId)
                 .orElseThrow { IllegalArgumentException("Message not found") }
 
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
@@ -1322,7 +1366,8 @@ class KollektService(
         require(emoji in allowedReactionEmojis) { "Unsupported reaction" }
 
         val message =
-            chatMessageRepository.findById(messageId)
+            chatMessageRepository
+                .findById(messageId)
                 .orElseThrow { IllegalArgumentException("Message not found") }
 
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
@@ -1369,7 +1414,11 @@ class KollektService(
         val question = request.question.trim()
         require(question.isNotBlank()) { "Poll question is required" }
 
-        val options = request.options.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        val options =
+            request.options
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
         require(options.size in 2..6) { "Poll must have between 2 and 6 unique options" }
 
         val payload =
@@ -1405,7 +1454,8 @@ class KollektService(
         actorName: String,
     ): MessageDto {
         val message =
-            chatMessageRepository.findById(messageId)
+            chatMessageRepository
+                .findById(messageId)
                 .orElseThrow { IllegalArgumentException("Message not found") }
 
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
@@ -1490,7 +1540,8 @@ class KollektService(
 
     fun getExpenses(memberName: String): List<ExpenseDto> {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return expenseRepository.findAllByCollectiveCode(collectiveCode)
+        return expenseRepository
+            .findAllByCollectiveCode(collectiveCode)
             .sortedByDescending { it.date }
             .map { it.toDto() }
     }
@@ -1502,7 +1553,8 @@ class KollektService(
     ): ExpenseDto {
         val collectiveCode = requireCollectiveCodeByMemberName(actorName)
         val collectiveMembers =
-            memberRepository.findAllByCollectiveCode(collectiveCode)
+            memberRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .map { it.name }
                 .toSet()
 
@@ -1548,7 +1600,8 @@ class KollektService(
         val checkpointExpenseId = latestSettledExpenseId(collectiveCode)
 
         val expenses =
-            expenseRepository.findAllByCollectiveCode(collectiveCode)
+            expenseRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .filter { it.id > checkpointExpenseId }
 
         if (expenses.isEmpty()) return emptyList()
@@ -1563,7 +1616,8 @@ class KollektService(
     ): PantSummaryDto {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
         val entries =
-            pantEntryRepository.findAllByCollectiveCode(collectiveCode)
+            pantEntryRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .sortedByDescending { it.date }
                 .map { it.toDto() }
 
@@ -1597,13 +1651,12 @@ class KollektService(
         return saved.toDto()
     }
 
-    fun getEconomySummary(memberName: String): EconomySummaryDto {
-        return EconomySummaryDto(
+    fun getEconomySummary(memberName: String): EconomySummaryDto =
+        EconomySummaryDto(
             expenses = getExpenses(memberName),
             balances = getBalances(memberName),
             pantSummary = getPantSummary(memberName),
         )
-    }
 
     @Transactional
     fun settleUp(memberName: String): SettleUpResponse {
@@ -1646,8 +1699,9 @@ class KollektService(
         period: LeaderboardPeriod = LeaderboardPeriod.OVERALL,
     ): LeaderboardResponse {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val collective = collectiveRepository.findByJoinCode(collectiveCode)
-            ?: throw IllegalArgumentException("Collective not found")
+        val collective =
+            collectiveRepository.findByJoinCode(collectiveCode)
+                ?: throw IllegalArgumentException("Collective not found")
         val leaderboardKey = "leaderboard:$collectiveCode:$period"
         val cached = redisTemplate.opsForValue().get(leaderboardKey)
         if (cached is LeaderboardResponse) return cached
@@ -1658,21 +1712,28 @@ class KollektService(
         // Filter tasks based on period
         val filteredTasks =
             when (period) {
-                LeaderboardPeriod.OVERALL -> allTasks.filter { it.completed }
-                LeaderboardPeriod.YEAR ->
+                LeaderboardPeriod.OVERALL -> {
+                    allTasks.filter { it.completed }
+                }
+
+                LeaderboardPeriod.YEAR -> {
                     allTasks.filter {
                         it.completed && it.completedAt?.year == now.year
                     }
-                LeaderboardPeriod.MONTH ->
+                }
+
+                LeaderboardPeriod.MONTH -> {
                     allTasks.filter {
                         it.completed &&
                             it.completedAt?.year == now.year &&
                             it.completedAt?.month == now.month
                     }
+                }
             }
 
         val players =
-            memberRepository.findAllByCollectiveCode(collectiveCode)
+            memberRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .sortedByDescending { it.xp }
                 .mapIndexed { index, member ->
                     val completedCount = filteredTasks.count { it.assignee == member.name }
@@ -1717,15 +1778,20 @@ class KollektService(
 
     fun getMonthlyPrize(memberName: String): String? {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val collective = collectiveRepository.findByJoinCode(collectiveCode)
-            ?: throw IllegalArgumentException("Collective not found")
+        val collective =
+            collectiveRepository.findByJoinCode(collectiveCode)
+                ?: throw IllegalArgumentException("Collective not found")
         return collective.monthlyPrize
     }
 
-    fun setMonthlyPrize(memberName: String, prize: String?) {
+    fun setMonthlyPrize(
+        memberName: String,
+        prize: String?,
+    ) {
         val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        val collective = collectiveRepository.findByJoinCode(collectiveCode)
-            ?: throw IllegalArgumentException("Collective not found")
+        val collective =
+            collectiveRepository.findByJoinCode(collectiveCode)
+                ?: throw IllegalArgumentException("Collective not found")
 
         val updatedCollective = collective.copy(monthlyPrize = prize)
         collectiveRepository.save(updatedCollective)
@@ -1758,19 +1824,22 @@ class KollektService(
                 currentUserLevel = user.level,
                 currentUserRank = rank,
                 upcomingTasks =
-                    taskRepository.findAllByCollectiveCode(collectiveCode)
+                    taskRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .filter { !it.completed }
                         .sortedBy { it.dueDate }
                         .take(3)
                         .map { it.toDto() },
                 upcomingEvents =
-                    eventRepository.findAllByCollectiveCode(collectiveCode)
+                    eventRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .filter { it.date >= LocalDate.now() }
                         .sortedBy { it.date }
                         .take(3)
                         .map { it.toDto() },
                 recentExpenses =
-                    expenseRepository.findAllByCollectiveCode(collectiveCode)
+                    expenseRepository
+                        .findAllByCollectiveCode(collectiveCode)
                         .sortedByDescending { it.date }
                         .take(3)
                         .map { it.toDto() },
@@ -1821,17 +1890,15 @@ class KollektService(
         return requireCollectiveCode(member)
     }
 
-    private fun requireCollectiveCode(member: Member): String {
-        return member.collectiveCode
+    private fun requireCollectiveCode(member: Member): String =
+        member.collectiveCode
             ?: throw IllegalArgumentException("User '${member.name}' must join a collective first")
-    }
 
-    private fun latestSettledExpenseId(collectiveCode: String): Long {
-        return settlementCheckpointRepository
+    private fun latestSettledExpenseId(collectiveCode: String): Long =
+        settlementCheckpointRepository
             .findTopByCollectiveCodeOrderByIdDesc(collectiveCode)
             ?.lastExpenseId
             ?: 0L
-    }
 
     private fun calculateBalances(
         expenses: List<Expense>,
@@ -1944,18 +2011,19 @@ class KollektService(
         val normalized = recurrenceRule?.trim()?.uppercase()
 
         return when {
-            normalized.isNullOrBlank() || normalized == "NONE" ->
+            normalized.isNullOrBlank() || normalized == "NONE" -> {
                 if (recurringFallback) "WEEKLY" else null
+            }
 
-            normalized in setOf("DAILY", "WEEKLY", "MONTHLY") ->
+            normalized in setOf("DAILY", "WEEKLY", "MONTHLY") -> {
                 normalized
+            }
 
-            else ->
-                normalized // allow custom RRULE strings too
+            else -> {
+                normalized
+            } // allow custom RRULE strings too
         }
     }
 
-    private fun isRecurringTask(recurrenceRule: String?): Boolean {
-        return !recurrenceRule.isNullOrBlank() && recurrenceRule.uppercase() != "NONE"
-    }
+    private fun isRecurringTask(recurrenceRule: String?): Boolean = !recurrenceRule.isNullOrBlank() && recurrenceRule.uppercase() != "NONE"
 }

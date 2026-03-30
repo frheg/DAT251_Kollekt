@@ -40,9 +40,7 @@ class TaskController(
     fun createTask(
         @RequestBody request: CreateTaskRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): TaskDto {
-        return service.createTask(request, jwt.subject)
-    }
+    ): TaskDto = service.createTask(request, jwt.subject)
 
     @PostMapping("/{taskId}/regret")
     fun regretTask(
@@ -112,9 +110,7 @@ class TaskController(
     fun createShoppingItem(
         @RequestBody request: CreateShoppingItemRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): ShoppingItemDto {
-        return service.createShoppingItem(request, jwt.subject)
-    }
+    ): ShoppingItemDto = service.createShoppingItem(request, jwt.subject)
 
     @PatchMapping("/shopping/{itemId}/toggle")
     fun toggleShoppingItem(

@@ -96,14 +96,14 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            post("/api/onboarding/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"name":"Kasper","email":"kasper@example.com","password":"verysecure"}"""),
-        )
-            .andExpect(status().isCreated)
+        mockMvc
+            .perform(
+                post("/api/onboarding/users")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"name":"Kasper","email":"kasper@example.com","password":"verysecure"}"""),
+            ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.user.name").value("Kasper"))
 
         verify(service).createUser(request)
@@ -116,11 +116,11 @@ class ControllerEndpointContractTest {
         whenever(service.getCollectiveCodeForUser(5))
             .thenReturn(CollectiveCodeDto(joinCode = "ABC123"))
 
-        mockMvc.perform(
-            get("/api/onboarding/collectives/code/5")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/onboarding/collectives/code/5")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.joinCode").value("ABC123"))
 
         verify(service).getUserByName("Kasper")
@@ -140,11 +140,11 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            get("/api/onboarding/me")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/onboarding/me")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.email").value("kasper@example.com"))
             .andExpect(jsonPath("$.status").value("AWAY"))
 
@@ -156,24 +156,24 @@ class ControllerEndpointContractTest {
         whenever(service.getUserByName("Kasper"))
             .thenReturn(UserDto(id = 1, name = "Kasper", collectiveCode = null))
 
-        mockMvc.perform(
-            post("/api/onboarding/collectives")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content(
-                    """
-                    {
-                      "name":"Kollekt",
-                      "ownerUserId":2,
-                      "numRooms":1,
-                      "residents":["Emma"],
-                      "rooms":[{"name":"Bad","minutes":15}]
-                    }
-                    """.trimIndent(),
-                ),
-        )
-            .andExpect(status().isForbidden)
+        mockMvc
+            .perform(
+                post("/api/onboarding/collectives")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content(
+                        """
+                        {
+                          "name":"Kollekt",
+                          "ownerUserId":2,
+                          "numRooms":1,
+                          "residents":["Emma"],
+                          "rooms":[{"name":"Bad","minutes":15}]
+                        }
+                        """.trimIndent(),
+                    ),
+            ).andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error").value("Token user does not match requested user"))
 
         verify(service).getUserByName("Kasper")
@@ -184,12 +184,12 @@ class ControllerEndpointContractTest {
     fun `onboarding logout accepts missing refresh token body`() {
         val jwtCaptor = argumentCaptor<Jwt>()
 
-        mockMvc.perform(
-            post("/api/onboarding/logout")
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isNoContent)
+        mockMvc
+            .perform(
+                post("/api/onboarding/logout")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isNoContent)
 
         verify(service).logout(jwtCaptor.capture(), isNull())
         assertEquals("Kasper", jwtCaptor.firstValue.subject)
@@ -211,14 +211,14 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            patch("/api/tasks/42/toggle")
-                .param("memberName", "Kasper")
-                .param("completed", "true")
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                patch("/api/tasks/42/toggle")
+                    .param("memberName", "Kasper")
+                    .param("completed", "true")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(42))
 
         verify(service).toggleTask(42, "Kasper")
@@ -226,12 +226,12 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `tasks endpoint rejects mismatched token subject`() {
-        mockMvc.perform(
-            get("/api/tasks")
-                .param("memberName", "Emma")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isForbidden)
+        mockMvc
+            .perform(
+                get("/api/tasks")
+                    .param("memberName", "Emma")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error").value("Token subject does not match requested member"))
 
         verify(service, never()).getTasks(any())
@@ -239,13 +239,13 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `shopping delete uses api tasks shopping item endpoint`() {
-        mockMvc.perform(
-            delete("/api/tasks/shopping/9")
-                .param("memberName", "Kasper")
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isNoContent)
+        mockMvc
+            .perform(
+                delete("/api/tasks/shopping/9")
+                    .param("memberName", "Kasper")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isNoContent)
 
         verify(service).deleteShoppingItem(9, "Kasper")
     }
@@ -276,26 +276,26 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            post("/api/events")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content(
-                    """
-                    {
-                      "title":"Filmkveld",
-                      "date":"2026-03-10",
-                      "time":"19:30:00",
-                      "type":"MOVIE",
-                      "organizer":"Kasper",
-                      "attendees":4,
-                      "description":"Ta med snacks"
-                    }
-                    """.trimIndent(),
-                ),
-        )
-            .andExpect(status().isCreated)
+        mockMvc
+            .perform(
+                post("/api/events")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content(
+                        """
+                        {
+                          "title":"Filmkveld",
+                          "date":"2026-03-10",
+                          "time":"19:30:00",
+                          "type":"MOVIE",
+                          "organizer":"Kasper",
+                          "attendees":4,
+                          "description":"Ta med snacks"
+                        }
+                        """.trimIndent(),
+                    ),
+            ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.type").value("MOVIE"))
 
         verify(service).createEvent(request, "Kasper")
@@ -305,12 +305,12 @@ class ControllerEndpointContractTest {
     fun `chat messages uses api chat messages endpoint`() {
         whenever(service.getMessages("Kasper")).thenReturn(emptyList())
 
-        mockMvc.perform(
-            get("/api/chat/messages")
-                .param("memberName", "Kasper")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/chat/messages")
+                    .param("memberName", "Kasper")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
 
         verify(service).getMessages("Kasper")
     }
@@ -328,14 +328,14 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            post("/api/chat/messages")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"sender":"Emma","text":"Hei kollektivet"}"""),
-        )
-            .andExpect(status().isCreated)
+        mockMvc
+            .perform(
+                post("/api/chat/messages")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"sender":"Emma","text":"Hei kollektivet"}"""),
+            ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.sender").value("Kasper"))
 
         verify(service).createMessage(request, "Kasper")
@@ -363,7 +363,8 @@ class ControllerEndpointContractTest {
                 .with(csrf())
                 .with(jwt().jwt { it.subject("Kasper") })
 
-        mockMvc.perform(request)
+        mockMvc
+            .perform(request)
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.imageMimeType").value("image/png"))
             .andExpect(jsonPath("$.imageFileName").value("roommate.png"))
@@ -383,14 +384,14 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            post("/api/economy/settle-up")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"memberName":"Kasper"}"""),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/economy/settle-up")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"memberName":"Kasper"}"""),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.lastExpenseId").value(7))
 
         verify(service).settleUp("Kasper")
@@ -416,14 +417,14 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            post("/api/economy/pant")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"bottles":18,"amount":54,"addedBy":"Emma","date":"2026-03-10"}"""),
-        )
-            .andExpect(status().isCreated)
+        mockMvc
+            .perform(
+                post("/api/economy/pant")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"bottles":18,"amount":54,"addedBy":"Emma","date":"2026-03-10"}"""),
+            ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.addedBy").value("Kasper"))
 
         verify(service).addPantEntry(request, "Kasper")
@@ -460,12 +461,12 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            get("/api/economy/summary")
-                .param("memberName", "Kasper")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/economy/summary")
+                    .param("memberName", "Kasper")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.balances[0].amount").value(100))
             .andExpect(jsonPath("$.pantSummary.currentAmount").value(54))
 
@@ -483,12 +484,12 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            get("/api/drinking-game/question")
-                .param("memberName", "Kasper")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/drinking-game/question")
+                    .param("memberName", "Kasper")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.type").value("challenge"))
 
         verify(service).getDrinkingQuestion("Kasper")
@@ -511,11 +512,11 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            get("/api/achievements")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/achievements")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Oppvaskhelt"))
 
         verify(service).getAchievements()
@@ -528,12 +529,12 @@ class ControllerEndpointContractTest {
                 listOf(UserDto(id = 1, name = "Kasper", collectiveCode = "ABC123")),
             )
 
-        mockMvc.perform(
-            get("/api/members/collective")
-                .param("memberName", "Kasper")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/members/collective")
+                    .param("memberName", "Kasper")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].collectiveCode").value("ABC123"))
 
         verify(service).getCollectiveMembers("Kasper")
@@ -541,14 +542,14 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `member status rejects invalid status values`() {
-        mockMvc.perform(
-            patch("/api/members/status")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"memberName":"Kasper","status":"sleeping"}"""),
-        )
-            .andExpect(status().isBadRequest)
+        mockMvc
+            .perform(
+                patch("/api/members/status")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"memberName":"Kasper","status":"sleeping"}"""),
+            ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Invalid status"))
 
         verify(service, never()).updateMemberStatus(any(), any())
@@ -556,14 +557,14 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `member reset password validates identifier and password`() {
-        mockMvc.perform(
-            patch("/api/members/reset-password")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(csrf())
-                .with(jwt().jwt { it.subject("Kasper") })
-                .content("""{"newPassword":""}"""),
-        )
-            .andExpect(status().isBadRequest)
+        mockMvc
+            .perform(
+                patch("/api/members/reset-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"newPassword":""}"""),
+            ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Provide either memberName or email and a newPassword"))
 
         verify(service, never()).resetPassword(anyOrNull(), anyOrNull(), any())
@@ -583,12 +584,12 @@ class ControllerEndpointContractTest {
                 ),
             )
 
-        mockMvc.perform(
-            get("/api/invitations")
-                .param("email", "  Test@Example.com ")
-                .with(jwt().jwt { it.subject("Kasper") }),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                get("/api/invitations")
+                    .param("email", "  Test@Example.com ")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].email").value("test@example.com"))
 
         verify(invitationRepository).findAllByEmail("test@example.com")

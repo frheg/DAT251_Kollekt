@@ -18,7 +18,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api")
-class StatsController(private val service: KollektService) {
+class StatsController(
+    private val service: KollektService,
+) {
     @GetMapping("/dashboard")
     fun getDashboard(
         @RequestParam memberName: String,

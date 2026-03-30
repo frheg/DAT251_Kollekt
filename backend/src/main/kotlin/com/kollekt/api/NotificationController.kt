@@ -15,9 +15,7 @@ class NotificationController(
     @GetMapping("/{userName}")
     fun getNotifications(
         @PathVariable userName: String,
-    ): List<Notification> {
-        return notificationService.getNotificationsForUser(userName)
-    }
+    ): List<Notification> = notificationService.getNotificationsForUser(userName)
 
     @PostMapping("/{userName}/read")
     fun markAllAsRead(
