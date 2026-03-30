@@ -127,6 +127,8 @@ export interface DrinkingQuestion {
   targetedPlayer?: string;
 }
 
+export type MemberStatus = 'ACTIVE' | 'AWAY' | 'LEFT';
+
 export type LeaderboardPeriod = 'OVERALL' | 'YEAR' | 'MONTH';
 
 export interface AppUser {
