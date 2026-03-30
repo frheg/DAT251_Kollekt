@@ -27,9 +27,9 @@ const rankStyles: Record<number, string> = {
 
 const getPeriodText = (period: LeaderboardPeriod) => {
   switch (period) {
-    case 'OVERALL': return { short: 'totalt', long: 'hele perioden', points: 'Poeng totalt' };
-    case 'YEAR': return { short: 'året', long: 'dette året', points: 'Poeng dette året' };
-    case 'MONTH': return { short: 'måneden', long: 'denne måneden', points: 'Poeng denne måneden' };
+    case 'OVERALL': return { long: 'hele perioden', points: 'Poeng totalt', active: 'totalt' };
+    case 'YEAR': return { long: 'dette året', points: 'Poeng dette året', active: 'dette året' };
+    case 'MONTH': return { long: 'denne måneden', points: 'Poeng denne måneden', active: 'denne måneden' };
   }
 };
 
@@ -145,7 +145,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Mest aktiv {getPeriodText(period).short}</p>
+            <p className="text-sm text-slate-500">Mest aktiv {getPeriodText(period).active}</p>
             <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
               {weeklyStats.topContributor || 'Ingen enda'}
             </p>
