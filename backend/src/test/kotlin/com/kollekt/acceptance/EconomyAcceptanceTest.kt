@@ -37,8 +37,7 @@ class EconomyAcceptanceTest : AcceptanceTestSupport() {
                         }
                         """.trimIndent(),
                     ),
-            )
-            .andExpect(status().isCreated)
+            ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.description").value("Pizza"))
             .andExpect(jsonPath("$.paidBy").value("Kasper"))
 
@@ -57,8 +56,7 @@ class EconomyAcceptanceTest : AcceptanceTestSupport() {
                         }
                         """.trimIndent(),
                     ),
-            )
-            .andExpect(status().isCreated)
+            ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.amount").value(60))
             .andExpect(jsonPath("$.addedBy").value("Emma"))
 
@@ -67,8 +65,7 @@ class EconomyAcceptanceTest : AcceptanceTestSupport() {
                 get("/api/economy/summary")
                     .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.expenses[0].description").value("Pizza"))
             .andExpect(jsonPath("$.balances[0].name").value("Kasper"))
             .andExpect(jsonPath("$.balances[0].amount").value(100))
@@ -82,8 +79,7 @@ class EconomyAcceptanceTest : AcceptanceTestSupport() {
                     .contentType("application/json")
                     .with(jwt().jwt { it.subject("Kasper") })
                     .content("""{"memberName":"Kasper"}"""),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.settledBy").value("Kasper"))
             .andExpect(jsonPath("$.lastExpenseId").isNumber)
 
@@ -92,8 +88,7 @@ class EconomyAcceptanceTest : AcceptanceTestSupport() {
                 get("/api/economy/balances")
                     .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
-            )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.length()").value(0))
     }
 }

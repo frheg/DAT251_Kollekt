@@ -66,9 +66,7 @@ class NotificationService(
         notificationRepository.saveAll(notifications)
     }
 
-    fun getNotificationsForUser(userName: String): List<Notification> {
-        return notificationRepository.findAllByUserName(userName)
-    }
+    fun getNotificationsForUser(userName: String): List<Notification> = notificationRepository.findAllByUserName(userName)
 
     @Transactional
     fun markAllAsRead(userName: String) {

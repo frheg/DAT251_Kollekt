@@ -13,7 +13,8 @@ class WebConfig(
         val configuredOrigins = allowedOrigins.split(',').map { it.trim() }.filter { it.isNotBlank() }
         val originPatterns = (configuredOrigins + listOf("http://127.0.0.1:*", "http://localhost:*")).distinct()
 
-        registry.addMapping("/api/**")
+        registry
+            .addMapping("/api/**")
             .allowedOriginPatterns(*originPatterns.toTypedArray())
             .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
             .allowedHeaders("*")

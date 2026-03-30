@@ -13,7 +13,7 @@ import {
   PageStack,
   SectionCard,
 } from './shared/page';
-import type { Achievement, LeaderboardResponse } from '../lib/types';
+import type { Achievement, LeaderboardResponse, LeaderboardPeriod } from '../lib/types';
 
 interface LeaderboardProps {
   currentUserName: string;
@@ -23,6 +23,22 @@ const rankStyles: Record<number, string> = {
   1: 'bg-amber-100 text-amber-700',
   2: 'bg-slate-200 text-slate-700',
   3: 'bg-orange-100 text-orange-700',
+};
+
+const getPeriodText = (period: LeaderboardPeriod) => {
+  switch (period) {
+    case 'OVERALL': return { long: 'hele perioden', points: 'Poeng totalt', active: 'totalt' };
+    case 'YEAR': return { long: 'dette året', points: 'Poeng dette året', active: 'dette året' };
+    case 'MONTH': return { long: 'denne måneden', points: 'Poeng denne måneden', active: 'denne måneden' };
+  }
+};
+
+const getPeriodDescription = (period: LeaderboardPeriod) => {
+  switch (period) {
+    case 'OVERALL': return 'Se hvordan innsatsen fordeler seg i kollektivet totalt.';
+    case 'YEAR': return 'Se hvordan innsatsen fordeler seg i kollektivet dette året.';
+    case 'MONTH': return 'Se hvordan innsatsen fordeler seg i kollektivet denne måneden.';
+  }
 };
 
 export function Leaderboard({ currentUserName }: LeaderboardProps) {
@@ -38,16 +54,47 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [lastLevel, setLastLevel] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [period, setPeriod] = useState<LeaderboardPeriod>('OVERALL');
+  const [isEditingPrize, setIsEditingPrize] = useState(false);
+  const [editedPrize, setEditedPrize] = useState('');
+  const [isSavingPrize, setIsSavingPrize] = useState(false);
+  const [prizeSaveError, setPrizeSaveError] = useState<string | null>(null);
 
   const load = async () => {
     const [leaderboardData, achievementData] = await Promise.all([
-      api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}`),
+      api.get<LeaderboardResponse>(`/leaderboard?memberName=${encodeURIComponent(currentUserName)}&period=${period}`),
       api.get<Achievement[]>('/achievements'),
     ]);
 
     setLeaderboard(leaderboardData);
     setAchievements(achievementData);
   };
+
+  const saveMonthlyPrize = async () => {
+    setIsSavingPrize(true);
+    setPrizeSaveError(null);
+    try {
+      await api.post(`/monthly-prize?memberName=${encodeURIComponent(currentUserName)}`, {
+        prize: editedPrize.trim() === '' ? null : editedPrize.trim(),
+      });
+      setIsEditingPrize(false);
+      await load();
+    } catch (error) {
+      setPrizeSaveError(error instanceof Error ? error.message : 'Noe gikk galt ved lagring');
+    } finally {
+      setIsSavingPrize(false);
+    }
+  };
+
+  useEffect(() => {
+    setLastLevel(null);
+    if (period === 'MONTH') {
+      setEditedPrize(leaderboard.monthlyPrize ?? '');
+    } else {
+      setIsEditingPrize(false);
+      setPrizeSaveError(null);
+    }
+  }, [period, leaderboard.monthlyPrize]);
 
   useEffect(() => {
     void load();
@@ -57,7 +104,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
       }
     });
     return disconnect;
-  }, [currentUserName]);
+  }, [currentUserName, period]);
 
   // Confetti on level up
   useEffect(() => {
@@ -84,11 +131,11 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
         icon={Trophy}
         eyebrow="Poeng"
         title="Poengtavle"
-        description="Se hvordan innsatsen fordeler seg i kollektivet denne uken."
+        description={getPeriodDescription(period)}
       >
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white shadow-sm">
-            <p className="text-sm text-slate-300">Poeng denne uken</p>
+            <p className="text-sm text-slate-300">{getPeriodText(period).points}</p>
             <p className="mt-2 text-2xl font-semibold tracking-tight">{weeklyStats.totalXp} XP</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
@@ -98,7 +145,7 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Mest aktiv denne uken</p>
+            <p className="text-sm text-slate-500">Mest aktiv {getPeriodText(period).active}</p>
             <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
               {weeklyStats.topContributor || 'Ingen enda'}
             </p>
@@ -106,16 +153,33 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
         </div>
       </PageHeader>
 
-      <Tabs defaultValue="ranking" className="w-full">
+      <Tabs defaultValue="ranking" className="w-full mt-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="ranking">Rangering</TabsTrigger>
           <TabsTrigger value="milestones">Milepæler</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ranking" className="mt-4 space-y-4">
+          <div className="w-full mb-6">
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm w-full">
+              {(['OVERALL', 'YEAR', 'MONTH'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    period === p
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {p === 'OVERALL' ? 'Totalt' : p === 'YEAR' ? 'År' : 'Måned'}
+                </button>
+              ))}
+            </div>
+          </div>
           <SectionCard
             title="Alle i kollektivet"
-            description="Poeng, nivå og antall fullførte oppgaver per person."
+            description={`Poeng, nivå og antall fullførte oppgaver per person ${getPeriodText(period).long}.`}
           >
             {players.length === 0 ? (
               <EmptyState
@@ -205,6 +269,77 @@ export function Leaderboard({ currentUserName }: LeaderboardProps) {
               </div>
             )}
           </SectionCard>
+
+          {period === 'MONTH' && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-2xl">
+                  🏆
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-amber-700">Månedens premie</p>
+
+                  {!isEditingPrize ? (
+                    <div>
+                      {leaderboard.monthlyPrize ? (
+                        <p className="mt-1 text-lg font-semibold text-amber-900">
+                          {leaderboard.monthlyPrize}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-lg text-slate-500">
+                          Ingen premie er satt for denne måneden.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <textarea
+                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
+                      rows={3}
+                      value={editedPrize}
+                      onChange={(event) => setEditedPrize(event.target.value)}
+                      placeholder="Skriv månedens premie, f.eks. gratis pizza"
+                    />
+                  )}
+
+                  {prizeSaveError && <p className="mt-2 text-sm text-red-600">{prizeSaveError}</p>}
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {!isEditingPrize ? (
+                      <button
+                        onClick={() => {
+                          setIsEditingPrize(true);
+                          setEditedPrize(leaderboard.monthlyPrize ?? '');
+                        }}
+                        className="rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800"
+                      >
+                        {leaderboard.monthlyPrize ? 'Endre premie' : 'Legg til premie'}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => void saveMonthlyPrize()}
+                          disabled={isSavingPrize}
+                          className="rounded-md bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                        >
+                          {isSavingPrize ? 'Lagrer...' : 'Lagre'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingPrize(false);
+                            setEditedPrize(leaderboard.monthlyPrize ?? '');
+                            setPrizeSaveError(null);
+                          }}
+                          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          Avbryt
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">

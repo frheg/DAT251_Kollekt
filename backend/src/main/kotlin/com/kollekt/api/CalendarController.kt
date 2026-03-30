@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/events")
-class CalendarController(private val service: KollektService) {
+class CalendarController(
+    private val service: KollektService,
+) {
     @GetMapping
     fun getEvents(
         @RequestParam memberName: String,

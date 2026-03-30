@@ -16,10 +16,18 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/members")
-class MemberController(private val service: KollektService) {
-    data class InviteRequest(val email: String, val collectiveCode: String)
+class MemberController(
+    private val service: KollektService,
+) {
+    data class InviteRequest(
+        val email: String,
+        val collectiveCode: String,
+    )
 
-    data class StatusUpdateRequest(val memberName: String, val status: String)
+    data class StatusUpdateRequest(
+        val memberName: String,
+        val status: String,
+    )
 
     @PatchMapping("/leave-collective")
     fun leaveCollective(
@@ -47,7 +55,8 @@ class MemberController(private val service: KollektService) {
         requireTokenSubject(jwt, req.memberName)
         val newStatus =
             try {
-                com.kollekt.domain.MemberStatus.valueOf(req.status.uppercase())
+                com.kollekt.domain.MemberStatus
+                    .valueOf(req.status.uppercase())
             } catch (e: Exception) {
                 throw IllegalArgumentException("Invalid status")
             }

@@ -17,7 +17,9 @@ import org.springframework.web.multipart.MultipartFile
 
 @RestController
 @RequestMapping("/api/chat")
-class ChatController(private val service: KollektService) {
+class ChatController(
+    private val service: KollektService,
+) {
     @GetMapping("/messages")
     fun getMessages(
         @RequestParam memberName: String,

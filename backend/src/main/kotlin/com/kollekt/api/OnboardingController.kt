@@ -25,7 +25,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/onboarding")
-class OnboardingController(private val service: KollektService) {
+class OnboardingController(
+    private val service: KollektService,
+) {
     @PostMapping("/users")
     @ResponseStatus(HttpStatus.CREATED)
     fun createUser(

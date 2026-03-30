@@ -8,6 +8,7 @@ import com.kollekt.api.dto.LeaderboardResponse
 import com.kollekt.api.dto.WeeklyStatsDto
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.ChatMessage
+import com.kollekt.domain.Collective
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Expense
 import com.kollekt.domain.Member
@@ -587,6 +588,7 @@ class KollektServiceTest {
     @Test
     fun `getLeaderboard returns collective scoped cached value`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective())
 
         val cached =
             LeaderboardResponse(
@@ -600,7 +602,7 @@ class KollektServiceTest {
                     ),
             )
 
-        whenever(valueOps.get("leaderboard:ABC123")).thenReturn(cached)
+        whenever(valueOps.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
 
         val result = service.getLeaderboard("Kasper")
 
@@ -637,6 +639,7 @@ class KollektServiceTest {
 
         whenever(memberRepository.findByName("Kasper"))
             .thenReturn(member("Kasper", "kasper@example.com", xp = 10, level = 2))
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective())
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
                 member("Kasper", "kasper@example.com", xp = 10, level = 2),
@@ -716,6 +719,7 @@ class KollektServiceTest {
     fun `getDrinkingQuestion uses scoped leaderboard`() {
         whenever(valueOps.get(any())).thenReturn(null)
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective())
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
                 member("Top", "top@example.com", xp = 10),
@@ -744,5 +748,19 @@ class KollektServiceTest {
         collectiveCode = collectiveCode,
         level = level,
         xp = xp,
+    )
+
+    private fun collective(
+        id: Long = 1,
+        joinCode: String = "ABC123",
+        name: String = "Test Collective",
+        ownerMemberId: Long = 1,
+        monthlyPrize: String? = null,
+    ) = Collective(
+        id = id,
+        joinCode = joinCode,
+        name = name,
+        ownerMemberId = ownerMemberId,
+        monthlyPrize = monthlyPrize,
     )
 }

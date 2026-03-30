@@ -67,7 +67,11 @@ class GoogleCalendarService(
                             .setDateTime(DateTime(endZdt.toInstant().toEpochMilli()))
                             .setTimeZone("Europe/Oslo")
                 }
-            buildCalendarClient(member).events().insert("primary", googleEvent).execute().id
+            buildCalendarClient(member)
+                .events()
+                .insert("primary", googleEvent)
+                .execute()
+                .id
         } catch (_: Exception) {
             null
         }
@@ -99,7 +103,8 @@ class GoogleCalendarService(
 
     private fun buildCalendarClient(member: Member): Calendar {
         val credential =
-            Credential.Builder(BearerToken.authorizationHeaderAccessMethod())
+            Credential
+                .Builder(BearerToken.authorizationHeaderAccessMethod())
                 .setTransport(httpTransport)
                 .setJsonFactory(jsonFactory)
                 .setTokenServerUrl(GenericUrl("https://oauth2.googleapis.com/token"))
@@ -107,7 +112,8 @@ class GoogleCalendarService(
                 .build()
         credential.accessToken = member.googleAccessToken
         credential.refreshToken = member.googleRefreshToken
-        return Calendar.Builder(httpTransport, jsonFactory, credential)
+        return Calendar
+            .Builder(httpTransport, jsonFactory, credential)
             .setApplicationName("Kollekt")
             .build()
     }

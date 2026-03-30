@@ -75,13 +75,12 @@ class TokenService(
         tokenStoreService.revokeRefreshToken(jti)
     }
 
-    private fun decodeRefreshJwt(token: String): Jwt {
-        return try {
+    private fun decodeRefreshJwt(token: String): Jwt =
+        try {
             jwtDecoder.decode(token)
         } catch (_: JwtException) {
             throw IllegalArgumentException("Invalid refresh token")
         }
-    }
 
     private fun issueAccessToken(member: Member): SignedToken {
         val issuedAt = Instant.now()
@@ -90,7 +89,8 @@ class TokenService(
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
 
         val claims =
-            JwtClaimsSet.builder()
+            JwtClaimsSet
+                .builder()
                 .subject(member.name)
                 .id(jti)
                 .issuedAt(issuedAt)
@@ -112,7 +112,8 @@ class TokenService(
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
 
         val claims =
-            JwtClaimsSet.builder()
+            JwtClaimsSet
+                .builder()
                 .subject(member.name)
                 .id(jti)
                 .issuedAt(issuedAt)
