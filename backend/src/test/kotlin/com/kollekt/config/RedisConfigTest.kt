@@ -1,5 +1,6 @@
 package com.kollekt.config
 
+import com.fasterxml.jackson.databind.SerializationFeature
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
@@ -7,7 +8,6 @@ import org.mockito.kotlin.mock
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.StringRedisSerializer
-import com.fasterxml.jackson.databind.SerializationFeature
 import kotlin.test.assertIs
 
 class RedisConfigTest {

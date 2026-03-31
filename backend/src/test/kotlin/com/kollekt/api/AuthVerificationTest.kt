@@ -9,7 +9,12 @@ import org.springframework.security.oauth2.jwt.Jwt
 class AuthVerificationTest {
     @Test
     fun `requireTokenSubject accepts matching subject`() {
-        val jwt = Jwt.withTokenValue("token").header("alg", "none").subject("Kasper").build()
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "none")
+                .subject("Kasper")
+                .build()
 
         assertDoesNotThrow {
             requireTokenSubject(jwt, "Kasper")
@@ -18,7 +23,12 @@ class AuthVerificationTest {
 
     @Test
     fun `requireTokenSubject rejects mismatched subject`() {
-        val jwt = Jwt.withTokenValue("token").header("alg", "none").subject("Kasper").build()
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "none")
+                .subject("Kasper")
+                .build()
 
         assertThrows<AccessDeniedException> {
             requireTokenSubject(jwt, "Emma")
