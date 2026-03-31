@@ -36,25 +36,24 @@ class SecurityConfig(
     private val tokenStoreService: TokenStoreService,
 ) {
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-        return http
+    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain =
+        http
             .csrf { it.disable() }
             .cors(Customizer.withDefaults())
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 it.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                it.requestMatchers(
-                    "/api/onboarding/users",
-                    "/api/onboarding/login",
-                    "/api/onboarding/refresh",
-                )
-                    .permitAll()
+                it
+                    .requestMatchers(
+                        "/api/onboarding/users",
+                        "/api/onboarding/login",
+                        "/api/onboarding/refresh",
+                        "/api/google-calendar/callback",
+                    ).permitAll()
                 it.requestMatchers("/ws/**").permitAll()
                 it.anyRequest().authenticated()
-            }
-            .oauth2ResourceServer { it.jwt(Customizer.withDefaults()) }
+            }.oauth2ResourceServer { it.jwt(Customizer.withDefaults()) }
             .build()
-    }
 
     @Bean fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 

@@ -4,6 +4,7 @@ import com.kollekt.api.dto.CreateCollectiveRequest
 import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.CreateExpenseRequest
 import com.kollekt.api.dto.CreateMessageRequest
+import com.kollekt.api.dto.CreatePollRequest
 import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.api.dto.CreateUserRequest
 import com.kollekt.api.dto.DashboardResponse
@@ -119,6 +120,9 @@ class KollektServiceTest {
     @Mock
     lateinit var tokenService: TokenService
 
+    @Mock
+    lateinit var notificationService: NotificationService
+
     private lateinit var valueOps: ValueOperations<String, Any>
     private lateinit var service: KollektService
 
@@ -145,6 +149,7 @@ class KollektServiceTest {
                 tokenService,
                 invitationRepository,
                 roomRepository,
+                notificationService,
             )
     }
 
@@ -197,7 +202,7 @@ class KollektServiceTest {
                 dueDate = LocalDate.parse("2026-03-05"),
                 category = TaskCategory.CLEANING,
                 xp = 10,
-                recurring = false,
+                recurrenceRule = null,
             ),
             "Kasper",
         )
@@ -894,6 +899,7 @@ class KollektServiceTest {
     @Test
     fun `getLeaderboard returns collective scoped cached value`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective())
 
         val cached =
             LeaderboardResponse(
@@ -907,7 +913,7 @@ class KollektServiceTest {
                     ),
             )
 
-        whenever(valueOps.get("leaderboard:ABC123")).thenReturn(cached)
+        whenever(valueOps.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
 
         val result = service.getLeaderboard("Kasper")
 
@@ -944,6 +950,7 @@ class KollektServiceTest {
 
         whenever(memberRepository.findByName("Kasper"))
             .thenReturn(member("Kasper", "kasper@example.com", xp = 10, level = 2))
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective())
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
                 member("Kasper", "kasper@example.com", xp = 10, level = 2),
@@ -1023,6 +1030,7 @@ class KollektServiceTest {
     fun `getDrinkingQuestion uses scoped leaderboard`() {
         whenever(valueOps.get(any())).thenReturn(null)
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective())
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
                 member("Top", "top@example.com", xp = 10),
@@ -1371,5 +1379,19 @@ class KollektServiceTest {
         collectiveCode = collectiveCode,
         level = level,
         xp = xp,
+    )
+
+    private fun collective(
+        id: Long = 1,
+        joinCode: String = "ABC123",
+        name: String = "Test Collective",
+        ownerMemberId: Long = 1,
+        monthlyPrize: String? = null,
+    ) = Collective(
+        id = id,
+        joinCode = joinCode,
+        name = name,
+        ownerMemberId = ownerMemberId,
+        monthlyPrize = monthlyPrize,
     )
 }

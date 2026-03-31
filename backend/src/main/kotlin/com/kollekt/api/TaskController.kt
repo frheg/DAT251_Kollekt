@@ -40,8 +40,28 @@ class TaskController(
     fun createTask(
         @RequestBody request: CreateTaskRequest,
         @AuthenticationPrincipal jwt: Jwt,
+    ): TaskDto = service.createTask(request, jwt.subject)
+
+    @PostMapping("/{taskId}/regret")
+    fun regretTask(
+        @PathVariable taskId: Long,
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
     ): TaskDto {
-        return service.createTask(request, jwt.subject)
+        requireTokenSubject(jwt, memberName)
+        return service.regretTask(taskId, memberName)
+    }
+
+    @PatchMapping("/{taskId}/feedback")
+    fun giveTaskFeedback(
+        @PathVariable taskId: Long,
+        @RequestParam memberName: String,
+        @RequestBody feedback: Map<String, String>,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): TaskDto {
+        requireTokenSubject(jwt, memberName)
+        val feedbackText = feedback["feedback"] ?: ""
+        return service.giveTaskFeedback(taskId, memberName, feedbackText)
     }
 
     @PatchMapping("/{taskId}")
@@ -90,9 +110,7 @@ class TaskController(
     fun createShoppingItem(
         @RequestBody request: CreateShoppingItemRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): ShoppingItemDto {
-        return service.createShoppingItem(request, jwt.subject)
-    }
+    ): ShoppingItemDto = service.createShoppingItem(request, jwt.subject)
 
     @PatchMapping("/shopping/{itemId}/toggle")
     fun toggleShoppingItem(

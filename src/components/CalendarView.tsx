@@ -4,9 +4,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Film,
+  Link,
   PartyPopper,
   Pizza,
   Plus,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -23,6 +25,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { api, getUserMessage } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import { formatLongDate, formatShortDate, formatTime, isUpcomingDate } from '../lib/ui';
 import {
   EmptyState,
@@ -95,6 +98,8 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [eventError, setEventError] = useState('');
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [syncToGoogle, setSyncToGoogle] = useState(false);
   const [form, setForm] = useState({
     title: '',
     date: '',
@@ -117,6 +122,34 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
 
   useEffect(() => {
     setForm((previous) => ({ ...previous, organizer: currentUserName }));
+  }, [currentUserName]);
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await api.get<CalendarEvent[]>(
+        `/events?memberName=${encodeURIComponent(currentUserName)}`,
+      );
+      setEvents(data);
+    };
+    return connectCollectiveRealtime(currentUserName, (event) => {
+      if (event.type === 'EVENT_CREATED' || event.type === 'EVENT_DELETED') {
+        void load();
+      }
+    });
+  }, [currentUserName]);
+
+  useEffect(() => {
+    const checkGoogle = async () => {
+      try {
+        const result = await api.get<{ connected: boolean }>(
+          `/google-calendar/status?memberName=${encodeURIComponent(currentUserName)}`,
+        );
+        setGoogleConnected(result.connected);
+      } catch {
+        setGoogleConnected(false);
+      }
+    };
+    void checkGoogle();
   }, [currentUserName]);
 
   const getDaysInMonth = (date: Date) => {
@@ -176,6 +209,7 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
         organizer: form.organizer,
         attendees: 1,
         type: form.type,
+        syncToGoogle,
       });
 
       setEvents((previous) => [...previous, createdEvent]);
@@ -191,6 +225,15 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
       setIsDialogOpen(false);
     } catch (error) {
       setEventError(getUserMessage(error, 'Kunne ikke lagre planen akkurat nå.'));
+    }
+  };
+
+  const deleteEvent = async (eventId: number) => {
+    try {
+      await api.delete(`/events/${eventId}`);
+      setEvents((previous) => previous.filter((e) => e.id !== eventId));
+    } catch (error) {
+      setEventError(getUserMessage(error, 'Kunne ikke slette planen akkurat nå.'));
     }
   };
 
@@ -311,6 +354,21 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
                   />
                 </div>
 
+                {googleConnected && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="sync-google"
+                      type="checkbox"
+                      checked={syncToGoogle}
+                      onChange={(e) => setSyncToGoogle(e.target.checked)}
+                      className="size-4 rounded border-slate-300"
+                    />
+                    <Label htmlFor="sync-google" className="text-sm font-normal text-slate-600">
+                      Legg til i Google Kalender
+                    </Label>
+                  </div>
+                )}
+
                 {eventError && <StatusMessage tone="rose">{eventError}</StatusMessage>}
 
                 <Button className="w-full" type="submit">
@@ -335,10 +393,24 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-slate-500">Klar for å invitere</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
-              Legg inn neste avtale
-            </p>
+            <p className="text-sm text-slate-500">Google Kalender</p>
+            {googleConnected ? (
+              <p className="mt-2 text-lg font-semibold tracking-tight text-emerald-600">Tilkoblet</p>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  const result = await api.get<{ url: string }>(
+                    `/google-calendar/auth-url?memberName=${encodeURIComponent(currentUserName)}`,
+                  );
+                  window.location.href = result.url;
+                }}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline"
+              >
+                <Link className="size-3.5" />
+                Koble til
+              </button>
+            )}
           </div>
         </div>
       </PageHeader>
@@ -466,6 +538,14 @@ export function CalendarView({ currentUserName }: CalendarViewProps) {
                         </div>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void deleteEvent(event.id)}
+                      className="shrink-0 self-start text-slate-400 transition-colors hover:text-rose-600"
+                      aria-label="Slett plan"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
                   </div>
                 </div>
               );

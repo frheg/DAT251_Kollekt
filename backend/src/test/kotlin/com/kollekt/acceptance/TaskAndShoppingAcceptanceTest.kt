@@ -39,7 +39,7 @@ class TaskAndShoppingAcceptanceTest : AcceptanceTestSupport() {
                                 "dueDate": "2026-03-10",
                                 "category": "CLEANING",
                                 "xp": 10,
-                                "recurring": false
+                                "recurrenceRule": null
                             }
                             """.trimIndent(),
                         ),

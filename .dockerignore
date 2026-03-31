@@ -8,3 +8,4 @@ dist
 **/build
 **/.gradle
 **/node_modules
+ideas.md

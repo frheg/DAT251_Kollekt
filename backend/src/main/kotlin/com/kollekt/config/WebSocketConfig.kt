@@ -16,7 +16,8 @@ class WebSocketConfig(
         val configuredOrigins = allowedOrigins.split(',').map { it.trim() }.filter { it.isNotBlank() }
         val originPatterns = (configuredOrigins + listOf("http://127.0.0.1:*", "http://localhost:*")).distinct()
 
-        registry.addHandler(collectiveWebSocketHandler, "/ws/collective")
+        registry
+            .addHandler(collectiveWebSocketHandler, "/ws/collective")
             .setAllowedOriginPatterns(*originPatterns.toTypedArray())
     }
 }

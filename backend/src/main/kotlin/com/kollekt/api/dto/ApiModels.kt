@@ -7,6 +7,12 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
+enum class LeaderboardPeriod {
+    OVERALL,
+    YEAR,
+    MONTH,
+}
+
 data class TaskDto(
     val id: Long,
     val title: String,
@@ -15,7 +21,7 @@ data class TaskDto(
     val category: TaskCategory,
     val completed: Boolean,
     val xp: Int,
-    val recurring: Boolean,
+    val recurrenceRule: String? = null,
 )
 
 data class CreateTaskRequest(
@@ -24,7 +30,7 @@ data class CreateTaskRequest(
     val dueDate: LocalDate,
     val category: TaskCategory = TaskCategory.OTHER,
     val xp: Int = 10,
-    val recurring: Boolean = false,
+    val recurrenceRule: String? = null,
 )
 
 data class ShoppingItemDto(
@@ -58,13 +64,39 @@ data class CreateEventRequest(
     val organizer: String,
     val attendees: Int = 1,
     val description: String? = null,
+    val syncToGoogle: Boolean = false,
 )
 
 data class MessageDto(
     val id: Long,
     val sender: String,
     val text: String,
+    val imageData: String? = null,
+    val imageMimeType: String? = null,
+    val imageFileName: String? = null,
     val timestamp: LocalDateTime,
+    val reactions: List<ReactionDto> = emptyList(),
+    val poll: PollDto? = null,
+)
+
+data class PollDto(
+    val question: String,
+    val options: List<PollOptionDto>,
+)
+
+data class PollOptionDto(
+    val id: Int,
+    val text: String,
+    val users: List<String>,
+)
+
+data class CreatePollRequest(
+    val question: String,
+    val options: List<String>,
+)
+
+data class VotePollRequest(
+    val optionId: Int,
 )
 
 data class CreateMessageRequest(
@@ -219,6 +251,7 @@ data class WeeklyStatsDto(
 data class LeaderboardResponse(
     val players: List<LeaderboardPlayerDto>,
     val weeklyStats: WeeklyStatsDto,
+    val monthlyPrize: String? = null,
 )
 
 data class PantSummaryDto(
@@ -248,4 +281,21 @@ data class DrinkingQuestionDto(
     val text: String,
     val type: String,
     val targetedPlayer: String?,
+)
+
+data class MonthlyPrizeRequest(
+    val prize: String?,
+)
+
+data class ReactionDto(
+    val emoji: String,
+    val users: List<String>,
+)
+
+data class AddReactionRequest(
+    val emoji: String,
+)
+
+data class RemoveReactionRequest(
+    val emoji: String,
 )

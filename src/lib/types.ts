@@ -8,7 +8,12 @@ export interface Task {
   category: TaskCategory;
   completed: boolean;
   xp: number;
-  recurring: boolean;
+  /**
+   * Recurrence rule for the task. Examples: 'NONE', 'DAILY', 'WEEKLY', 'MONTHLY', or RFC 5545 RRULE string.
+   * If null or 'NONE', the task does not repeat.
+   */
+  recurrenceRule: string | null;
+  assignmentReason?: string; // Optional: why this user was assigned
 }
 
 export interface ShoppingItem {
@@ -29,13 +34,6 @@ export interface CalendarEvent {
   organizer: string;
   attendees: number;
   description?: string;
-}
-
-export interface ChatMessage {
-  id: number;
-  sender: string;
-  text: string;
-  timestamp: string;
 }
 
 export interface Expense {
@@ -90,7 +88,7 @@ export interface LeaderboardPlayer {
   badges: string[];
 }
 
-export interface WeeklyStats {
+export interface PeriodStats {
   totalTasks: number;
   totalXp: number;
   avgPerPerson: number;
@@ -99,7 +97,8 @@ export interface WeeklyStats {
 
 export interface LeaderboardResponse {
   players: LeaderboardPlayer[];
-  weeklyStats: WeeklyStats;
+  weeklyStats: PeriodStats;
+  monthlyPrize?: string;
 }
 
 export interface Achievement {
@@ -130,6 +129,8 @@ export interface DrinkingQuestion {
 
 export type MemberStatus = 'ACTIVE' | 'AWAY' | 'LEFT';
 
+export type LeaderboardPeriod = 'OVERALL' | 'YEAR' | 'MONTH';
+
 export interface AppUser {
   id: number;
   name: string;
@@ -144,4 +145,32 @@ export interface AuthResponse {
   tokenType: string;
   expiresIn: number;
   user: AppUser;
+}
+
+export interface ChatReaction {
+  emoji: string;
+  users: string[];
+}
+
+export interface ChatPollOption {
+  id: number;
+  text: string;
+  users: string[];
+}
+
+export interface ChatPoll {
+  question: string;
+  options: ChatPollOption[];
+}
+
+export interface ChatMessage {
+  id: number;
+  sender: string;
+  text: string;
+  imageData?: string | null;
+  imageMimeType?: string | null;
+  imageFileName?: string | null;
+  timestamp: string;
+  reactions: ChatReaction[];
+  poll?: ChatPoll | null;
 }

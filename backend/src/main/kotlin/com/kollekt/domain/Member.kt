@@ -27,6 +27,10 @@ data class Member(
     @Column(nullable = false) val xp: Int = 0,
     @Column(nullable = true) val collectiveCode: String? = null,
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    val status: MemberStatus = MemberStatus.ACTIVE,
+    @Column(nullable = false) val status: MemberStatus = MemberStatus.ACTIVE,
+    @Column(nullable = true, length = 2048) val chemistry: String? = null,
+    @Column(nullable = true, length = 2048) val preferences: String? = null,
+    @Column(nullable = true, length = 2048) val assignmentHistory: String? = null,
+    @Column(nullable = true, columnDefinition = "TEXT") val googleAccessToken: String? = null,
+    @Column(nullable = true, length = 512) val googleRefreshToken: String? = null,
 )

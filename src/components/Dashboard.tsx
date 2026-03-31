@@ -9,6 +9,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { AnimatedButton } from './ui/AnimatedButton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { api } from '../lib/api';
@@ -53,7 +54,7 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
   useEffect(() => {
     void load();
     const disconnect = connectCollectiveRealtime(currentUserName, (event) => {
-      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED') {
+      if (event.type === 'TASK_UPDATED' || event.type === 'XP_UPDATED' || event.type === 'EVENT_CREATED' || event.type === 'EVENT_DELETED') {
         void load();
       }
     });
@@ -152,21 +153,27 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
             />
           ) : (
             <div className="space-y-3">
-              {upcomingTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium text-slate-950">{task.title}</p>
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                      <Badge variant="secondary">{task.assignee}</Badge>
-                      <span>{formatShortDate(task.dueDate)}</span>
+                {upcomingTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-medium text-slate-950">{task.title}</p>
+                      {task.assignmentReason && (
+                        <div className="text-xs text-blue-700 bg-blue-50 rounded px-2 py-1 inline-block mt-1">
+                          {task.assignmentReason}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                        <Badge variant="secondary">{task.assignee}</Badge>
+                        <span>{formatShortDate(task.dueDate)}</span>
+                      </div>
                     </div>
+                    <div className="text-sm font-medium text-slate-500">+{task.xp} XP</div>
+                    <FeedbackButton task={task} />
                   </div>
-                  <div className="text-sm font-medium text-slate-500">+{task.xp} XP</div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </SectionCard>
@@ -264,5 +271,69 @@ export function Dashboard({ onNavigate, currentUserName }: DashboardProps) {
         </SectionCard>
       </div>
     </PageStack>
+  );
+}
+
+// Feedback modal/button for assignment feedback
+function FeedbackButton({ task }: { task: Task }) {
+  const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const submitFeedback = async () => {
+    setSubmitting(true);
+    try {
+      await api.patch(`/tasks/${task.id}/feedback?memberName=${encodeURIComponent(task.assignee)}`, { feedback });
+      setSubmitted(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          className="mt-2 text-xs text-indigo-600 underline hover:text-indigo-800"
+          onClick={() => setOpen(true)}
+        >
+          Gi tilbakemelding på tildeling
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-white">
+        <DialogHeader>
+          <DialogTitle>Tilbakemelding på tildeling</DialogTitle>
+        </DialogHeader>
+        {submitted ? (
+          <div className="text-green-700">Takk for tilbakemeldingen!</div>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={e => {
+              e.preventDefault();
+              void submitFeedback();
+            }}
+          >
+            <textarea
+              className="w-full border rounded p-2"
+              rows={3}
+              placeholder="Hva synes du om denne tildelingen?"
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+              disabled={submitting}
+              required
+            />
+            <button
+              type="submit"
+              className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
+              disabled={submitting || feedback.trim() === ''}
+            >
+              {submitting ? 'Sender...' : 'Send tilbakemelding'}
+            </button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

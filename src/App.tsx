@@ -19,7 +19,7 @@ import { DrinkingGame } from './components/DrinkingGame';
 import { StartPage } from './components/StartPage';
 import { Button } from './components/ui/button';
 import { UserMenu } from './components/UserMenu';
-import { Notifications } from './components/Notifications';
+import { NotificationDropdown } from './components/NotificationDropdown';
 import { api, logoutSession, API_BASE, getAccessToken } from './lib/api';
 import { APP_VIEWS, type AppView } from './lib/app';
 import type { AppUser } from './lib/types';
@@ -399,6 +399,11 @@ export default function App() {
   const [showDeleteUser, setShowDeleteUser] = useState(false);
 
   useEffect(() => {
+    if (!getAccessToken()) {
+      localStorage.removeItem('kollekt-user');
+      return;
+    }
+
     const storedUser = localStorage.getItem('kollekt-user');
     if (!storedUser) return;
     try {
@@ -420,7 +425,11 @@ export default function App() {
         localStorage.setItem('kollekt-user', JSON.stringify(user));
       })
       .catch(() => {
-        // Keep the locally cached user if the refresh fails.
+        if (cancelled) return;
+        if (!getAccessToken()) {
+          setCurrentUser(null);
+          localStorage.removeItem('kollekt-user');
+        }
       });
 
     return () => {
@@ -480,6 +489,15 @@ export default function App() {
   };
 
   if (!currentUser) {
+    return (
+      <ThemeProvider>
+        <StartPage onAuthenticated={handleAuthenticated} />
+      </ThemeProvider>
+    );
+  }
+
+  // Show onboarding if user is logged in but not in a collective
+  if (!currentUser.collectiveCode) {
     return (
       <ThemeProvider>
         <StartPage onAuthenticated={handleAuthenticated} />
@@ -588,7 +606,8 @@ export default function App() {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Notifications currentUser={currentUser} />
+              {/* Notification Dropdown next to UserMenu */}
+              <NotificationDropdown userName={currentUser.name} />
               <UserMenu
                 user={{ name: currentUser.name, avatarUrl: undefined }}
                 onAction={(action) => {
@@ -599,6 +618,20 @@ export default function App() {
                   else if (action === 'addFriends') setShowAddFriends(true);
                   else if (action === 'resetPassword') setShowResetPassword(true);
                   else if (action === 'deleteUser') setShowDeleteUser(true);
+                  else if (action === 'leaveCollective') handleLeaveCollective();
+                  function handleLeaveCollective() {
+                    if (!currentUser) return;
+                    (async () => {
+                      try {
+                        await api.patch<void>(`/members/leave-collective?memberName=${encodeURIComponent(currentUser.name)}`);
+                        const updatedUser: AppUser = { ...currentUser, collectiveCode: '' };
+                        setCurrentUser(updatedUser);
+                        localStorage.setItem('kollekt-user', JSON.stringify(updatedUser));
+                      } catch (err) {
+                        alert('Kunne ikke forlate kollektivet. Prøv igjen.');
+                      }
+                    })();
+                  }
                 }}
               />
             </div>

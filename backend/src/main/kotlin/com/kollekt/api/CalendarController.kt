@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/events")
-class CalendarController(private val service: KollektService) {
+class CalendarController(
+    private val service: KollektService,
+) {
     @GetMapping
     fun getEvents(
         @RequestParam memberName: String,
@@ -28,4 +30,11 @@ class CalendarController(private val service: KollektService) {
         @RequestBody request: CreateEventRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): EventDto = service.createEvent(request, jwt.subject)
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteEvent(
+        @PathVariable id: Long,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) = service.deleteEvent(id, jwt.subject)
 }

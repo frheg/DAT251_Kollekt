@@ -28,7 +28,13 @@ class InvitationRealtimeHandler
         private val invitationRealtimeService: com.kollekt.service.InvitationRealtimeService,
     ) : TextWebSocketHandler() {
         override fun afterConnectionEstablished(session: WebSocketSession) {
-            val email = session.uri?.query?.split("email=")?.getOrNull(1)?.split("&")?.getOrNull(0)
+            val email =
+                session.uri
+                    ?.query
+                    ?.split("email=")
+                    ?.getOrNull(1)
+                    ?.split("&")
+                    ?.getOrNull(0)
             if (email != null) {
                 invitationRealtimeService.register(email, session)
             }
@@ -38,7 +44,13 @@ class InvitationRealtimeHandler
             session: WebSocketSession,
             status: CloseStatus,
         ) {
-            val email = session.uri?.query?.split("email=")?.getOrNull(1)?.split("&")?.getOrNull(0)
+            val email =
+                session.uri
+                    ?.query
+                    ?.split("email=")
+                    ?.getOrNull(1)
+                    ?.split("&")
+                    ?.getOrNull(0)
             if (email != null) {
                 invitationRealtimeService.unregister(email, session)
             }

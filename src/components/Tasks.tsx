@@ -6,6 +6,7 @@ type TaskCardProps = {
   onComplete: (id: number) => void;
 };
 
+
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete }) => (
   <motion.div
     initial={{ opacity: 0, y: 30 }}
@@ -38,6 +39,7 @@ import {
   User,
 } from 'lucide-react';
 import { Button } from './ui/button';
+import { regretTask } from '../lib/api';
 import { useRef } from 'react';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -90,12 +92,26 @@ interface TaskRowProps {
   onToggle: (id: number) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
+  currentUserName: string;
 }
 
-function TaskRow({ task, onToggle, onEdit, onDelete }: TaskRowProps) {
+function TaskRow({ task, onToggle, onEdit, onDelete, currentUserName }: TaskRowProps) {
   const category = categoryConfig[task.category] ?? categoryConfig.OTHER;
   const CategoryIcon = category.icon;
   const overdue = !task.completed && isOverdueDate(task.dueDate);
+  const [lateLoading, setLateLoading] = useState(false);
+
+  const handleLateApproval = async () => {
+    setLateLoading(true);
+    try {
+      await regretTask(task.id.toString(), currentUserName);
+      window.location.reload();
+    } catch (e) {
+      alert(getUserMessage(e));
+    } finally {
+      setLateLoading(false);
+    }
+  };
 
   return (
     <div
@@ -108,18 +124,32 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: TaskRowProps) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={() => onToggle(task.id)}
-          className="mt-0.5 rounded-full text-slate-400 transition hover:text-slate-900"
-          aria-label={task.completed ? 'Marker som ikke fullført' : 'Marker som fullført'}
-        >
-          {task.completed ? (
-            <CheckCircle2 className="size-6 text-emerald-600" />
-          ) : (
-            <Circle className="size-6" />
-          )}
-        </button>
+        {/* If overdue and not completed, show Seint Gjennomført button instead of checkbox */}
+        {overdue && !task.completed ? (
+          <Button
+            onClick={handleLateApproval}
+            disabled={lateLoading}
+            variant="destructive"
+            size="sm"
+            className="mt-0.5"
+          >
+            {lateLoading ? 'Sender...' : 'Seint Gjennomført'}
+          </Button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onToggle(task.id)}
+            className="mt-0.5 rounded-full text-slate-400 transition hover:text-slate-900"
+            aria-label={task.completed ? 'Marker som ikke fullført' : 'Marker som fullført'}
+            disabled={overdue && !task.completed}
+          >
+            {task.completed ? (
+              <CheckCircle2 className="size-6 text-emerald-600" />
+            ) : (
+              <Circle className="size-6" />
+            )}
+          </button>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -131,6 +161,11 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: TaskRowProps) {
               >
                 {task.title}
               </p>
+              {task.assignmentReason && (
+                <div className="text-xs text-blue-700 bg-blue-50 rounded px-2 py-1 inline-block mt-1">
+                  {task.assignmentReason}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
                 <Badge variant="secondary">
                   <User className="size-3" />
@@ -144,8 +179,16 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: TaskRowProps) {
                   <CategoryIcon className="size-3" />
                   {category.label}
                 </Badge>
-                {task.recurring && <Badge variant="outline">Gjentakende</Badge>}
+                {task.recurrenceRule && task.recurrenceRule !== 'NONE' && (
+                  <Badge variant="outline">Gjentakende</Badge>
+                )}
               </div>
+              <FeedbackButton task={task} />
+              {/*
+              {task.assignmentScore && (
+                <div className="text-xs text-slate-500 mt-1">Score: {task.assignmentScore}</div>
+              )}
+              */}
             </div>
 
             <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
@@ -178,7 +221,7 @@ export function Tasks({ currentUserName }: TasksProps) {
     dueDate: '',
     category: 'OTHER' as TaskCategory,
     xp: 10,
-    recurring: false,
+    recurrenceRule: 'NONE',
   });
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -203,7 +246,7 @@ export function Tasks({ currentUserName }: TasksProps) {
       if (updated.dueDate !== undefined) patch.dueDate = updated.dueDate;
       if (updated.category !== undefined) patch.category = updated.category;
       if (updated.xp !== undefined) patch.xp = updated.xp;
-      if (updated.recurring !== undefined) patch.recurring = updated.recurring;
+      if (updated.recurrenceRule !== undefined) patch.recurrenceRule = updated.recurrenceRule;
       const result = await api.patch<Task>(`/tasks/${editTask.id}?memberName=${encodeURIComponent(currentUserName)}`, patch);
       setTasks((prev) => prev.map((t) => (t.id === result.id ? result : t)));
       setIsEditDialogOpen(false);
@@ -301,7 +344,7 @@ export function Tasks({ currentUserName }: TasksProps) {
         dueDate: taskForm.dueDate,
         category: taskForm.category,
         xp: taskForm.xp,
-        recurring: taskForm.recurring,
+        recurrenceRule: taskForm.recurrenceRule,
       });
 
       setTasks((previous) => [...previous, createdTask]);
@@ -311,7 +354,7 @@ export function Tasks({ currentUserName }: TasksProps) {
         dueDate: '',
         category: 'OTHER',
         xp: 10,
-        recurring: false,
+        recurrenceRule: 'NONE',
       });
       setTaskError('');
       setIsTaskDialogOpen(false);
@@ -448,13 +491,17 @@ export function Tasks({ currentUserName }: TasksProps) {
                     />
                   </div>
                   <div className="flex items-center gap-2 mt-7">
-                    <input
-                      id="task-recurring"
-                      type="checkbox"
-                      checked={taskForm.recurring}
-                      onChange={(e) => setTaskForm({ ...taskForm, recurring: e.target.checked })}
-                    />
-                    <Label htmlFor="task-recurring">Gjentakende</Label>
+                    <Label htmlFor="task-recurrence">Gjentakelse</Label>
+                    <select
+                      id="task-recurrence"
+                      className="rounded-md border border-slate-200 px-3 py-2 text-base"
+                      value={taskForm.recurrenceRule}
+                      onChange={e => setTaskForm({ ...taskForm, recurrenceRule: e.target.value })}
+                    >
+                      <option value="NONE">Ingen</option>
+                      <option value="WEEKLY">Ukentlig</option>
+                      <option value="DAILY">Daglig</option>
+                    </select>
                   </div>
                 </div>
 
@@ -535,6 +582,7 @@ export function Tasks({ currentUserName }: TasksProps) {
                     onToggle={toggleTask}
                     onEdit={handleEditTask}
                     onDelete={handleDeleteTask}
+                    currentUserName={currentUserName}
                   />
                 ))}
               </div>
@@ -554,6 +602,7 @@ export function Tasks({ currentUserName }: TasksProps) {
                     onToggle={toggleTask}
                     onEdit={handleEditTask}
                     onDelete={handleDeleteTask}
+                    currentUserName={currentUserName}
                   />
                 ))}
               </div>
@@ -635,8 +684,8 @@ export function Tasks({ currentUserName }: TasksProps) {
                       <input
                         id="edit-task-recurring"
                         type="checkbox"
-                        checked={editTask.recurring}
-                        onChange={(e) => setEditTask({ ...editTask, recurring: e.target.checked })}
+                        checked={editTask.recurrenceRule !== 'NONE'}
+                        onChange={(e) => setEditTask({ ...editTask, recurrenceRule: e.target.checked ? 'WEEKLY' : 'NONE' })}
                       />
                       <Label htmlFor="edit-task-recurring">Gjentakende</Label>
                     </div>
@@ -688,6 +737,7 @@ export function Tasks({ currentUserName }: TasksProps) {
                     onToggle={toggleTask}
                     onEdit={handleEditTask}
                     onDelete={handleDeleteTask}
+                    currentUserName={currentUserName}
                   />
                 ))}
               </div>
@@ -769,5 +819,69 @@ export function Tasks({ currentUserName }: TasksProps) {
         </TabsContent>
       </Tabs>
     </PageStack>
+  );
+}
+
+// Feedback modal/button for assignment feedback
+function FeedbackButton({ task }: { task: Task }) {
+  const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const submitFeedback = async () => {
+    setSubmitting(true);
+    try {
+      await api.patch(`/tasks/${task.id}/feedback?memberName=${encodeURIComponent(task.assignee)}`, { feedback });
+      setSubmitted(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          className="mt-2 text-xs text-indigo-600 underline hover:text-indigo-800"
+          onClick={() => setOpen(true)}
+        >
+          Gi tilbakemelding på tildeling
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-white">
+        <DialogHeader>
+          <DialogTitle>Tilbakemelding på tildeling</DialogTitle>
+        </DialogHeader>
+        {submitted ? (
+          <div className="text-green-700">Takk for tilbakemeldingen!</div>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={e => {
+              e.preventDefault();
+              void submitFeedback();
+            }}
+          >
+            <textarea
+              className="w-full border rounded p-2"
+              rows={3}
+              placeholder="Hva synes du om denne tildelingen?"
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+              disabled={submitting}
+              required
+            />
+            <button
+              type="submit"
+              className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
+              disabled={submitting || feedback.trim() === ''}
+            >
+              {submitting ? 'Sender...' : 'Send tilbakemelding'}
+            </button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
