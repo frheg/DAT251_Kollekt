@@ -14,7 +14,12 @@ class RevokedTokenValidatorTest {
 
     @Test
     fun `validate succeeds when token has no jti`() {
-        val jwt = Jwt.withTokenValue("token").header("alg", "none").subject("Kasper").build()
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "none")
+                .subject("Kasper")
+                .build()
 
         val result = validator.validate(jwt)
 
@@ -24,7 +29,13 @@ class RevokedTokenValidatorTest {
     @Test
     fun `validate succeeds when token is not revoked`() {
         whenever(tokenStoreService.isAccessTokenRevoked("jti-1")).thenReturn(false)
-        val jwt = Jwt.withTokenValue("token").header("alg", "none").subject("Kasper").jti("jti-1").build()
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "none")
+                .subject("Kasper")
+                .jti("jti-1")
+                .build()
 
         val result = validator.validate(jwt)
 
@@ -34,7 +45,13 @@ class RevokedTokenValidatorTest {
     @Test
     fun `validate fails when token is revoked`() {
         whenever(tokenStoreService.isAccessTokenRevoked("jti-2")).thenReturn(true)
-        val jwt = Jwt.withTokenValue("token").header("alg", "none").subject("Kasper").jti("jti-2").build()
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "none")
+                .subject("Kasper")
+                .jti("jti-2")
+                .build()
 
         val result = validator.validate(jwt)
 

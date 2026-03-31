@@ -51,6 +51,7 @@ class KollektServiceCoverageTest {
     private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var passwordEncoder: org.springframework.security.crypto.password.PasswordEncoder
     private lateinit var tokenService: TokenService
+    private lateinit var notificationService: NotificationService
     private lateinit var valueOps: ValueOperations<String, Any>
     private lateinit var service: KollektService
 
@@ -73,6 +74,7 @@ class KollektServiceCoverageTest {
         realtimeUpdateService = mock()
         passwordEncoder = mock()
         tokenService = mock()
+        notificationService = mock()
         valueOps = mock()
         doReturn(valueOps).whenever(redisTemplate).opsForValue()
 
@@ -95,6 +97,7 @@ class KollektServiceCoverageTest {
                 tokenService,
                 invitationRepository,
                 roomRepository,
+                notificationService,
             )
     }
 
@@ -272,7 +275,12 @@ class KollektServiceCoverageTest {
 
     @Test
     fun `logout revokes both access and refresh tokens when refresh token is present`() {
-        val jwt = Jwt.withTokenValue("token").header("alg", "none").subject("Kasper").build()
+        val jwt =
+            Jwt
+                .withTokenValue("token")
+                .header("alg", "none")
+                .subject("Kasper")
+                .build()
 
         service.logout(jwt, "refresh-token")
 

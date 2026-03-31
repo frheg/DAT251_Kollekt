@@ -604,7 +604,7 @@ class KollektServiceTest {
         assertEquals(LocalDate.parse("2026-03-15"), result.dueDate)
         assertEquals(TaskCategory.CLEANING, result.category)
         assertEquals(25, result.xp)
-        assertTrue(result.recurring)
+        assertEquals("WEEKLY", result.recurrenceRule)
         verify(eventPublisher).taskEvent(eq("TASK_UPDATED"), any())
         verify(realtimeUpdateService).publish(eq("ABC123"), eq("TASK_UPDATED"), any())
     }
@@ -1136,7 +1136,10 @@ class KollektServiceTest {
         assertEquals("Villa Kollekt", result.name)
         assertEquals(99L, result.id)
         verify(roomRepository, times(2)).save(any<Room>())
-        verify(taskRepository, times(8)).save(any<TaskItem>())
+        val taskCaptor = argumentCaptor<TaskItem>()
+        verify(taskRepository, times(2)).save(taskCaptor.capture())
+        assertEquals(listOf("Vask Bathroom", "Vask Kitchen"), taskCaptor.allValues.map { it.title }.sorted())
+        assertTrue(taskCaptor.allValues.all { it.recurrenceRule == "WEEKLY" })
 
         val savedMembers = argumentCaptor<Member>()
         verify(memberRepository, times(3)).save(savedMembers.capture())
@@ -1166,7 +1169,6 @@ class KollektServiceTest {
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(user.copy(collectiveCode = "ABC123")),
         )
-        whenever(roomRepository.findAllByCollectiveId(10)).thenReturn(emptyList())
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(emptyList())
         doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
         doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
@@ -1206,6 +1208,7 @@ class KollektServiceTest {
                 completed = false,
                 recurring = true,
                 xp = 15,
+                recurrenceRule = "WEEKLY",
             )
         val futureCleaningTask =
             TaskItem(
@@ -1218,6 +1221,7 @@ class KollektServiceTest {
                 completed = false,
                 recurring = true,
                 xp = 20,
+                recurrenceRule = "WEEKLY",
             )
         val oldPastTask =
             TaskItem(
@@ -1240,9 +1244,6 @@ class KollektServiceTest {
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(joinedUser.copy(collectiveCode = "ABC123"), emma, awayMember),
         )
-        whenever(roomRepository.findAllByCollectiveId(10)).thenReturn(
-            listOf(Room(id = 1, name = "Kitchen", minutes = 20, collective = collective)),
-        )
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(manualRecurringTask, futureCleaningTask, oldPastTask),
         )
@@ -1252,16 +1253,14 @@ class KollektServiceTest {
 
         service.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = "ABC123"))
 
-        verify(taskRepository).deleteById(50)
-        verify(taskRepository).deleteById(60)
-        verify(taskRepository, never()).deleteById(70)
+        verify(taskRepository, never()).deleteById(any())
 
         val taskCaptor = argumentCaptor<TaskItem>()
-        verify(taskRepository, times(8)).save(taskCaptor.capture())
-        assertEquals(4, taskCaptor.allValues.count { it.title == "Vask Kitchen" })
-        assertEquals(4, taskCaptor.allValues.count { it.title == "Buy soap" })
+        verify(taskRepository, times(4)).save(taskCaptor.capture())
+        assertEquals(2, taskCaptor.allValues.count { it.title == "Buy soap" })
+        assertEquals(2, taskCaptor.allValues.count { it.title == "Old cleaning" })
         assertTrue(taskCaptor.allValues.none { it.assignee == "Ola" })
-        assertTrue(taskCaptor.allValues.filter { it.title == "Buy soap" }.all { it.id == 0L && !it.completed })
+        assertTrue(taskCaptor.allValues.filter { it.dueDate.isAfter(LocalDate.now().plusDays(7)) }.all { it.id == 0L && !it.completed })
     }
 
     @Test
@@ -1281,7 +1280,7 @@ class KollektServiceTest {
         service.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = "ABC123"))
 
         verify(roomRepository, never()).findAllByCollectiveId(any())
-        verify(taskRepository, never()).findAllByCollectiveCode(any())
+        verify(taskRepository).findAllByCollectiveCode("ABC123")
         verify(taskRepository, never()).save(any<TaskItem>())
     }
 
