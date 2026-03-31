@@ -1,17 +1,28 @@
 package com.kollekt.service
 
+import com.kollekt.api.dto.CreateCollectiveRequest
+import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.CreateExpenseRequest
+import com.kollekt.api.dto.CreateMessageRequest
 import com.kollekt.api.dto.CreatePollRequest
 import com.kollekt.api.dto.CreateTaskRequest
+import com.kollekt.api.dto.CreateUserRequest
 import com.kollekt.api.dto.DashboardResponse
+import com.kollekt.api.dto.JoinCollectiveRequest
 import com.kollekt.api.dto.LeaderboardResponse
+import com.kollekt.api.dto.LoginRequest
+import com.kollekt.api.dto.RefreshTokenRequest
+import com.kollekt.api.dto.RoomRequest
 import com.kollekt.api.dto.WeeklyStatsDto
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.ChatMessage
 import com.kollekt.domain.Collective
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Expense
+import com.kollekt.domain.Invitation
 import com.kollekt.domain.Member
+import com.kollekt.domain.MemberStatus
+import com.kollekt.domain.Room
 import com.kollekt.domain.SettlementCheckpoint
 import com.kollekt.domain.TaskCategory
 import com.kollekt.domain.TaskItem
@@ -37,6 +48,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.Mockito.lenient
+import org.mockito.Mockito.times
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -118,7 +130,6 @@ class KollektServiceTest {
     fun setUp() {
         valueOps = mock()
         lenient().`when`(redisTemplate.opsForValue()).thenReturn(valueOps)
-
         service =
             KollektService(
                 memberRepository,
@@ -273,110 +284,410 @@ class KollektServiceTest {
     }
 
     @Test
-    fun `addReaction enforces one reaction per user and publishes update`() {
+    fun `addFriend adds a new friend after validating both users`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
-        whenever(chatMessageRepository.findById(11)).thenReturn(
-            Optional.of(
-                ChatMessage(
-                    id = 11,
-                    sender = "Emma",
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com", id = 2))
+
+        service.addFriend("Kasper", "Emma")
+
+        service.removeFriend("Kasper", "Emma")
+    }
+
+    @Test
+    fun `addFriend rejects duplicate friend relationship`() {
+        whenever(memberRepository.findByName("Nora")).thenReturn(member("Nora", "nora@example.com"))
+        whenever(memberRepository.findByName("Lars")).thenReturn(member("Lars", "lars@example.com", id = 2))
+
+        service.addFriend("Nora", "Lars")
+
+        assertThrows<IllegalArgumentException> {
+            service.addFriend("Nora", "Lars")
+        }
+    }
+
+    @Test
+    fun `removeFriend fails when member has no friends`() {
+        assertThrows<IllegalArgumentException> {
+            service.removeFriend("Nobody", "Emma")
+        }
+    }
+
+    @Test
+    fun `getEvents sorts by date within collective`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(eventRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                CalendarEvent(
+                    id = 2,
+                    title = "Late",
                     collectiveCode = "ABC123",
-                    text = "Hei",
-                    timestamp = LocalDateTime.now(),
-                    reactions = """{"😂":["Kasper"],"❤️":["Emma"]}""",
+                    date = LocalDate.parse("2026-03-10"),
+                    time = LocalTime.NOON,
+                    type = EventType.OTHER,
+                    organizer = "Kasper",
+                    attendees = 2,
+                ),
+                CalendarEvent(
+                    id = 1,
+                    title = "Early",
+                    collectiveCode = "ABC123",
+                    date = LocalDate.parse("2026-03-01"),
+                    time = LocalTime.NOON,
+                    type = EventType.DINNER,
+                    organizer = "Emma",
+                    attendees = 3,
                 ),
             ),
         )
 
-        val savedCaptor = argumentCaptor<ChatMessage>()
-        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer { savedCaptor.firstValue }
+        val result = service.getEvents("Kasper")
 
-        val updated = service.addReaction(11, "👍", "Kasper")
-
-        assertTrue(updated.reactions.any { it.emoji == "👍" && it.users == listOf("Kasper") })
-        assertFalse(updated.reactions.any { it.emoji == "😂" })
-        assertTrue(updated.reactions.any { it.emoji == "❤️" && it.users == listOf("Emma") })
-        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_REACTION_UPDATED"), eq(updated))
+        assertEquals(listOf(1L, 2L), result.map { it.id })
     }
 
     @Test
-    fun `removeReaction removes user from emoji and publishes update`() {
+    fun `createEvent saves actor scoped event and clears dashboard cache`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
-        whenever(chatMessageRepository.findById(12)).thenReturn(
-            Optional.of(
-                ChatMessage(
-                    id = 12,
-                    sender = "Emma",
-                    collectiveCode = "ABC123",
-                    text = "Hei",
-                    timestamp = LocalDateTime.now(),
-                    reactions = """{"👍":["Kasper","Emma"]}""",
-                ),
-            ),
-        )
+        doReturn(setOf("dashboard:Kasper")).whenever(redisTemplate).keys("dashboard:*")
 
-        val savedCaptor = argumentCaptor<ChatMessage>()
-        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer { savedCaptor.firstValue }
-
-        val updated = service.removeReaction(12, "👍", "Kasper")
-
-        assertEquals(listOf("Emma"), updated.reactions.firstOrNull { it.emoji == "👍" }?.users)
-        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_REACTION_UPDATED"), eq(updated))
-    }
-
-    @Test
-    fun `createPoll stores poll payload and publishes created message`() {
-        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
-
-        val savedCaptor = argumentCaptor<ChatMessage>()
-        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer {
-            savedCaptor.firstValue.copy(id = 77)
+        val eventCaptor = argumentCaptor<CalendarEvent>()
+        whenever(eventRepository.save(eventCaptor.capture())).thenAnswer {
+            eventCaptor.firstValue.copy(id = 20)
         }
 
-        val created =
-            service.createPoll(
-                CreatePollRequest(
-                    question = "Hvem lager middag?",
-                    options = listOf("Kasper", "Emma"),
+        val result =
+            service.createEvent(
+                CreateEventRequest(
+                    title = "Movie night",
+                    date = LocalDate.parse("2026-04-01"),
+                    time = LocalTime.of(19, 0),
+                    type = EventType.MOVIE,
+                    organizer = "Ignored by service",
+                    attendees = 4,
+                    description = "Bring snacks",
                 ),
                 "Kasper",
             )
 
-        assertEquals(77L, created.id)
-        assertEquals("📊 Hvem lager middag?", created.text)
-        assertEquals("Hvem lager middag?", created.poll?.question)
-        assertEquals(listOf("Kasper", "Emma"), created.poll?.options?.map { it.text })
-        verify(eventPublisher).chatEvent(eq("MESSAGE_CREATED"), eq(created))
-        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_CREATED"), eq(created))
+        assertEquals("ABC123", eventCaptor.firstValue.collectiveCode)
+        assertEquals("Kasper", eventCaptor.firstValue.organizer)
+        assertEquals(20L, result.id)
+        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
+        verify(eventPublisher).chatEvent(eq("EVENT_CREATED"), any())
     }
 
     @Test
-    fun `votePoll moves users vote between options and publishes update`() {
+    fun `getMessages sorts by timestamp within collective`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
-        whenever(chatMessageRepository.findById(13)).thenReturn(
-            Optional.of(
+        whenever(chatMessageRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
                 ChatMessage(
-                    id = 13,
+                    id = 2,
                     sender = "Emma",
                     collectiveCode = "ABC123",
-                    text = "📊 Hvem?",
-                    timestamp = LocalDateTime.now(),
-                    poll = """{"question":"Hvem?","options":[{"id":0,"text":"A","users":["Kasper"]},{"id":1,"text":"B","users":[]}]}""",
+                    text = "Later",
+                    timestamp = LocalDateTime.parse("2026-03-02T10:15:00"),
+                ),
+                ChatMessage(
+                    id = 1,
+                    sender = "Kasper",
+                    collectiveCode = "ABC123",
+                    text = "Earlier",
+                    timestamp = LocalDateTime.parse("2026-03-01T10:15:00"),
                 ),
             ),
         )
 
-        val savedCaptor = argumentCaptor<ChatMessage>()
-        whenever(chatMessageRepository.save(savedCaptor.capture())).thenAnswer { savedCaptor.firstValue }
+        val result = service.getMessages("Kasper")
 
-        val updated = service.votePoll(13, 1, "Kasper")
-        val poll = updated.poll ?: error("Poll should be present")
+        assertEquals(listOf(1L, 2L), result.map { it.id })
+    }
 
-        val optionA = poll.options.first { it.id == 0 }
-        val optionB = poll.options.first { it.id == 1 }
-        assertTrue(optionA.users.isEmpty())
-        assertEquals(listOf("Kasper"), optionB.users)
-        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_POLL_UPDATED"), eq(updated))
+    @Test
+    fun `createMessage publishes chat event and realtime update`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+
+        val messageCaptor = argumentCaptor<ChatMessage>()
+        whenever(chatMessageRepository.save(messageCaptor.capture())).thenAnswer {
+            messageCaptor.firstValue.copy(id = 7)
+        }
+
+        val result =
+            service.createMessage(
+                CreateMessageRequest(sender = "Ignored by service", text = "Hei kollektiv"),
+                "Kasper",
+            )
+
+        assertEquals("ABC123", messageCaptor.firstValue.collectiveCode)
+        assertEquals("Kasper", messageCaptor.firstValue.sender)
+        assertEquals(7L, result.id)
+        verify(eventPublisher).chatEvent(eq("MESSAGE_CREATED"), any())
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("MESSAGE_CREATED"), any())
+    }
+
+    @Test
+    fun `getAchievements maps repository results`() {
+        whenever(achievementRepository.findAll()).thenReturn(
+            listOf(
+                com.kollekt.domain.Achievement(
+                    id = 1,
+                    title = "Starter",
+                    description = "Complete your first task",
+                    icon = "star",
+                    unlocked = true,
+                    progress = 1,
+                    total = 1,
+                ),
+            ),
+        )
+
+        val result = service.getAchievements()
+
+        assertEquals(1, result.size)
+        assertEquals("Starter", result.first().title)
+        assertTrue(result.first().unlocked)
+    }
+
+    @Test
+    fun `createUser trims input encodes password and returns tokenized auth response`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(null)
+        whenever(memberRepository.findAll()).thenReturn(emptyList())
+        whenever(passwordEncoder.encode("supersecret")).thenReturn("encoded-password")
+        whenever(memberRepository.save(any<Member>())).thenAnswer {
+            (it.arguments[0] as Member).copy(id = 15)
+        }
+        whenever(tokenService.issueTokenPair(any<Member>())).thenReturn(
+            TokenResult(
+                accessToken = "access-token",
+                refreshToken = "refresh-token",
+                tokenType = "Bearer",
+                expiresIn = 3600,
+            ),
+        )
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        val result = service.createUser(CreateUserRequest("  Kasper  ", "  KASPER@example.com ", "  supersecret  "))
+
+        val memberCaptor = argumentCaptor<Member>()
+        verify(memberRepository).save(memberCaptor.capture())
+        assertEquals("Kasper", memberCaptor.firstValue.name)
+        assertEquals("kasper@example.com", memberCaptor.firstValue.email)
+        assertEquals("encoded-password", memberCaptor.firstValue.passwordHash)
+        assertEquals("access-token", result.accessToken)
+        assertEquals("Kasper", result.user.name)
+    }
+
+    @Test
+    fun `createUser rejects duplicate email after normalization`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(null)
+        whenever(memberRepository.findAll()).thenReturn(
+            listOf(member("Existing", "kasper@example.com", id = 2)),
+        )
+
+        assertThrows<IllegalArgumentException> {
+            service.createUser(CreateUserRequest("Kasper", "KASPER@EXAMPLE.COM", "supersecret"))
+        }
+    }
+
+    @Test
+    fun `login returns auth response when credentials match`() {
+        val existing = member("Kasper", "kasper@example.com").copy(passwordHash = "stored-hash")
+        whenever(memberRepository.findByName("Kasper")).thenReturn(existing)
+        whenever(passwordEncoder.matches("supersecret", "stored-hash")).thenReturn(true)
+        whenever(tokenService.issueTokenPair(existing)).thenReturn(
+            TokenResult("access-token", "refresh-token", "Bearer", 3600),
+        )
+
+        val result = service.login(LoginRequest("  Kasper  ", "  supersecret  "))
+
+        assertEquals("access-token", result.accessToken)
+        assertEquals("Kasper", result.user.name)
+    }
+
+    @Test
+    fun `login rejects users without password hash`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+
+        assertThrows<IllegalArgumentException> {
+            service.login(LoginRequest("Kasper", "secret"))
+        }
+    }
+
+    @Test
+    fun `refreshToken returns auth response for rotated subject`() {
+        val existing = member("Kasper", "kasper@example.com")
+        whenever(tokenService.rotateRefreshToken("refresh-token")).thenReturn(RefreshResult("Kasper"))
+        whenever(memberRepository.findByName("Kasper")).thenReturn(existing)
+        whenever(tokenService.issueTokenPair(existing)).thenReturn(
+            TokenResult("new-access", "new-refresh", "Bearer", 3600),
+        )
+
+        val result = service.refreshToken(RefreshTokenRequest("refresh-token"))
+
+        assertEquals("new-access", result.accessToken)
+        assertEquals("new-refresh", result.refreshToken)
+    }
+
+    @Test
+    fun `logout revokes access token and ignores blank refresh token`() {
+        val jwt = mock<org.springframework.security.oauth2.jwt.Jwt>()
+
+        service.logout(jwt, "   ")
+
+        verify(tokenService).revokeAccessToken(jwt)
+        verify(tokenService, never()).revokeRefreshToken(any())
+    }
+
+    @Test
+    fun `deleteTask removes task clears caches and publishes updates`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(9, "ABC123")).thenReturn(
+            TaskItem(
+                id = 9,
+                title = "Trash",
+                assignee = "Kasper",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.parse("2026-03-10"),
+                category = TaskCategory.OTHER,
+            ),
+        )
+        doReturn(setOf("dashboard:Kasper")).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(setOf("leaderboard:ABC123")).whenever(redisTemplate).keys("leaderboard:*")
+
+        service.deleteTask(9, "Kasper")
+
+        verify(taskRepository).deleteById(9)
+        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
+        verify(redisTemplate).delete(setOf("leaderboard:ABC123"))
+        verify(eventPublisher).taskEvent("TASK_DELETED", mapOf("id" to 9L))
+        verify(realtimeUpdateService).publish("ABC123", "TASK_DELETED", mapOf("id" to 9L))
+    }
+
+    @Test
+    fun `updateTask applies provided fields and falls back on invalid category`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(3, "ABC123")).thenReturn(
+            TaskItem(
+                id = 3,
+                title = "Old",
+                assignee = "Kasper",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.parse("2026-03-01"),
+                category = TaskCategory.CLEANING,
+                xp = 10,
+                recurring = false,
+            ),
+        )
+        whenever(memberRepository.findByNameAndCollectiveCode("Emma", "ABC123"))
+            .thenReturn(member("Emma", "emma@example.com", id = 2))
+        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        val result =
+            service.updateTask(
+                3,
+                mapOf(
+                    "title" to "New",
+                    "assignee" to "Emma",
+                    "dueDate" to "2026-03-15",
+                    "category" to "NOT_A_REAL_CATEGORY",
+                    "xp" to 25,
+                    "recurring" to true,
+                ),
+                "Kasper",
+            )
+
+        assertEquals("New", result.title)
+        assertEquals("Emma", result.assignee)
+        assertEquals(LocalDate.parse("2026-03-15"), result.dueDate)
+        assertEquals(TaskCategory.CLEANING, result.category)
+        assertEquals(25, result.xp)
+        assertTrue(result.recurring)
+        verify(eventPublisher).taskEvent(eq("TASK_UPDATED"), any())
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("TASK_UPDATED"), any())
+    }
+
+    @Test
+    fun `updateTask rejects assignee outside collective`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(3, "ABC123")).thenReturn(
+            TaskItem(
+                id = 3,
+                title = "Old",
+                assignee = "Kasper",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.parse("2026-03-01"),
+                category = TaskCategory.CLEANING,
+            ),
+        )
+        whenever(memberRepository.findByNameAndCollectiveCode("Ola", "ABC123")).thenReturn(null)
+
+        assertThrows<IllegalArgumentException> {
+            service.updateTask(3, mapOf("assignee" to "Ola"), "Kasper")
+        }
+    }
+
+    @Test
+    fun `deleteUser reassigns incomplete tasks to remaining collective members`() {
+        val deletedMember = member("Kasper", "kasper@example.com")
+        val emma = member("Emma", "emma@example.com", id = 2)
+        val ola = member("Ola", "ola@example.com", id = 3)
+        whenever(memberRepository.findByName("Kasper")).thenReturn(deletedMember)
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(listOf(emma, ola))
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                TaskItem(
+                    id = 1,
+                    title = "Trash",
+                    assignee = "Kasper",
+                    collectiveCode = "ABC123",
+                    dueDate = LocalDate.parse("2026-03-01"),
+                    category = TaskCategory.OTHER,
+                    completed = false,
+                ),
+                TaskItem(
+                    id = 2,
+                    title = "Vacuum",
+                    assignee = "Kasper",
+                    collectiveCode = "ABC123",
+                    dueDate = LocalDate.parse("2026-03-02"),
+                    category = TaskCategory.CLEANING,
+                    completed = false,
+                ),
+                TaskItem(
+                    id = 3,
+                    title = "Done",
+                    assignee = "Kasper",
+                    collectiveCode = "ABC123",
+                    dueDate = LocalDate.parse("2026-03-03"),
+                    category = TaskCategory.OTHER,
+                    completed = true,
+                ),
+            ),
+        )
+        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+
+        service.deleteUser("Kasper")
+
+        verify(memberRepository).delete(deletedMember)
+        val taskCaptor = argumentCaptor<TaskItem>()
+        verify(taskRepository, times(2)).save(taskCaptor.capture())
+        assertEquals(listOf("Emma", "Ola"), taskCaptor.allValues.map { it.assignee })
+    }
+
+    @Test
+    fun `deleteUser only deletes member when collective has no other members`() {
+        val deletedMember = member("Solo", "solo@example.com")
+        whenever(memberRepository.findByName("Solo")).thenReturn(deletedMember)
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(emptyList())
+
+        service.deleteUser("Solo")
+
+        verify(memberRepository).delete(deletedMember)
+        verify(taskRepository, never()).findAllByCollectiveCode(any())
+        verify(taskRepository, never()).save(any<TaskItem>())
     }
 
     @Test
@@ -732,6 +1043,326 @@ class KollektServiceTest {
 
         val texts = listOf("Top", "Bottom", "søppel", "handle", "Rock, paper, scissors")
         assertTrue(texts.any { result.text.contains(it) })
+    }
+
+    @Test
+    fun `resetPassword finds user by email ignoring case and saves encoded password`() {
+        val existing = member("Kasper", "kasper@example.com").copy(passwordHash = "old")
+        whenever(memberRepository.findAll()).thenReturn(listOf(existing))
+        whenever(passwordEncoder.encode("new-secret")).thenReturn("encoded-new-secret")
+
+        service.resetPassword(null, " KASPER@example.com ", "new-secret")
+
+        val memberCaptor = argumentCaptor<Member>()
+        verify(memberRepository).save(memberCaptor.capture())
+        assertEquals("encoded-new-secret", memberCaptor.firstValue.passwordHash)
+    }
+
+    @Test
+    fun `resetPassword falls back to member name lookup`() {
+        val existing = member("Nora", "nora@example.com").copy(passwordHash = "old")
+        whenever(memberRepository.findByName("Nora")).thenReturn(existing)
+        whenever(passwordEncoder.encode("fresh-pass")).thenReturn("encoded-fresh-pass")
+
+        service.resetPassword(" Nora ", null, "fresh-pass")
+
+        verify(memberRepository).save(
+            org.mockito.kotlin.check {
+                assertEquals("encoded-fresh-pass", it.passwordHash)
+                assertEquals("Nora", it.name)
+            },
+        )
+    }
+
+    @Test
+    fun `resetPassword throws when no matching user exists`() {
+        whenever(memberRepository.findByName("Missing")).thenReturn(null)
+
+        assertThrows<IllegalArgumentException> {
+            service.resetPassword("Missing", null, "whatever")
+        }
+    }
+
+    @Test
+    fun `getUserByName returns mapped friend list`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com", id = 2))
+
+        service.addFriend("Kasper", "Emma")
+        val result = service.getUserByName("Kasper")
+
+        assertEquals("Kasper", result.name)
+        assertEquals(listOf("Emma"), result.friends.map { it.name })
+    }
+
+    @Test
+    fun `updateMemberStatus saves updated status`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+
+        service.updateMemberStatus("Kasper", MemberStatus.AWAY)
+
+        val memberCaptor = argumentCaptor<Member>()
+        verify(memberRepository).save(memberCaptor.capture())
+        assertEquals(MemberStatus.AWAY, memberCaptor.firstValue.status)
+    }
+
+    @Test
+    fun `createCollective creates rooms residents and recurring tasks`() {
+        val owner = member("Kasper", "kasper@example.com", id = 1).copy(collectiveCode = null)
+        val existingResident = member("Ola", "ola@example.com", id = 2).copy(collectiveCode = null)
+        whenever(memberRepository.findById(1)).thenReturn(Optional.of(owner))
+        whenever(collectiveRepository.save(any<Collective>())).thenAnswer {
+            (it.arguments[0] as Collective).copy(id = 99)
+        }
+        whenever(roomRepository.save(any<Room>())).thenAnswer { it.arguments[0] as Room }
+        whenever(memberRepository.findByName("Emma")).thenReturn(null)
+        whenever(memberRepository.findByName("Ola")).thenReturn(existingResident)
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        val result =
+            service.createCollective(
+                CreateCollectiveRequest(
+                    name = "  Villa Kollekt  ",
+                    ownerUserId = 1,
+                    numRooms = 2,
+                    residents = listOf("Kasper", "Emma", "Ola"),
+                    rooms = listOf(RoomRequest("Kitchen", 20), RoomRequest("Bathroom", 30)),
+                ),
+            )
+
+        assertEquals("Villa Kollekt", result.name)
+        assertEquals(99L, result.id)
+        verify(roomRepository, times(2)).save(any<Room>())
+        verify(taskRepository, times(8)).save(any<TaskItem>())
+
+        val savedMembers = argumentCaptor<Member>()
+        verify(memberRepository, times(3)).save(savedMembers.capture())
+        val collectiveCodes = savedMembers.allValues.mapNotNull { it.collectiveCode }.toSet()
+        assertEquals(1, collectiveCodes.size)
+        assertEquals(result.joinCode, collectiveCodes.first())
+        assertTrue(savedMembers.allValues.any { it.name == "Emma" && it.email == "emma@example.com" })
+        assertTrue(savedMembers.allValues.any { it.name == "Ola" && it.id == 2L })
+    }
+
+    @Test
+    fun `joinCollective updates user accepts invitation and regenerates tasks`() {
+        val collective = Collective(id = 10, name = "Villa", joinCode = "ABC123", ownerMemberId = 1)
+        val user = member("Kasper", "kasper@example.com", id = 7).copy(collectiveCode = null)
+        val invitation =
+            Invitation(
+                id = 5,
+                email = "kasper@example.com",
+                collectiveCode = "ABC123",
+                invitedBy = "Emma",
+            )
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective)
+        whenever(memberRepository.findById(7)).thenReturn(Optional.of(user))
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(invitation)
+        whenever(invitationRepository.save(any<Invitation>())).thenAnswer { it.arguments[0] as Invitation }
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(user.copy(collectiveCode = "ABC123")),
+        )
+        whenever(roomRepository.findAllByCollectiveId(10)).thenReturn(emptyList())
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(emptyList())
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        val result = service.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = " abc123 "))
+
+        assertEquals("ABC123", result.collectiveCode)
+        verify(invitationRepository).save(
+            org.mockito.kotlin.check {
+                assertTrue(it.accepted)
+                assertEquals("ABC123", it.collectiveCode)
+            },
+        )
+    }
+
+    @Test
+    fun `joinCollective regenerates recurring tasks for active members and deletes stale future tasks`() {
+        val collective = Collective(id = 10, name = "Villa", joinCode = "ABC123", ownerMemberId = 1)
+        val joinedUser = member("Kasper", "kasper@example.com", id = 7).copy(collectiveCode = null)
+        val emma = member("Emma", "emma@example.com", id = 2)
+        val awayMember = member("Ola", "ola@example.com", id = 3).copy(status = MemberStatus.AWAY)
+        val invitation =
+            Invitation(
+                id = 5,
+                email = "kasper@example.com",
+                collectiveCode = "ABC123",
+                invitedBy = "Emma",
+            )
+        val manualRecurringTask =
+            TaskItem(
+                id = 50,
+                title = "Buy soap",
+                assignee = "Emma",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.now().plusDays(2),
+                category = TaskCategory.SHOPPING,
+                completed = false,
+                recurring = true,
+                xp = 15,
+            )
+        val futureCleaningTask =
+            TaskItem(
+                id = 60,
+                title = "Old cleaning",
+                assignee = "Kasper",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.now().plusDays(1),
+                category = TaskCategory.CLEANING,
+                completed = false,
+                recurring = true,
+                xp = 20,
+            )
+        val oldPastTask =
+            TaskItem(
+                id = 70,
+                title = "Old past task",
+                assignee = "Kasper",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.now().minusDays(5),
+                category = TaskCategory.OTHER,
+                completed = false,
+                recurring = false,
+                xp = 5,
+            )
+
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective)
+        whenever(memberRepository.findById(7)).thenReturn(Optional.of(joinedUser))
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(invitation)
+        whenever(invitationRepository.save(any<Invitation>())).thenAnswer { it.arguments[0] as Invitation }
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(joinedUser.copy(collectiveCode = "ABC123"), emma, awayMember),
+        )
+        whenever(roomRepository.findAllByCollectiveId(10)).thenReturn(
+            listOf(Room(id = 1, name = "Kitchen", minutes = 20, collective = collective)),
+        )
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(manualRecurringTask, futureCleaningTask, oldPastTask),
+        )
+        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        service.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = "ABC123"))
+
+        verify(taskRepository).deleteById(50)
+        verify(taskRepository).deleteById(60)
+        verify(taskRepository, never()).deleteById(70)
+
+        val taskCaptor = argumentCaptor<TaskItem>()
+        verify(taskRepository, times(8)).save(taskCaptor.capture())
+        assertEquals(4, taskCaptor.allValues.count { it.title == "Vask Kitchen" })
+        assertEquals(4, taskCaptor.allValues.count { it.title == "Buy soap" })
+        assertTrue(taskCaptor.allValues.none { it.assignee == "Ola" })
+        assertTrue(taskCaptor.allValues.filter { it.title == "Buy soap" }.all { it.id == 0L && !it.completed })
+    }
+
+    @Test
+    fun `joinCollective skips regeneration when collective has no active members`() {
+        val collective = Collective(id = 10, name = "Villa", joinCode = "ABC123", ownerMemberId = 1)
+        val user = member("Kasper", "kasper@example.com", id = 7).copy(collectiveCode = null)
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective)
+        whenever(memberRepository.findById(7)).thenReturn(Optional.of(user))
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(null)
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(user.copy(collectiveCode = "ABC123", status = MemberStatus.AWAY)),
+        )
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+
+        service.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = "ABC123"))
+
+        verify(roomRepository, never()).findAllByCollectiveId(any())
+        verify(taskRepository, never()).findAllByCollectiveCode(any())
+        verify(taskRepository, never()).save(any<TaskItem>())
+    }
+
+    @Test
+    fun `inviteUserToCollective normalizes email and saves invitation`() {
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com"))
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(null)
+        whenever(invitationRepository.save(any<Invitation>())).thenAnswer { (it.arguments[0] as Invitation).copy(id = 3) }
+
+        service.inviteUserToCollective("  KASPER@example.com ", "ABC123", "Emma")
+
+        verify(invitationRepository).save(
+            org.mockito.kotlin.check {
+                assertEquals("kasper@example.com", it.email)
+                assertEquals("ABC123", it.collectiveCode)
+                assertEquals("Emma", it.invitedBy)
+            },
+        )
+    }
+
+    @Test
+    fun `inviteUserToCollective rejects inviter outside collective`() {
+        whenever(memberRepository.findByName("Emma")).thenReturn(
+            member("Emma", "emma@example.com").copy(collectiveCode = "OTHER99"),
+        )
+
+        assertThrows<IllegalArgumentException> {
+            service.inviteUserToCollective("kasper@example.com", "ABC123", "Emma")
+        }
+    }
+
+    @Test
+    fun `inviteUserToCollective rejects duplicate invitation`() {
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com"))
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(
+            Invitation(
+                id = 1,
+                email = "kasper@example.com",
+                collectiveCode = "ABC123",
+                invitedBy = "Emma",
+            ),
+        )
+
+        assertThrows<IllegalArgumentException> {
+            service.inviteUserToCollective("kasper@example.com", "ABC123", "Emma")
+        }
+    }
+
+    @Test
+    fun `getCollectiveCodeForUser returns join code for member`() {
+        whenever(memberRepository.findById(7)).thenReturn(Optional.of(member("Kasper", "kasper@example.com", id = 7)))
+
+        val result = service.getCollectiveCodeForUser(7)
+
+        assertEquals("ABC123", result.joinCode)
+    }
+
+    @Test
+    fun `getCollectiveCodeForUser throws when member has no collective`() {
+        whenever(memberRepository.findById(8)).thenReturn(
+            Optional.of(member("Lone", "lone@example.com", id = 8).copy(collectiveCode = null)),
+        )
+
+        assertThrows<IllegalArgumentException> {
+            service.getCollectiveCodeForUser(8)
+        }
+    }
+
+    @Test
+    fun `getCollectiveMembers returns sorted users in same collective`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                member("Ola", "ola@example.com", id = 2),
+                member("Emma", "emma@example.com", id = 3),
+            ),
+        )
+
+        val result = service.getCollectiveMembers("Kasper")
+
+        assertEquals(listOf("Emma", "Ola"), result.map { it.name })
     }
 
     private fun member(
