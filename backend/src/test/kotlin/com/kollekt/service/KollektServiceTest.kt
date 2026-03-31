@@ -4,7 +4,6 @@ import com.kollekt.api.dto.CreateCollectiveRequest
 import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.CreateExpenseRequest
 import com.kollekt.api.dto.CreateMessageRequest
-import com.kollekt.api.dto.CreatePollRequest
 import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.api.dto.CreateUserRequest
 import com.kollekt.api.dto.DashboardResponse
