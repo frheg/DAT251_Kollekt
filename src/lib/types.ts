@@ -8,6 +8,7 @@ export interface Task {
   category: TaskCategory;
   completed: boolean;
   xp: number;
+  penaltyXp: number;
   /**
    * Recurrence rule for the task. Examples: 'NONE', 'DAILY', 'WEEKLY', 'MONTHLY', or RFC 5545 RRULE string.
    * If null or 'NONE', the task does not repeat.
@@ -131,12 +132,26 @@ export type MemberStatus = 'ACTIVE' | 'AWAY' | 'LEFT';
 
 export type LeaderboardPeriod = 'OVERALL' | 'YEAR' | 'MONTH';
 
+export interface Friend {
+  name: string;
+}
+
+export interface Invitation {
+  id: number;
+  email: string;
+  collectiveCode: string;
+  invitedBy: string;
+  accepted: boolean;
+  acceptedAt?: string | null;
+}
+
 export interface AppUser {
   id: number;
   name: string;
   email: string;
-  collectiveCode: string;
+  collectiveCode: string | null;
   status: MemberStatus;
+  friends?: Friend[];
 }
 
 export interface AuthResponse {
