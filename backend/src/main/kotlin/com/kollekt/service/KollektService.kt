@@ -274,19 +274,22 @@ class KollektService(
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
 
+        val completionXp = calculateCompletionAwardXp(task)
+
+        // Award XP to the task assignee whenever task is completed (by anyone)
         val awardedXp =
-            if (!task.completed && !task.xpAwarded && memberName == task.assignee) task.xp else 0
+            if (!task.completed && !task.xpAwarded) completionXp else 0
 
         if (awardedXp > 0) {
-            val member =
-                memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
-                    ?: throw IllegalArgumentException("User '$memberName' not found in collective")
+            val assignee =
+                memberRepository.findByNameAndCollectiveCode(task.assignee, collectiveCode)
+                    ?: throw IllegalArgumentException("Task assignee '${task.assignee}' not found in collective")
 
-            val updatedXp = member.xp + awardedXp
+            val updatedXp = assignee.xp + awardedXp
             val updatedLevel = updatedXp / 200 + 1
 
             memberRepository.save(
-                member.copy(
+                assignee.copy(
                     xp = updatedXp,
                     level = updatedLevel,
                 ),
@@ -298,7 +301,7 @@ class KollektService(
                 taskRepository.save(
                     task.copy(
                         completed = true,
-                        xpAwarded = (memberName == task.assignee),
+                        xpAwarded = true,
                         completedBy = memberName,
                         completedAt = LocalDateTime.now(),
                     ),
@@ -309,7 +312,8 @@ class KollektService(
                         completed = false,
                         completedBy = null,
                         completedAt = null,
-                        xpAwarded = false,
+                        // Keep xpAwarded to prevent repeated XP farming via complete/uncomplete loops.
+                        xpAwarded = task.xpAwarded,
                     ),
                 )
             }
@@ -328,12 +332,12 @@ class KollektService(
         )
 
         if (awardedXp > 0) {
-            val updatedMember = memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
+            val updatedMember = memberRepository.findByNameAndCollectiveCode(task.assignee, collectiveCode)
             realtimeUpdateService.publish(
                 collectiveCode,
                 "XP_UPDATED",
                 mapOf(
-                    "memberName" to memberName,
+                    "memberName" to task.assignee,
                     "awardedXp" to awardedXp,
                     "totalXp" to (updatedMember?.xp ?: 0),
                     "level" to (updatedMember?.level ?: 1),
@@ -356,15 +360,33 @@ class KollektService(
                 ?: throw IllegalArgumentException("Task $taskId not found")
         if (task.completed) throw IllegalStateException("Task already completed")
 
-        // Example penalty logic: reduce XP by 50% for late completion
-        val penaltyXp = (task.xp / 2).coerceAtLeast(1)
+        val awardedXp =
+            if (!task.xpAwarded && memberName == task.assignee) calculateLateCompletionXp(task.xp) else 0
+
+        if (awardedXp > 0) {
+            val member =
+                memberRepository.findByNameAndCollectiveCode(memberName, collectiveCode)
+                    ?: throw IllegalArgumentException("User '$memberName' not found in collective")
+
+            val updatedXp = member.xp + awardedXp
+            val updatedLevel = updatedXp / 200 + 1
+
+            memberRepository.save(
+                member.copy(
+                    xp = updatedXp,
+                    level = updatedLevel,
+                ),
+            )
+        }
+
+        val completionXp = calculateLateCompletionXp(task.xp)
         val updated =
             task.copy(
                 completed = true,
-                xp = penaltyXp,
+                xp = completionXp,
                 completedBy = memberName,
                 completedAt = LocalDateTime.now(),
-                xpAwarded = true,
+                xpAwarded = (memberName == task.assignee),
             )
         val saved = taskRepository.save(updated)
 
@@ -506,8 +528,8 @@ class KollektService(
                 .filter { !it.completed && it.dueDate.isBefore(today) }
         for (task in overdueTasks) {
             val member = memberRepository.findByNameAndCollectiveCode(task.assignee, task.collectiveCode ?: "")
-            if (member != null) {
-                val penalty = -kotlin.math.abs(task.xp)
+            if (member != null && member.status == MemberStatus.ACTIVE) {
+                val penalty = calculatePenaltyXp(task)
                 // Only subtract if not already penalized
                 if (task.penaltyXp == 0) {
                     memberRepository.save(member.copy(xp = member.xp + penalty))
@@ -570,7 +592,7 @@ class KollektService(
         val member =
             memberRepository.findByNameAndCollectiveCode(memberName, task.collectiveCode ?: "")
                 ?: throw IllegalArgumentException("User '$memberName' not found in collective")
-        val halfXp = (task.xp / 2.0).roundToInt()
+        val halfXp = calculateLateCompletionXp(task.xp)
         // Remove penalty, add half XP
         memberRepository.save(member.copy(xp = member.xp - task.penaltyXp + halfXp))
         val updated =
@@ -1592,6 +1614,7 @@ class KollektService(
         clearDashboardCache()
         clearLeaderboardCache()
         eventPublisher.economyEvent("EXPENSE_CREATED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "EXPENSE_CREATED", saved.toDto())
         return saved.toDto()
     }
 
@@ -1648,6 +1671,7 @@ class KollektService(
             )
 
         eventPublisher.economyEvent("PANT_ADDED", saved.toDto())
+        realtimeUpdateService.publish(collectiveCode, "PANT_ADDED", saved.toDto())
         return saved.toDto()
     }
 
@@ -1673,6 +1697,16 @@ class KollektService(
             )
 
         eventPublisher.economyEvent(
+            "BALANCES_SETTLED",
+            mapOf(
+                "collectiveCode" to collectiveCode,
+                "settledBy" to memberName,
+                "lastExpenseId" to lastExpenseId,
+                "settledAt" to checkpoint.createdAt.toString(),
+            ),
+        )
+        realtimeUpdateService.publish(
+            collectiveCode,
             "BALANCES_SETTLED",
             mapOf(
                 "collectiveCode" to collectiveCode,
@@ -1932,6 +1966,17 @@ class KollektService(
             .sortedByDescending { it.amount }
     }
 
+    private fun calculateCompletionAwardXp(task: TaskItem): Int =
+        if (task.dueDate.isBefore(LocalDate.now())) {
+            calculateLateCompletionXp(task.xp)
+        } else {
+            task.xp
+        }
+
+    private fun calculateLateCompletionXp(baseXp: Int): Int = (baseXp / 2).coerceAtLeast(1)
+
+    private fun calculatePenaltyXp(task: TaskItem): Int = -kotlin.math.abs(task.xp)
+
     private fun buildDrinkingQuestions(
         topPlayer: String,
         bottomPlayer: String,
@@ -1969,6 +2014,7 @@ class KollektService(
             completed = completed,
             xp = xp,
             recurrenceRule = recurrenceRule,
+            penaltyXp = penaltyXp,
         )
 
     private fun ShoppingItem.toDto() = ShoppingItemDto(id, item, addedBy, completed)

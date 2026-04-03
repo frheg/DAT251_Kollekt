@@ -221,7 +221,7 @@ class KollektServiceTest {
     }
 
     @Test
-    fun `toggleTask awards XP only once to completing user`() {
+    fun `toggleTask awards half XP when completing overdue task`() {
         whenever(memberRepository.findByName("Kasper"))
             .thenReturn(member("Kasper", "kasper@example.com", xp = 100, level = 1))
         whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(11, "ABC123")).thenReturn(
@@ -250,7 +250,7 @@ class KollektServiceTest {
 
         val memberCaptor = argumentCaptor<Member>()
         verify(memberRepository).save(memberCaptor.capture())
-        assertEquals(125, memberCaptor.firstValue.xp)
+        assertEquals(112, memberCaptor.firstValue.xp)
     }
 
     @Test

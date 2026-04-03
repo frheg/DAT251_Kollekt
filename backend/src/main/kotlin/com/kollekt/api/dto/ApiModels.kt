@@ -22,6 +22,7 @@ data class TaskDto(
     val completed: Boolean,
     val xp: Int,
     val recurrenceRule: String? = null,
+    val penaltyXp: Int = 0,
 )
 
 data class CreateTaskRequest(

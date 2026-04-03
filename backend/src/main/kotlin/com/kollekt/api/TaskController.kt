@@ -52,6 +52,16 @@ class TaskController(
         return service.regretTask(taskId, memberName)
     }
 
+    @PostMapping("/{taskId}/regret-missed")
+    fun regretMissedTask(
+        @PathVariable taskId: Long,
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): TaskDto {
+        requireTokenSubject(jwt, memberName)
+        return service.regretMissedTask(taskId, memberName)
+    }
+
     @PatchMapping("/{taskId}/feedback")
     fun giveTaskFeedback(
         @PathVariable taskId: Long,

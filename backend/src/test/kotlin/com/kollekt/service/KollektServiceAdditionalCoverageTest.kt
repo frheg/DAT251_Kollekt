@@ -182,9 +182,13 @@ class KollektServiceAdditionalCoverageTest {
     @Test
     fun `regret task marks task complete with reduced xp and clears caches`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+        whenever(memberRepository.findByNameAndCollectiveCode("Kasper", "ABC123")).thenReturn(
+            member("Kasper", "kasper@example.com").copy(xp = 10),
+        )
         whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(4, "ABC123")).thenReturn(
             task(id = 4, title = "Kitchen", assignee = "Kasper", xp = 9),
         )
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
         whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
         doReturn(setOf("dashboard:Kasper")).whenever(redisTemplate).keys("dashboard:*")
         doReturn(setOf("leaderboard:ABC123")).whenever(redisTemplate).keys("leaderboard:*")
@@ -193,6 +197,11 @@ class KollektServiceAdditionalCoverageTest {
 
         assertTrue(result.completed)
         assertEquals(4, result.xp)
+        verify(memberRepository).save(
+            check {
+                assertEquals(14, it.xp)
+            },
+        )
         verify(redisTemplate).delete(setOf("dashboard:Kasper"))
         verify(redisTemplate).delete(setOf("leaderboard:ABC123"))
         verify(notificationService).createCustomNotification(
@@ -307,7 +316,7 @@ class KollektServiceAdditionalCoverageTest {
         val result = service.regretMissedTask(7, "Kasper")
 
         assertTrue(result.completed)
-        verify(memberRepository).save(kasper.copy(xp = 24))
+        verify(memberRepository).save(kasper.copy(xp = 23))
         verify(eventPublisher).taskEvent("TASK_REGRET", result)
         verify(realtimeUpdateService).publish("ABC123", "TASK_REGRET", result)
     }
