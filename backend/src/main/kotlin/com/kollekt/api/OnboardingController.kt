@@ -10,7 +10,8 @@ import com.kollekt.api.dto.LoginRequest
 import com.kollekt.api.dto.LogoutRequest
 import com.kollekt.api.dto.RefreshTokenRequest
 import com.kollekt.api.dto.UserDto
-import com.kollekt.service.KollektService
+import com.kollekt.service.AccountOperations
+import com.kollekt.service.CollectiveOperations
 import org.springframework.http.HttpStatus
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -26,28 +27,29 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/onboarding")
 class OnboardingController(
-    private val service: KollektService,
+    private val accountOperations: AccountOperations,
+    private val collectiveOperations: CollectiveOperations,
 ) {
     @PostMapping("/users")
     @ResponseStatus(HttpStatus.CREATED)
     fun createUser(
         @RequestBody request: CreateUserRequest,
-    ): AuthResponse = service.createUser(request)
+    ): AuthResponse = accountOperations.createUser(request)
 
     @PostMapping("/login")
     fun login(
         @RequestBody request: LoginRequest,
-    ): AuthResponse = service.login(request)
+    ): AuthResponse = accountOperations.login(request)
 
     @PostMapping("/refresh")
     fun refresh(
         @RequestBody request: RefreshTokenRequest,
-    ): AuthResponse = service.refreshToken(request)
+    ): AuthResponse = accountOperations.refreshToken(request)
 
     @GetMapping("/me")
     fun getCurrentUser(
         @AuthenticationPrincipal jwt: Jwt,
-    ): UserDto = service.getUserByName(jwt.subject)
+    ): UserDto = accountOperations.getUserByName(jwt.subject)
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -55,7 +57,7 @@ class OnboardingController(
         @AuthenticationPrincipal jwt: Jwt,
         @RequestBody(required = false) request: LogoutRequest?,
     ) {
-        service.logout(jwt, request?.refreshToken)
+        accountOperations.logout(jwt, request?.refreshToken)
     }
 
     @PostMapping("/collectives")
@@ -65,7 +67,7 @@ class OnboardingController(
         @AuthenticationPrincipal jwt: Jwt,
     ): CollectiveDto {
         verifyUserId(jwt, request.ownerUserId)
-        return service.createCollective(request)
+        return collectiveOperations.createCollective(request)
     }
 
     @PostMapping("/collectives/join")
@@ -74,7 +76,7 @@ class OnboardingController(
         @AuthenticationPrincipal jwt: Jwt,
     ): UserDto {
         verifyUserId(jwt, request.userId)
-        return service.joinCollective(request)
+        return collectiveOperations.joinCollective(request)
     }
 
     @GetMapping("/collectives/code/{userId}")
@@ -83,14 +85,14 @@ class OnboardingController(
         @AuthenticationPrincipal jwt: Jwt,
     ): CollectiveCodeDto {
         verifyUserId(jwt, userId)
-        return service.getCollectiveCodeForUser(userId)
+        return collectiveOperations.getCollectiveCodeForUser(userId)
     }
 
     private fun verifyUserId(
         jwt: Jwt,
         expectedUserId: Long,
     ) {
-        val tokenUser = service.getUserByName(jwt.subject)
+        val tokenUser = accountOperations.getUserByName(jwt.subject)
         if (tokenUser.id != expectedUserId) {
             throw AccessDeniedException("Token user does not match requested user")
         }

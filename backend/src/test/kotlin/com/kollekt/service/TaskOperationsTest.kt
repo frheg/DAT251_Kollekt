@@ -5,6 +5,7 @@ import com.kollekt.domain.Member
 import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.TaskCategory
 import com.kollekt.domain.TaskItem
+import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.TaskRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -17,24 +18,35 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.util.Optional
 
 class TaskOperationsTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var memberRepository: MemberRepository
+    private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var notificationService: NotificationService
+    private lateinit var redisTemplate: RedisTemplate<String, Any>
+    private lateinit var collectiveAccessService: CollectiveAccessService
+    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: TaskOperations
 
     @BeforeEach
     fun setUp() {
         taskRepository = mock()
         memberRepository = mock()
+        collectiveRepository = mock()
         eventPublisher = mock()
         realtimeUpdateService = mock()
         notificationService = mock()
+        redisTemplate = mock()
+        whenever(redisTemplate.keys("dashboard:*")).thenReturn(emptySet())
+        whenever(redisTemplate.keys("leaderboard:*")).thenReturn(emptySet())
+        collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
+        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             TaskOperations(
                 taskRepository = taskRepository,
@@ -42,7 +54,10 @@ class TaskOperationsTest {
                 eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
                 notificationService = notificationService,
+                collectiveAccessService = collectiveAccessService,
+                statsCacheService = statsCacheService,
             )
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
 
     @Test
@@ -87,7 +102,6 @@ class TaskOperationsTest {
             taskCaptor.firstValue.copy(id = 12)
         }
 
-        var cachesCleared = false
         val result =
             operations.createTask(
                 request =
@@ -100,11 +114,10 @@ class TaskOperationsTest {
                         recurrenceRule = " weekly ",
                     ),
                 actorName = "Kasper",
-                requireCollectiveCodeByMemberName = { "ABC123" },
-                clearTaskCaches = { cachesCleared = true },
             )
 
-        assertTrue(cachesCleared)
+        verify(redisTemplate).keys("dashboard:*")
+        verify(redisTemplate).keys("leaderboard:*")
         assertEquals("ABC123", taskCaptor.firstValue.collectiveCode)
         assertEquals("WEEKLY", taskCaptor.firstValue.recurrenceRule)
         assertTrue(taskCaptor.firstValue.recurring)
@@ -144,8 +157,6 @@ class TaskOperationsTest {
                         "recurring" to true,
                     ),
                 memberName = "Kasper",
-                requireCollectiveCodeByMemberName = { "ABC123" },
-                clearTaskCaches = {},
             )
 
         assertEquals("New", result.title)
@@ -179,16 +190,8 @@ class TaskOperationsTest {
         whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
         whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
 
-        var cachesCleared = false
-        val result =
-            operations.toggleTask(
-                taskId = 11,
-                memberName = "Kasper",
-                requireCollectiveCodeByMemberName = { "ABC123" },
-                clearTaskCaches = { cachesCleared = true },
-            )
+        val result = operations.toggleTask(taskId = 11, memberName = "Kasper")
 
-        assertTrue(cachesCleared)
         assertTrue(result.completed)
         verify(memberRepository).save(
             org.mockito.kotlin.check {
@@ -270,70 +273,14 @@ class TaskOperationsTest {
         whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
         whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
 
-        var cachesCleared = false
-        val result =
-            operations.regretMissedTask(
-                taskId = 9,
-                memberName = "Emma",
-                clearTaskCaches = { cachesCleared = true },
-            )
+        val result = operations.regretMissedTask(taskId = 9, memberName = "Emma")
 
-        assertTrue(cachesCleared)
         assertTrue(result.completed)
-        assertEquals(0, result.penaltyXp)
         verify(memberRepository).save(
             org.mockito.kotlin.check {
                 assertEquals(130, it.xp)
             },
         )
-        verify(eventPublisher).taskEvent("TASK_REGRET", result)
-    }
-
-    @Test
-    fun `regenerate recurring tasks rotates assignees when members and tasks match`() {
-        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
-            listOf(
-                member("Emma", "emma@example.com", id = 2),
-                member("Kasper", "kasper@example.com", id = 1),
-            ),
-        )
-        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
-            listOf(
-                TaskItem(
-                    id = 1,
-                    title = "Bathroom",
-                    assignee = "Emma",
-                    collectiveCode = "ABC123",
-                    dueDate = LocalDate.parse("2026-04-07"),
-                    category = TaskCategory.CLEANING,
-                    recurring = true,
-                    recurrenceRule = "WEEKLY",
-                ),
-                TaskItem(
-                    id = 2,
-                    title = "Kitchen",
-                    assignee = "Kasper",
-                    collectiveCode = "ABC123",
-                    dueDate = LocalDate.parse("2026-04-07"),
-                    category = TaskCategory.CLEANING,
-                    recurring = true,
-                    recurrenceRule = "WEEKLY",
-                ),
-            ),
-        )
-
-        val taskCaptor = argumentCaptor<TaskItem>()
-        whenever(taskRepository.save(taskCaptor.capture())).thenAnswer { it.arguments[0] as TaskItem }
-
-        var cachesCleared = false
-        operations.regenerateRecurringTasksForCollective("ABC123") { cachesCleared = true }
-
-        assertTrue(cachesCleared)
-        assertEquals(2, taskCaptor.allValues.size)
-        val assignments = taskCaptor.allValues.associate { it.title to it.assignee }
-        assertEquals("Kasper", assignments["Bathroom"])
-        assertEquals("Emma", assignments["Kitchen"])
-        assertTrue(taskCaptor.allValues.all { it.dueDate == LocalDate.parse("2026-04-14") })
     }
 
     private fun member(

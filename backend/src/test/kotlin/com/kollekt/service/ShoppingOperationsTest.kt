@@ -1,7 +1,10 @@
 package com.kollekt.service
 
 import com.kollekt.api.dto.CreateShoppingItemRequest
+import com.kollekt.domain.Member
 import com.kollekt.domain.ShoppingItem
+import com.kollekt.repository.CollectiveRepository
+import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.ShoppingItemRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -14,14 +17,21 @@ import org.mockito.kotlin.whenever
 
 class ShoppingOperationsTest {
     private lateinit var shoppingItemRepository: ShoppingItemRepository
+    private lateinit var memberRepository: MemberRepository
+    private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var eventPublisher: IntegrationEventPublisher
+    private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var operations: ShoppingOperations
 
     @BeforeEach
     fun setUp() {
         shoppingItemRepository = mock()
+        memberRepository = mock()
+        collectiveRepository = mock()
         eventPublisher = mock()
-        operations = ShoppingOperations(shoppingItemRepository, eventPublisher)
+        collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
+        operations = ShoppingOperations(shoppingItemRepository, eventPublisher, collectiveAccessService)
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
 
     @Test
@@ -33,7 +43,7 @@ class ShoppingOperationsTest {
             ),
         )
 
-        val result = operations.getShoppingItems("Kasper") { "ABC123" }
+        val result = operations.getShoppingItems("Kasper")
 
         assertEquals(listOf("Milk", "Soap"), result.map { it.item })
         assertEquals(listOf(false, true), result.map { it.completed })
@@ -47,7 +57,7 @@ class ShoppingOperationsTest {
             operations.createShoppingItem(
                 request = CreateShoppingItemRequest(item = "Bread", addedBy = "Ignored"),
                 actorName = "Kasper",
-            ) { "ABC123" }
+            )
 
         assertEquals("Bread", result.item)
         assertEquals("Kasper", result.addedBy)
@@ -61,9 +71,19 @@ class ShoppingOperationsTest {
         )
         whenever(shoppingItemRepository.save(any<ShoppingItem>())).thenAnswer { it.arguments[0] as ShoppingItem }
 
-        val result = operations.toggleShoppingItem(9, "Kasper") { "ABC123" }
+        val result = operations.toggleShoppingItem(9, "Kasper")
 
         assertTrue(result.completed)
         verify(eventPublisher).taskEvent("SHOPPING_ITEM_TOGGLED", result)
     }
+
+    private fun member(
+        name: String,
+        email: String,
+        collectiveCode: String? = "ABC123",
+    ) = Member(
+        name = name,
+        email = email,
+        collectiveCode = collectiveCode,
+    )
 }

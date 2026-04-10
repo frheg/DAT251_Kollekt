@@ -8,6 +8,7 @@ import com.kollekt.domain.TaskItem
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.TaskRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -18,6 +19,8 @@ class TaskOperations(
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val notificationService: NotificationService,
+    private val collectiveAccessService: CollectiveAccessService,
+    private val statsCacheService: StatsCacheService,
 ) {
     fun notifyUpcomingTaskDeadlines(reminderDaysBeforeDue: Long = 1L) {
         val reminderDate = LocalDate.now().plusDays(reminderDaysBeforeDue)
@@ -57,24 +60,20 @@ class TaskOperations(
         }
     }
 
-    fun getTasks(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): List<TaskDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+    fun getTasks(memberName: String): List<TaskDto> {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         return taskRepository
             .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.dueDate }
             .map { it.toDto() }
     }
 
+    @Transactional
     fun createTask(
         request: CreateTaskRequest,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearTaskCaches: () -> Unit,
     ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
 
         if (memberRepository.findByNameAndCollectiveCode(request.assignee, collectiveCode) == null) {
             throw IllegalArgumentException("Assignee '${request.assignee}' is not in your collective")
@@ -96,59 +95,56 @@ class TaskOperations(
             )
 
         notificationService.createTaskAssignedNotification(request.assignee, request.title)
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
         eventPublisher.taskEvent("TASK_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_CREATED", dto)
         return dto
     }
 
+    @Transactional
     fun deleteTask(
         taskId: Long,
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearTaskCaches: () -> Unit,
     ) {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
             ?: throw IllegalArgumentException("Task $taskId not found")
 
         taskRepository.deleteById(taskId)
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val payload = mapOf("id" to taskId)
         eventPublisher.taskEvent("TASK_DELETED", payload)
         realtimeUpdateService.publish(collectiveCode, "TASK_DELETED", payload)
     }
 
+    @Transactional
     fun giveTaskFeedback(
         taskId: Long,
         memberName: String,
         feedback: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearTaskCaches: () -> Unit,
     ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val task =
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
 
         val saved = taskRepository.save(task.copy(assignmentFeedback = feedback))
 
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
         eventPublisher.taskEvent("TASK_FEEDBACK_UPDATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_FEEDBACK_UPDATED", dto)
         return dto
     }
 
+    @Transactional
     fun updateTask(
         taskId: Long,
         updates: Map<String, Any>,
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearTaskCaches: () -> Unit,
     ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val task =
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
@@ -193,20 +189,19 @@ class TaskOperations(
                 ),
             )
 
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
         eventPublisher.taskEvent("TASK_UPDATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_UPDATED", dto)
         return dto
     }
 
+    @Transactional
     fun toggleTask(
         taskId: Long,
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearTaskCaches: () -> Unit,
     ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val task =
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
@@ -245,7 +240,7 @@ class TaskOperations(
                 )
             }
 
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
         eventPublisher.taskEvent("TASK_TOGGLED", dto)
         realtimeUpdateService.publish(
@@ -276,13 +271,12 @@ class TaskOperations(
         return dto
     }
 
+    @Transactional
     fun regretTask(
         taskId: Long,
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearTaskCaches: () -> Unit,
     ): TaskDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val task =
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
@@ -318,13 +312,14 @@ class TaskOperations(
             type = "TASK_COMPLETED_LATE",
         )
 
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
         eventPublisher.taskEvent("TASK_COMPLETED_LATE", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_COMPLETED_LATE", dto)
         return dto
     }
 
+    @Transactional
     fun penalizeMissedTasks() {
         val today = LocalDate.now()
         val overdueTasks =
@@ -378,10 +373,10 @@ class TaskOperations(
         }
     }
 
+    @Transactional
     fun regretMissedTask(
         taskId: Long,
         memberName: String,
-        clearTaskCaches: () -> Unit,
     ): TaskDto {
         val task =
             taskRepository.findById(taskId).orElse(null)
@@ -408,17 +403,15 @@ class TaskOperations(
                 ),
             )
 
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
         eventPublisher.taskEvent("TASK_REGRET", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_REGRET", dto)
         return dto
     }
 
-    fun regenerateRecurringTasksForCollective(
-        collectiveCode: String,
-        clearTaskCaches: () -> Unit,
-    ) {
+    @Transactional
+    fun regenerateRecurringTasksForCollective(collectiveCode: String) {
         val members =
             memberRepository
                 .findAllByCollectiveCode(collectiveCode)
@@ -520,7 +513,7 @@ class TaskOperations(
             )
         }
 
-        clearTaskCaches()
+        statsCacheService.clearTaskCaches()
     }
 
     private fun calculateCompletionAwardXp(task: TaskItem): Int =

@@ -11,6 +11,7 @@ import com.kollekt.api.dto.ReactionDto
 import com.kollekt.domain.ChatMessage
 import com.kollekt.repository.ChatMessageRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDateTime
 import java.util.Base64
@@ -20,28 +21,26 @@ class ChatOperations(
     private val chatMessageRepository: ChatMessageRepository,
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
+    private val collectiveAccessService: CollectiveAccessService,
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val allowedReactionEmojis = setOf("👍", "❤️", "😂", "🎉", "😮")
     private val maxChatImageBytes = 5 * 1024 * 1024L
 
-    fun getMessages(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): List<MessageDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+    fun getMessages(memberName: String): List<MessageDto> {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         return chatMessageRepository
             .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.timestamp }
             .map { it.toDto() }
     }
 
+    @Transactional
     fun createMessage(
         request: CreateMessageRequest,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): MessageDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         val normalizedText = request.text.trim()
         require(normalizedText.isNotBlank()) { "Message text is required" }
         val saved =
@@ -60,11 +59,11 @@ class ChatOperations(
         return dto
     }
 
+    @Transactional
     fun createImageMessage(
         image: MultipartFile,
         caption: String?,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): MessageDto {
         require(!image.isEmpty) { "Image is required" }
         val contentType =
@@ -75,7 +74,7 @@ class ChatOperations(
         require(contentType.startsWith("image/")) { "Only image uploads are supported" }
         require(image.size <= maxChatImageBytes) { "Image is too large (max 5 MB)" }
 
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         val normalizedCaption = caption?.trim().orEmpty()
         val payload = Base64.getEncoder().encodeToString(image.bytes)
 
@@ -98,11 +97,11 @@ class ChatOperations(
         return dto
     }
 
+    @Transactional
     fun addReaction(
         messageId: Long,
         emoji: String,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): MessageDto {
         require(emoji in allowedReactionEmojis) { "Unsupported reaction" }
 
@@ -111,7 +110,7 @@ class ChatOperations(
                 .findById(messageId)
                 .orElseThrow { IllegalArgumentException("Message not found") }
 
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         require(message.collectiveCode == collectiveCode) { "Message not found" }
 
         val reactions =
@@ -136,11 +135,11 @@ class ChatOperations(
         return dto
     }
 
+    @Transactional
     fun removeReaction(
         messageId: Long,
         emoji: String,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): MessageDto {
         require(emoji in allowedReactionEmojis) { "Unsupported reaction" }
 
@@ -149,7 +148,7 @@ class ChatOperations(
                 .findById(messageId)
                 .orElseThrow { IllegalArgumentException("Message not found") }
 
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         require(message.collectiveCode == collectiveCode) { "Message not found" }
 
         val reactions = message.reactionMap().toMutableMap()
@@ -172,12 +171,12 @@ class ChatOperations(
         return dto
     }
 
+    @Transactional
     fun createPoll(
         request: CreatePollRequest,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): MessageDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
 
         val question = request.question.trim()
         require(question.isNotBlank()) { "Poll question is required" }
@@ -215,18 +214,18 @@ class ChatOperations(
         return dto
     }
 
+    @Transactional
     fun votePoll(
         messageId: Long,
         optionId: Int,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): MessageDto {
         val message =
             chatMessageRepository
                 .findById(messageId)
                 .orElseThrow { IllegalArgumentException("Message not found") }
 
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         require(message.collectiveCode == collectiveCode) { "Message not found" }
 
         val poll = message.pollPayload() ?: throw IllegalArgumentException("Message is not a poll")

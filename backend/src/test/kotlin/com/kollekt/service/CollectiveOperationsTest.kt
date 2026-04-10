@@ -3,7 +3,6 @@ package com.kollekt.service
 import com.kollekt.api.dto.CreateCollectiveRequest
 import com.kollekt.api.dto.JoinCollectiveRequest
 import com.kollekt.api.dto.RoomRequest
-import com.kollekt.api.dto.UserDto
 import com.kollekt.domain.Collective
 import com.kollekt.domain.Invitation
 import com.kollekt.domain.Member
@@ -20,10 +19,13 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.check
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.util.Optional
 
@@ -33,6 +35,12 @@ class CollectiveOperationsTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var invitationRepository: InvitationRepository
     private lateinit var roomRepository: RoomRepository
+    private lateinit var taskOperations: TaskOperations
+    private lateinit var invitationRealtimeService: InvitationRealtimeService
+    private lateinit var googleCalendarService: GoogleCalendarService
+    private lateinit var redisTemplate: RedisTemplate<String, Any>
+    private lateinit var userProfileService: UserProfileService
+    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: CollectiveOperations
 
     @BeforeEach
@@ -42,6 +50,14 @@ class CollectiveOperationsTest {
         taskRepository = mock()
         invitationRepository = mock()
         roomRepository = mock()
+        taskOperations = mock()
+        invitationRealtimeService = mock()
+        googleCalendarService = mock()
+        redisTemplate = mock()
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+        userProfileService = UserProfileService(memberRepository)
+        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             CollectiveOperations(
                 memberRepository = memberRepository,
@@ -49,6 +65,11 @@ class CollectiveOperationsTest {
                 taskRepository = taskRepository,
                 invitationRepository = invitationRepository,
                 roomRepository = roomRepository,
+                taskOperations = taskOperations,
+                userProfileService = userProfileService,
+                statsCacheService = statsCacheService,
+                invitationRealtimeService = invitationRealtimeService,
+                googleCalendarService = googleCalendarService,
             )
     }
 
@@ -64,22 +85,20 @@ class CollectiveOperationsTest {
         whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
         whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
 
-        var cachesCleared = false
         val result =
             operations.createCollective(
-                request =
-                    CreateCollectiveRequest(
-                        name = " Villa ",
-                        ownerUserId = 1,
-                        numRooms = 1,
-                        residents = listOf("Emma"),
-                        rooms = listOf(RoomRequest(name = "Kitchen", minutes = 25)),
-                    ),
-                clearCaches = { cachesCleared = true },
+                CreateCollectiveRequest(
+                    name = " Villa ",
+                    ownerUserId = 1,
+                    numRooms = 1,
+                    residents = listOf("Emma"),
+                    rooms = listOf(RoomRequest(name = "Kitchen", minutes = 25)),
+                ),
             )
 
         assertEquals("Villa", result.name)
-        assertTrue(cachesCleared)
+        verify(redisTemplate).keys("dashboard:*")
+        verify(redisTemplate).keys("leaderboard:*")
         verify(roomRepository).save(
             check {
                 assertEquals("Kitchen", it.name)
@@ -107,36 +126,27 @@ class CollectiveOperationsTest {
         whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(invitation)
         whenever(invitationRepository.save(any<Invitation>())).thenAnswer { it.arguments[0] as Invitation }
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
-            listOf(
-                recurringTask(id = 8, title = "Kitchen", assignee = "Emma"),
-            ),
+            listOf(recurringTask(id = 8, title = "Kitchen", assignee = "Emma")),
         )
         whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(existingMember, pendingUser.copy(id = 7, collectiveCode = "ABC123")),
         )
 
-        var cachesCleared = false
-        var regenerated = false
-        val result =
-            operations.joinCollective(
-                request = JoinCollectiveRequest(userId = 7, joinCode = " abc123 "),
-                clearCaches = { cachesCleared = true },
-                regenerateRecurringTasksForCollective = { regenerated = true },
-                memberToUserDto = { member -> UserDto(id = member.id, name = member.name, email = member.email, collectiveCode = member.collectiveCode) },
-            )
+        val result = operations.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = " abc123 "))
 
         assertEquals("ABC123", result.collectiveCode)
-        assertTrue(cachesCleared)
-        assertTrue(regenerated)
+        verify(redisTemplate).keys("dashboard:*")
+        verify(redisTemplate).keys("leaderboard:*")
         verify(invitationRepository).save(
             check {
                 assertTrue(it.accepted)
             },
         )
+        verify(taskOperations).regenerateRecurringTasksForCollective("ABC123")
     }
 
     @Test
-    fun `create invitation normalizes email before saving`() {
+    fun `invite user publishes realtime event for created invitation`() {
         val inviter = member("Emma", "emma@example.com", collectiveCode = "ABC123")
         whenever(memberRepository.findByName("Emma")).thenReturn(inviter)
         whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(null)
@@ -144,10 +154,48 @@ class CollectiveOperationsTest {
             (it.arguments[0] as Invitation).copy(id = 1)
         }
 
-        val invitation = operations.createInvitation("  KASPER@example.com ", "ABC123", "Emma")
+        operations.inviteUserToCollective("  KASPER@example.com ", "ABC123", "Emma")
 
-        assertEquals("kasper@example.com", invitation.email)
-        assertEquals("Emma", invitation.invitedBy)
+        verify(invitationRealtimeService).publish(
+            eq("kasper@example.com"),
+            eq("INVITATION_CREATED"),
+            check<Invitation> { assertEquals("Emma", it.invitedBy) },
+        )
+    }
+
+    @Test
+    fun `save google calendar tokens stores exchanged tokens`() {
+        val member = member("Kasper", "kasper@example.com")
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member)
+        whenever(googleCalendarService.exchangeCode("auth-code")).thenReturn("access-token" to "refresh-token")
+
+        operations.saveGoogleCalendarTokens("Kasper", "auth-code")
+
+        verify(memberRepository).save(
+            check {
+                assertEquals("access-token", it.googleAccessToken)
+                assertEquals("refresh-token", it.googleRefreshToken)
+            },
+        )
+    }
+
+    @Test
+    fun `disconnect google calendar clears stored tokens`() {
+        val member =
+            member("Kasper", "kasper@example.com").copy(
+                googleAccessToken = "access-token",
+                googleRefreshToken = "refresh-token",
+            )
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member)
+
+        operations.disconnectGoogleCalendar("Kasper")
+
+        verify(memberRepository).save(
+            check {
+                assertEquals(null, it.googleAccessToken)
+                assertEquals(null, it.googleRefreshToken)
+            },
+        )
     }
 
     private fun member(

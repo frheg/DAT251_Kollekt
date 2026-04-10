@@ -4,24 +4,23 @@ import com.kollekt.api.dto.AuthResponse
 import com.kollekt.api.dto.CreateUserRequest
 import com.kollekt.api.dto.LoginRequest
 import com.kollekt.api.dto.RefreshTokenRequest
-import com.kollekt.api.dto.UserDto
 import com.kollekt.domain.Member
 import com.kollekt.repository.MemberRepository
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AccountOperations(
     private val memberRepository: MemberRepository,
     private val passwordEncoder: PasswordEncoder,
     private val tokenService: TokenService,
+    private val userProfileService: UserProfileService,
+    private val statsCacheService: StatsCacheService,
 ) {
-    fun createUser(
-        request: CreateUserRequest,
-        clearCaches: () -> Unit,
-        memberToUserDto: (Member) -> UserDto,
-    ): AuthResponse {
+    @Transactional
+    fun createUser(request: CreateUserRequest): AuthResponse {
         val name = request.name.trim()
         val email = request.email.trim().lowercase()
         val password = request.password.trim()
@@ -47,10 +46,11 @@ class AccountOperations(
                 ),
             )
 
-        clearCaches()
-        return toAuthResponse(saved, memberToUserDto)
+        statsCacheService.clearAllCaches()
+        return toAuthResponse(saved)
     }
 
+    @Transactional
     fun resetPassword(
         memberName: String?,
         email: String?,
@@ -66,10 +66,7 @@ class AccountOperations(
         memberRepository.save(member.copy(passwordHash = passwordEncoder.encode(newPassword)))
     }
 
-    fun login(
-        request: LoginRequest,
-        memberToUserDto: (Member) -> UserDto,
-    ): AuthResponse {
+    fun login(request: LoginRequest): AuthResponse {
         val name = request.name.trim()
         val password = request.password.trim()
 
@@ -88,28 +85,17 @@ class AccountOperations(
             throw IllegalArgumentException("Invalid name or password")
         }
 
-        return toAuthResponse(user, memberToUserDto)
+        return toAuthResponse(user)
     }
 
-    fun getUserByName(
-        name: String,
-        memberToUserDto: (Member) -> UserDto,
-    ): UserDto {
-        val user =
-            memberRepository.findByName(name)
-                ?: throw IllegalArgumentException("User '$name' not found")
-        return memberToUserDto(user)
-    }
+    fun getUserByName(name: String) = userProfileService.getUserByName(name)
 
-    fun refreshToken(
-        request: RefreshTokenRequest,
-        memberToUserDto: (Member) -> UserDto,
-    ): AuthResponse {
+    fun refreshToken(request: RefreshTokenRequest): AuthResponse {
         val refreshResult = tokenService.rotateRefreshToken(request.refreshToken)
         val user =
             memberRepository.findByName(refreshResult.subject)
                 ?: throw IllegalArgumentException("User '${refreshResult.subject}' not found")
-        return toAuthResponse(user, memberToUserDto)
+        return toAuthResponse(user)
     }
 
     fun logout(
@@ -122,17 +108,14 @@ class AccountOperations(
         }
     }
 
-    private fun toAuthResponse(
-        member: Member,
-        memberToUserDto: (Member) -> UserDto,
-    ): AuthResponse {
+    private fun toAuthResponse(member: Member): AuthResponse {
         val token = tokenService.issueTokenPair(member)
         return AuthResponse(
             accessToken = token.accessToken,
             refreshToken = token.refreshToken,
             tokenType = token.tokenType,
             expiresIn = token.expiresIn,
-            user = memberToUserDto(member),
+            user = userProfileService.toUserDto(member),
         )
     }
 }

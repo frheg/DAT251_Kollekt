@@ -8,7 +8,7 @@ import com.kollekt.api.dto.CreatePollRequest
 import com.kollekt.api.dto.MessageDto
 import com.kollekt.api.dto.RemoveReactionRequest
 import com.kollekt.api.dto.VotePollRequest
-import com.kollekt.service.KollektService
+import com.kollekt.service.ChatOperations
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -18,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile
 @RestController
 @RequestMapping("/api/chat")
 class ChatController(
-    private val service: KollektService,
+    private val chatOperations: ChatOperations,
 ) {
     @GetMapping("/messages")
     fun getMessages(
@@ -26,7 +26,7 @@ class ChatController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<MessageDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getMessages(memberName)
+        return chatOperations.getMessages(memberName)
     }
 
     @PostMapping("/messages")
@@ -34,7 +34,7 @@ class ChatController(
     fun createMessage(
         @RequestBody request: CreateMessageRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): MessageDto = service.createMessage(request, jwt.subject)
+    ): MessageDto = chatOperations.createMessage(request, jwt.subject)
 
     @PostMapping("/images")
     @ResponseStatus(HttpStatus.CREATED)
@@ -42,33 +42,33 @@ class ChatController(
         @RequestParam("image") image: MultipartFile,
         @RequestParam("caption", required = false) caption: String?,
         @AuthenticationPrincipal jwt: Jwt,
-    ): MessageDto = service.createImageMessage(image, caption, jwt.subject)
+    ): MessageDto = chatOperations.createImageMessage(image, caption, jwt.subject)
 
     @PostMapping("/polls")
     @ResponseStatus(HttpStatus.CREATED)
     fun createPoll(
         @RequestBody request: CreatePollRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): MessageDto = service.createPoll(request, jwt.subject)
+    ): MessageDto = chatOperations.createPoll(request, jwt.subject)
 
     @PostMapping("/messages/{messageId}/poll/vote")
     fun votePoll(
         @PathVariable messageId: Long,
         @RequestBody request: VotePollRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): MessageDto = service.votePoll(messageId, request.optionId, jwt.subject)
+    ): MessageDto = chatOperations.votePoll(messageId, request.optionId, jwt.subject)
 
     @PostMapping("/messages/{messageId}/reactions")
     fun addReaction(
         @PathVariable messageId: Long,
         @RequestBody request: AddReactionRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): MessageDto = service.addReaction(messageId, request.emoji, jwt.subject)
+    ): MessageDto = chatOperations.addReaction(messageId, request.emoji, jwt.subject)
 
     @DeleteMapping("/messages/{messageId}/reactions")
     fun removeReaction(
         @PathVariable messageId: Long,
         @RequestBody request: RemoveReactionRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): MessageDto = service.removeReaction(messageId, request.emoji, jwt.subject)
+    ): MessageDto = chatOperations.removeReaction(messageId, request.emoji, jwt.subject)
 }

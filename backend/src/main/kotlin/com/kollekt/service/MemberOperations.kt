@@ -1,17 +1,21 @@
 package com.kollekt.service
 
-import com.kollekt.api.dto.UserDto
-import com.kollekt.domain.Member
 import com.kollekt.domain.MemberStatus
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.TaskRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class MemberOperations(
     private val memberRepository: MemberRepository,
     private val taskRepository: TaskRepository,
+    private val taskOperations: TaskOperations,
+    private val userProfileService: UserProfileService,
+    private val collectiveAccessService: CollectiveAccessService,
+    private val statsCacheService: StatsCacheService,
 ) {
+    @Transactional
     fun deleteUser(memberName: String) {
         val member =
             memberRepository.findByName(memberName)
@@ -22,9 +26,11 @@ class MemberOperations(
 
         if (collectiveCode != null) {
             redistributeOpenTasks(memberName, collectiveCode)
+            statsCacheService.clearTaskCaches()
         }
     }
 
+    @Transactional
     fun leaveCollective(memberName: String) {
         val member =
             memberRepository.findByName(memberName)
@@ -33,12 +39,13 @@ class MemberOperations(
 
         memberRepository.save(member.copy(collectiveCode = null))
         redistributeOpenTasks(memberName, collectiveCode)
+        statsCacheService.clearTaskCaches()
     }
 
+    @Transactional
     fun updateMemberStatus(
         memberName: String,
         newStatus: MemberStatus,
-        regenerateRecurringTasksForCollective: (String) -> Unit,
     ) {
         val member =
             memberRepository.findByName(memberName)
@@ -47,62 +54,25 @@ class MemberOperations(
         memberRepository.save(member.copy(status = newStatus))
 
         if (member.collectiveCode != null && member.status != newStatus) {
-            regenerateRecurringTasksForCollective(member.collectiveCode)
+            taskOperations.regenerateRecurringTasksForCollective(member.collectiveCode)
         }
     }
 
     fun addFriend(
         memberName: String,
         friendName: String,
-        friendsMap: MutableMap<String, MutableSet<String>>,
-    ) {
-        if (memberName == friendName) {
-            throw IllegalArgumentException("Cannot add yourself as a friend")
-        }
-
-        memberRepository.findByName(memberName)
-            ?: throw IllegalArgumentException("User '$memberName' not found")
-        memberRepository.findByName(friendName)
-            ?: throw IllegalArgumentException("Friend '$friendName' not found")
-
-        val friends = friendsMap.getOrPut(memberName) { mutableSetOf() }
-        if (!friends.add(friendName)) {
-            throw IllegalArgumentException("'$friendName' is already a friend")
-        }
-    }
+    ) = userProfileService.addFriend(memberName, friendName)
 
     fun removeFriend(
         memberName: String,
         friendName: String,
-        friendsMap: MutableMap<String, MutableSet<String>>,
-    ) {
-        val friends =
-            friendsMap[memberName]
-                ?: throw IllegalArgumentException("No friends found for '$memberName'")
+    ) = userProfileService.removeFriend(memberName, friendName)
 
-        if (!friends.remove(friendName)) {
-            throw IllegalArgumentException("'$friendName' is not a friend")
-        }
-    }
-
-    fun getCollectiveMembers(
-        memberName: String,
-        memberToUserDto: (Member) -> UserDto,
-    ): List<UserDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
-        return memberRepository
-            .findAllByCollectiveCode(collectiveCode)
+    fun getCollectiveMembers(memberName: String) =
+        memberRepository
+            .findAllByCollectiveCode(collectiveAccessService.requireCollectiveCodeByMemberName(memberName))
             .sortedBy { it.name }
-            .map(memberToUserDto)
-    }
-
-    private fun requireCollectiveCodeByMemberName(memberName: String): String {
-        val member =
-            memberRepository.findByName(memberName)
-                ?: throw IllegalArgumentException("User '$memberName' not found")
-        return member.collectiveCode
-            ?: throw IllegalArgumentException("User '${member.name}' must join a collective first")
-    }
+            .map(userProfileService::toUserDto)
 
     private fun redistributeOpenTasks(
         departingMemberName: String,

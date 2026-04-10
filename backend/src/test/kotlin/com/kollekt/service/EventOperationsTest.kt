@@ -4,32 +4,54 @@ import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Member
+import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.EventRepository
 import com.kollekt.repository.MemberRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Optional
 
 class EventOperationsTest {
     private lateinit var memberRepository: MemberRepository
+    private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var eventRepository: EventRepository
     private lateinit var eventPublisher: IntegrationEventPublisher
+    private lateinit var redisTemplate: RedisTemplate<String, Any>
+    private lateinit var googleCalendarService: GoogleCalendarService
+    private lateinit var collectiveAccessService: CollectiveAccessService
+    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: EventOperations
 
     @BeforeEach
     fun setUp() {
         memberRepository = mock()
+        collectiveRepository = mock()
         eventRepository = mock()
         eventPublisher = mock()
-        operations = EventOperations(memberRepository, eventRepository, eventPublisher)
+        redisTemplate = mock()
+        googleCalendarService = mock()
+        doReturn(setOf("dashboard:Kasper")).whenever(redisTemplate).keys("dashboard:*")
+        collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
+        statsCacheService = StatsCacheService(redisTemplate)
+        operations =
+            EventOperations(
+                memberRepository,
+                eventRepository,
+                eventPublisher,
+                collectiveAccessService,
+                statsCacheService,
+                googleCalendarService,
+            )
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
 
     @Test
@@ -40,9 +62,8 @@ class EventOperationsTest {
             val event = it.arguments[0] as CalendarEvent
             if (event.id == 0L) event.copy(id = 7) else event
         }
+        whenever(googleCalendarService.createGoogleEvent(any(), any())).thenReturn("google-123")
 
-        var cacheCleared = false
-        var googleSyncCalled = false
         val result =
             operations.createEvent(
                 request =
@@ -57,16 +78,10 @@ class EventOperationsTest {
                         syncToGoogle = true,
                     ),
                 actorName = "Kasper",
-                requireCollectiveCodeByMemberName = { "ABC123" },
-                clearDashboardCache = { cacheCleared = true },
-                createGoogleEvent = { _, _ ->
-                    googleSyncCalled = true
-                    "google-123"
-                },
             )
 
-        assertTrue(cacheCleared)
-        assertTrue(googleSyncCalled)
+        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
+        verify(googleCalendarService).createGoogleEvent(actor, result.toEntity("ABC123"))
         assertEquals("Kasper", result.organizer)
         verify(eventPublisher).chatEvent("EVENT_CREATED", result)
     }
@@ -89,18 +104,10 @@ class EventOperationsTest {
         whenever(memberRepository.findByName("Kasper")).thenReturn(actor)
         whenever(eventRepository.findById(3)).thenReturn(Optional.of(event))
 
-        var cacheCleared = false
-        var googleDeleteCalled = false
-        operations.deleteEvent(
-            eventId = 3,
-            actorName = "Kasper",
-            requireCollectiveCodeByMemberName = { "ABC123" },
-            clearDashboardCache = { cacheCleared = true },
-            deleteGoogleEvent = { _, _ -> googleDeleteCalled = true },
-        )
+        operations.deleteEvent(eventId = 3, actorName = "Kasper")
 
-        assertTrue(cacheCleared)
-        assertTrue(googleDeleteCalled)
+        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
+        verify(googleCalendarService).deleteGoogleEvent(actor, "google-123")
         verify(eventRepository).delete(event)
         verify(eventPublisher).chatEvent("EVENT_DELETED", mapOf("id" to 3L))
     }
@@ -116,4 +123,17 @@ class EventOperationsTest {
         email = email,
         collectiveCode = collectiveCode,
     )
+
+    private fun com.kollekt.api.dto.EventDto.toEntity(collectiveCode: String) =
+        CalendarEvent(
+            id = id,
+            title = title,
+            collectiveCode = collectiveCode,
+            date = date,
+            time = time,
+            type = type,
+            organizer = organizer,
+            attendees = attendees,
+            description = description,
+        )
 }

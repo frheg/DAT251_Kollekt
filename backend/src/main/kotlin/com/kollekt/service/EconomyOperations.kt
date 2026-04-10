@@ -16,6 +16,7 @@ import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.PantEntryRepository
 import com.kollekt.repository.SettlementCheckpointRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import kotlin.math.roundToInt
 
 @Service
@@ -26,25 +27,23 @@ class EconomyOperations(
     private val pantEntryRepository: PantEntryRepository,
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
+    private val collectiveAccessService: CollectiveAccessService,
+    private val statsCacheService: StatsCacheService,
 ) {
-    fun getExpenses(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): List<ExpenseDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+    fun getExpenses(memberName: String): List<ExpenseDto> {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         return expenseRepository
             .findAllByCollectiveCode(collectiveCode)
             .sortedByDescending { it.date }
             .map { it.toDto() }
     }
 
+    @Transactional
     fun createExpense(
         request: CreateExpenseRequest,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-        clearCaches: () -> Unit,
     ): ExpenseDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         val collectiveMembers =
             memberRepository
                 .findAllByCollectiveCode(collectiveCode)
@@ -80,18 +79,15 @@ class EconomyOperations(
                 ),
             )
 
-        clearCaches()
+        statsCacheService.clearAllCaches()
         val dto = saved.toDto()
         eventPublisher.economyEvent("EXPENSE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "EXPENSE_CREATED", dto)
         return dto
     }
 
-    fun getBalances(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): List<BalanceDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+    fun getBalances(memberName: String): List<BalanceDto> {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val checkpointExpenseId = latestSettledExpenseId(collectiveCode)
         val expenses =
             expenseRepository
@@ -106,10 +102,9 @@ class EconomyOperations(
 
     fun getPantSummary(
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
         goal: Int = 1000,
     ): PantSummaryDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val entries =
             pantEntryRepository
                 .findAllByCollectiveCode(collectiveCode)
@@ -123,12 +118,12 @@ class EconomyOperations(
         )
     }
 
+    @Transactional
     fun addPantEntry(
         request: CreatePantEntryRequest,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): PantEntryDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         val saved =
             pantEntryRepository.save(
                 PantEntry(
@@ -146,21 +141,16 @@ class EconomyOperations(
         return dto
     }
 
-    fun getEconomySummary(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): EconomySummaryDto =
+    fun getEconomySummary(memberName: String): EconomySummaryDto =
         EconomySummaryDto(
-            expenses = getExpenses(memberName, requireCollectiveCodeByMemberName),
-            balances = getBalances(memberName, requireCollectiveCodeByMemberName),
-            pantSummary = getPantSummary(memberName, requireCollectiveCodeByMemberName),
+            expenses = getExpenses(memberName),
+            balances = getBalances(memberName),
+            pantSummary = getPantSummary(memberName),
         )
 
-    fun settleUp(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): SettleUpResponse {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+    @Transactional
+    fun settleUp(memberName: String): SettleUpResponse {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val lastExpenseId = expenseRepository.findTopByCollectiveCodeOrderByIdDesc(collectiveCode)?.id ?: 0L
 
         val checkpoint =

@@ -3,7 +3,6 @@ package com.kollekt.service
 import com.kollekt.api.dto.CreateUserRequest
 import com.kollekt.api.dto.LoginRequest
 import com.kollekt.api.dto.RefreshTokenRequest
-import com.kollekt.api.dto.UserDto
 import com.kollekt.domain.Member
 import com.kollekt.repository.MemberRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -12,16 +11,21 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 
 class AccountOperationsTest {
     private lateinit var memberRepository: MemberRepository
     private lateinit var passwordEncoder: PasswordEncoder
     private lateinit var tokenService: TokenService
+    private lateinit var redisTemplate: RedisTemplate<String, Any>
+    private lateinit var userProfileService: UserProfileService
+    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: AccountOperations
 
     @BeforeEach
@@ -29,7 +33,12 @@ class AccountOperationsTest {
         memberRepository = mock()
         passwordEncoder = mock()
         tokenService = mock()
-        operations = AccountOperations(memberRepository, passwordEncoder, tokenService)
+        redisTemplate = mock()
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+        userProfileService = UserProfileService(memberRepository)
+        statsCacheService = StatsCacheService(redisTemplate)
+        operations = AccountOperations(memberRepository, passwordEncoder, tokenService, userProfileService, statsCacheService)
     }
 
     @Test
@@ -44,16 +53,14 @@ class AccountOperationsTest {
             TokenResult("access-token", "refresh-token", "Bearer", 3600),
         )
 
-        var cachesCleared = false
         val result =
             operations.createUser(
-                request = CreateUserRequest("  Kasper  ", "  KASPER@example.com ", "  supersecret  "),
-                clearCaches = { cachesCleared = true },
-                memberToUserDto = { member -> UserDto(id = member.id, name = member.name, email = member.email, collectiveCode = member.collectiveCode) },
+                CreateUserRequest("  Kasper  ", "  KASPER@example.com ", "  supersecret  "),
             )
 
         verify(memberRepository).findByEmail("kasper@example.com")
-        assertTrue(cachesCleared)
+        verify(redisTemplate).keys("dashboard:*")
+        verify(redisTemplate).keys("leaderboard:*")
         assertEquals("access-token", result.accessToken)
         assertEquals("kasper@example.com", result.user.email)
     }
@@ -81,11 +88,7 @@ class AccountOperationsTest {
             TokenResult("new-access", "new-refresh", "Bearer", 3600),
         )
 
-        val result =
-            operations.refreshToken(
-                request = RefreshTokenRequest("refresh-token"),
-                memberToUserDto = { member -> UserDto(id = member.id, name = member.name, email = member.email, collectiveCode = member.collectiveCode) },
-            )
+        val result = operations.refreshToken(RefreshTokenRequest("refresh-token"))
 
         assertEquals("new-access", result.accessToken)
         assertEquals("new-refresh", result.refreshToken)
@@ -100,13 +103,19 @@ class AccountOperationsTest {
             TokenResult("access-token", "refresh-token", "Bearer", 3600),
         )
 
-        val result =
-            operations.login(
-                request = LoginRequest("  Kasper  ", "  supersecret  "),
-                memberToUserDto = { member -> UserDto(id = member.id, name = member.name, email = member.email, collectiveCode = member.collectiveCode) },
-            )
+        val result = operations.login(LoginRequest("  Kasper  ", "  supersecret  "))
 
         assertEquals("Kasper", result.user.name)
+    }
+
+    @Test
+    fun `get user by name uses user profile mapping with defaults`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
+
+        val result = operations.getUserByName("Kasper")
+
+        assertEquals("kasper@example.com", result.email)
+        assertTrue(result.friends.isEmpty())
     }
 
     private fun member(

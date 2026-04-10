@@ -18,6 +18,7 @@ import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.RoomRepository
 import com.kollekt.repository.TaskRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -28,13 +29,16 @@ class CollectiveOperations(
     private val taskRepository: TaskRepository,
     private val invitationRepository: InvitationRepository,
     private val roomRepository: RoomRepository,
+    private val taskOperations: TaskOperations,
+    private val userProfileService: UserProfileService,
+    private val statsCacheService: StatsCacheService,
+    private val invitationRealtimeService: InvitationRealtimeService,
+    private val googleCalendarService: GoogleCalendarService,
 ) {
     private val joinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-    fun createCollective(
-        request: CreateCollectiveRequest,
-        clearCaches: () -> Unit,
-    ): CollectiveDto {
+    @Transactional
+    fun createCollective(request: CreateCollectiveRequest): CollectiveDto {
         val collectiveName = request.name.trim()
         if (collectiveName.isBlank()) throw IllegalArgumentException("Collective name is required")
 
@@ -89,16 +93,12 @@ class CollectiveOperations(
         }
 
         createOnboardingTasks(collective.joinCode, owner.name, residentNames, request)
-        clearCaches()
+        statsCacheService.clearAllCaches()
         return collective.toDto()
     }
 
-    fun joinCollective(
-        request: JoinCollectiveRequest,
-        clearCaches: () -> Unit,
-        regenerateRecurringTasksForCollective: (String) -> Unit,
-        memberToUserDto: (Member) -> UserDto,
-    ): UserDto {
+    @Transactional
+    fun joinCollective(request: JoinCollectiveRequest): UserDto {
         val joinCode = request.joinCode.trim().uppercase()
         if (joinCode.isBlank()) {
             throw IllegalArgumentException("Join code is required")
@@ -119,11 +119,26 @@ class CollectiveOperations(
         val updated = memberRepository.save(user.copy(collectiveCode = joinCode))
         acceptInvitationIfPresent(updated.email, joinCode)
         redistributeRecurringTasks(joinCode)
-        clearCaches()
-        regenerateRecurringTasksForCollective(joinCode)
-        return memberToUserDto(updated)
+        statsCacheService.clearAllCaches()
+        taskOperations.regenerateRecurringTasksForCollective(joinCode)
+        return userProfileService.toUserDto(updated)
     }
 
+    @Transactional
+    fun inviteUserToCollective(
+        email: String,
+        collectiveCode: String,
+        inviterName: String,
+    ) {
+        val invitation = createInvitation(email, collectiveCode, inviterName)
+
+        try {
+            invitationRealtimeService.publish(invitation.email, "INVITATION_CREATED", invitation)
+        } catch (_: Exception) {
+        }
+    }
+
+    @Transactional
     fun createInvitation(
         email: String,
         collectiveCode: String,
@@ -165,16 +180,16 @@ class CollectiveOperations(
         return CollectiveCodeDto(code)
     }
 
+    @Transactional
     fun saveGoogleCalendarTokens(
         memberName: String,
         code: String,
-        exchangeCode: (String) -> Pair<String, String?>,
     ) {
         val member =
             memberRepository.findByName(memberName)
                 ?: throw IllegalArgumentException("Member $memberName not found")
 
-        val (accessToken, refreshToken) = exchangeCode(code)
+        val (accessToken, refreshToken) = googleCalendarService.exchangeCode(code)
         memberRepository.save(
             member.copy(
                 googleAccessToken = accessToken,
@@ -183,14 +198,12 @@ class CollectiveOperations(
         )
     }
 
-    fun isGoogleCalendarConnected(
-        memberName: String,
-        isConnected: (Member) -> Boolean,
-    ): Boolean {
+    fun isGoogleCalendarConnected(memberName: String): Boolean {
         val member = memberRepository.findByName(memberName) ?: return false
-        return isConnected(member)
+        return googleCalendarService.isConnected(member)
     }
 
+    @Transactional
     fun disconnectGoogleCalendar(memberName: String) {
         val member = memberRepository.findByName(memberName) ?: return
         memberRepository.save(member.copy(googleAccessToken = null, googleRefreshToken = null))

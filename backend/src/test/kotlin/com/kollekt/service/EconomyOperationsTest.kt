@@ -6,6 +6,7 @@ import com.kollekt.domain.Expense
 import com.kollekt.domain.Member
 import com.kollekt.domain.PantEntry
 import com.kollekt.domain.SettlementCheckpoint
+import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.ExpenseRepository
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.PantEntryRepository
@@ -16,31 +17,43 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.time.LocalDateTime
 
 class EconomyOperationsTest {
     private lateinit var memberRepository: MemberRepository
+    private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var expenseRepository: ExpenseRepository
     private lateinit var settlementCheckpointRepository: SettlementCheckpointRepository
     private lateinit var pantEntryRepository: PantEntryRepository
     private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var realtimeUpdateService: RealtimeUpdateService
+    private lateinit var redisTemplate: RedisTemplate<String, Any>
+    private lateinit var collectiveAccessService: CollectiveAccessService
+    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: EconomyOperations
 
     @BeforeEach
     fun setUp() {
         memberRepository = mock()
+        collectiveRepository = mock()
         expenseRepository = mock()
         settlementCheckpointRepository = mock()
         pantEntryRepository = mock()
         eventPublisher = mock()
         realtimeUpdateService = mock()
+        redisTemplate = mock()
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
+        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
+        collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
+        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             EconomyOperations(
                 memberRepository = memberRepository,
@@ -49,7 +62,10 @@ class EconomyOperationsTest {
                 pantEntryRepository = pantEntryRepository,
                 eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
+                collectiveAccessService = collectiveAccessService,
+                statsCacheService = statsCacheService,
             )
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
 
     @Test
@@ -63,18 +79,15 @@ class EconomyOperationsTest {
 
         assertThrows<IllegalArgumentException> {
             operations.createExpense(
-                request =
-                    CreateExpenseRequest(
-                        description = "Pizza",
-                        amount = 200,
-                        paidBy = "Ignored",
-                        category = "Food",
-                        date = LocalDate.parse("2026-03-01"),
-                        participantNames = listOf("Kasper", "Ola"),
-                    ),
-                actorName = "Kasper",
-                requireCollectiveCodeByMemberName = { "ABC123" },
-                clearCaches = {},
+                CreateExpenseRequest(
+                    description = "Pizza",
+                    amount = 200,
+                    paidBy = "Ignored",
+                    category = "Food",
+                    date = LocalDate.parse("2026-03-01"),
+                    participantNames = listOf("Kasper", "Ola"),
+                ),
+                "Kasper",
             )
         }
     }
@@ -84,7 +97,7 @@ class EconomyOperationsTest {
         whenever(settlementCheckpointRepository.findTopByCollectiveCodeOrderByIdDesc("ABC123")).thenReturn(null)
         whenever(expenseRepository.findAllByCollectiveCode("ABC123")).thenReturn(emptyList())
 
-        val result = operations.getBalances("Kasper") { "ABC123" }
+        val result = operations.getBalances("Kasper")
 
         assertTrue(result.isEmpty())
         verify(memberRepository, never()).findAllByCollectiveCode("ABC123")
@@ -98,15 +111,13 @@ class EconomyOperationsTest {
 
         val result =
             operations.addPantEntry(
-                request =
-                    CreatePantEntryRequest(
-                        bottles = 18,
-                        amount = 54,
-                        addedBy = "Ignored",
-                        date = LocalDate.parse("2026-03-10"),
-                    ),
-                actorName = "Kasper",
-                requireCollectiveCodeByMemberName = { "ABC123" },
+                CreatePantEntryRequest(
+                    bottles = 18,
+                    amount = 54,
+                    addedBy = "Ignored",
+                    date = LocalDate.parse("2026-03-10"),
+                ),
+                "Kasper",
             )
 
         assertEquals("Kasper", result.addedBy)
@@ -132,7 +143,7 @@ class EconomyOperationsTest {
             (it.arguments[0] as SettlementCheckpoint).copy(createdAt = LocalDateTime.parse("2026-03-10T12:00:00"))
         }
 
-        val result = operations.settleUp("Kasper") { "ABC123" }
+        val result = operations.settleUp("Kasper")
 
         assertEquals(9L, result.lastExpenseId)
         verify(eventPublisher).economyEvent(eq("BALANCES_SETTLED"), any<Map<String, Any>>())

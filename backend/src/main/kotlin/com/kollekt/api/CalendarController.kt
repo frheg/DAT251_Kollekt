@@ -4,7 +4,7 @@ package com.kollekt.api
 
 import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.EventDto
-import com.kollekt.service.KollektService
+import com.kollekt.service.EventOperations
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/events")
 class CalendarController(
-    private val service: KollektService,
+    private val eventOperations: EventOperations,
 ) {
     @GetMapping
     fun getEvents(
@@ -21,7 +21,7 @@ class CalendarController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<EventDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getEvents(memberName)
+        return eventOperations.getEvents(memberName)
     }
 
     @PostMapping
@@ -29,12 +29,12 @@ class CalendarController(
     fun createEvent(
         @RequestBody request: CreateEventRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): EventDto = service.createEvent(request, jwt.subject)
+    ): EventDto = eventOperations.createEvent(request, jwt.subject)
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteEvent(
         @PathVariable id: Long,
         @AuthenticationPrincipal jwt: Jwt,
-    ) = service.deleteEvent(id, jwt.subject)
+    ) = eventOperations.deleteEvent(id, jwt.subject)
 }

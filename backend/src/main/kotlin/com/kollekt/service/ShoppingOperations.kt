@@ -5,26 +5,25 @@ import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.domain.ShoppingItem
 import com.kollekt.repository.ShoppingItemRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ShoppingOperations(
     private val shoppingItemRepository: ShoppingItemRepository,
     private val eventPublisher: IntegrationEventPublisher,
+    private val collectiveAccessService: CollectiveAccessService,
 ) {
-    fun getShoppingItems(
-        memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
-    ): List<ShoppingItemDto> {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+    fun getShoppingItems(memberName: String): List<ShoppingItemDto> {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         return shoppingItemRepository.findAllByCollectiveCode(collectiveCode).map { it.toDto() }
     }
 
+    @Transactional
     fun createShoppingItem(
         request: CreateShoppingItemRequest,
         actorName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): ShoppingItemDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(actorName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         val saved =
             shoppingItemRepository.save(
                 ShoppingItem(
@@ -37,12 +36,12 @@ class ShoppingOperations(
         return saved.toDto()
     }
 
+    @Transactional
     fun toggleShoppingItem(
         itemId: Long,
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ): ShoppingItemDto {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val item =
             shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
                 ?: throw IllegalArgumentException("Shopping item $itemId not found")
@@ -52,12 +51,12 @@ class ShoppingOperations(
         return updated.toDto()
     }
 
+    @Transactional
     fun deleteShoppingItem(
         itemId: Long,
         memberName: String,
-        requireCollectiveCodeByMemberName: (String) -> String,
     ) {
-        val collectiveCode = requireCollectiveCodeByMemberName(memberName)
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val item =
             shoppingItemRepository.findByIdAndCollectiveCode(itemId, collectiveCode)
                 ?: throw IllegalArgumentException("Shopping item $itemId not found")
