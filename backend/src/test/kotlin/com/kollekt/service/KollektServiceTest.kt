@@ -122,6 +122,14 @@ class KollektServiceTest {
     @Mock
     lateinit var notificationService: NotificationService
 
+    private lateinit var accountOperations: AccountOperations
+    private lateinit var memberOperations: MemberOperations
+    private lateinit var collectiveOperations: CollectiveOperations
+    private lateinit var taskOperations: TaskOperations
+    private lateinit var shoppingOperations: ShoppingOperations
+    private lateinit var eventOperations: EventOperations
+    private lateinit var chatOperations: ChatOperations
+    private lateinit var economyOperations: EconomyOperations
     private lateinit var valueOps: ValueOperations<String, Any>
     private lateinit var service: KollektService
 
@@ -129,26 +137,53 @@ class KollektServiceTest {
     fun setUp() {
         valueOps = mock()
         lenient().`when`(redisTemplate.opsForValue()).thenReturn(valueOps)
+        accountOperations = AccountOperations(memberRepository, passwordEncoder, tokenService)
+        memberOperations = MemberOperations(memberRepository, taskRepository)
+        collectiveOperations =
+            CollectiveOperations(
+                memberRepository,
+                collectiveRepository,
+                taskRepository,
+                invitationRepository,
+                roomRepository,
+            )
+        taskOperations =
+            TaskOperations(
+                taskRepository,
+                memberRepository,
+                eventPublisher,
+                realtimeUpdateService,
+                notificationService,
+            )
+        shoppingOperations = ShoppingOperations(shoppingItemRepository, eventPublisher)
+        eventOperations = EventOperations(memberRepository, eventRepository, eventPublisher)
+        chatOperations = ChatOperations(chatMessageRepository, eventPublisher, realtimeUpdateService)
+        economyOperations =
+            EconomyOperations(
+                memberRepository,
+                expenseRepository,
+                settlementCheckpointRepository,
+                pantEntryRepository,
+                eventPublisher,
+                realtimeUpdateService,
+            )
         service =
             KollektService(
                 memberRepository,
                 collectiveRepository,
                 taskRepository,
-                shoppingItemRepository,
                 eventRepository,
-                chatMessageRepository,
                 expenseRepository,
-                settlementCheckpointRepository,
-                pantEntryRepository,
                 achievementRepository,
                 redisTemplate,
-                eventPublisher,
-                realtimeUpdateService,
-                passwordEncoder,
-                tokenService,
-                invitationRepository,
-                roomRepository,
-                notificationService,
+                accountOperations,
+                memberOperations,
+                collectiveOperations,
+                taskOperations,
+                shoppingOperations,
+                eventOperations,
+                chatOperations,
+                economyOperations,
             )
     }
 
@@ -450,7 +485,7 @@ class KollektServiceTest {
     @Test
     fun `createUser trims input encodes password and returns tokenized auth response`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(null)
-        whenever(memberRepository.findAll()).thenReturn(emptyList())
+        whenever(memberRepository.findByEmail("kasper@example.com")).thenReturn(null)
         whenever(passwordEncoder.encode("supersecret")).thenReturn("encoded-password")
         whenever(memberRepository.save(any<Member>())).thenAnswer {
             (it.arguments[0] as Member).copy(id = 15)
@@ -480,9 +515,8 @@ class KollektServiceTest {
     @Test
     fun `createUser rejects duplicate email after normalization`() {
         whenever(memberRepository.findByName("Kasper")).thenReturn(null)
-        whenever(memberRepository.findAll()).thenReturn(
-            listOf(member("Existing", "kasper@example.com", id = 2)),
-        )
+        whenever(memberRepository.findByEmail("kasper@example.com"))
+            .thenReturn(member("Existing", "kasper@example.com", id = 2))
 
         assertThrows<IllegalArgumentException> {
             service.createUser(CreateUserRequest("Kasper", "KASPER@EXAMPLE.COM", "supersecret"))
@@ -1047,7 +1081,7 @@ class KollektServiceTest {
     @Test
     fun `resetPassword finds user by email ignoring case and saves encoded password`() {
         val existing = member("Kasper", "kasper@example.com").copy(passwordHash = "old")
-        whenever(memberRepository.findAll()).thenReturn(listOf(existing))
+        whenever(memberRepository.findByEmail("kasper@example.com")).thenReturn(existing)
         whenever(passwordEncoder.encode("new-secret")).thenReturn("encoded-new-secret")
 
         service.resetPassword(null, " KASPER@example.com ", "new-secret")

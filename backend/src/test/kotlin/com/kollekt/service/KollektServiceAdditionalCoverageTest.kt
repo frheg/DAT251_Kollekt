@@ -68,6 +68,14 @@ class KollektServiceAdditionalCoverageTest {
     private lateinit var passwordEncoder: org.springframework.security.crypto.password.PasswordEncoder
     private lateinit var tokenService: TokenService
     private lateinit var notificationService: NotificationService
+    private lateinit var accountOperations: AccountOperations
+    private lateinit var memberOperations: MemberOperations
+    private lateinit var collectiveOperations: CollectiveOperations
+    private lateinit var taskOperations: TaskOperations
+    private lateinit var shoppingOperations: ShoppingOperations
+    private lateinit var eventOperations: EventOperations
+    private lateinit var chatOperations: ChatOperations
+    private lateinit var economyOperations: EconomyOperations
     private lateinit var valueOps: ValueOperations<String, Any>
     private lateinit var service: KollektService
 
@@ -93,27 +101,54 @@ class KollektServiceAdditionalCoverageTest {
         notificationService = mock()
         valueOps = mock()
         doReturn(valueOps).whenever(redisTemplate).opsForValue()
+        accountOperations = AccountOperations(memberRepository, passwordEncoder, tokenService)
+        memberOperations = MemberOperations(memberRepository, taskRepository)
+        collectiveOperations =
+            CollectiveOperations(
+                memberRepository,
+                collectiveRepository,
+                taskRepository,
+                invitationRepository,
+                roomRepository,
+            )
+        taskOperations =
+            TaskOperations(
+                taskRepository,
+                memberRepository,
+                eventPublisher,
+                realtimeUpdateService,
+                notificationService,
+            )
+        shoppingOperations = ShoppingOperations(shoppingItemRepository, eventPublisher)
+        eventOperations = EventOperations(memberRepository, eventRepository, eventPublisher)
+        chatOperations = ChatOperations(chatMessageRepository, eventPublisher, realtimeUpdateService)
+        economyOperations =
+            EconomyOperations(
+                memberRepository,
+                expenseRepository,
+                settlementCheckpointRepository,
+                pantEntryRepository,
+                eventPublisher,
+                realtimeUpdateService,
+            )
 
         service =
             KollektService(
                 memberRepository,
                 collectiveRepository,
                 taskRepository,
-                shoppingItemRepository,
                 eventRepository,
-                chatMessageRepository,
                 expenseRepository,
-                settlementCheckpointRepository,
-                pantEntryRepository,
                 achievementRepository,
                 redisTemplate,
-                eventPublisher,
-                realtimeUpdateService,
-                passwordEncoder,
-                tokenService,
-                invitationRepository,
-                roomRepository,
-                notificationService,
+                accountOperations,
+                memberOperations,
+                collectiveOperations,
+                taskOperations,
+                shoppingOperations,
+                eventOperations,
+                chatOperations,
+                economyOperations,
             )
     }
 
