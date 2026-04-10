@@ -23,7 +23,15 @@ import com.kollekt.domain.Invitation
 import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.TaskCategory
 import com.kollekt.repository.InvitationRepository
-import com.kollekt.service.KollektService
+import com.kollekt.service.AccountOperations
+import com.kollekt.service.ChatOperations
+import com.kollekt.service.CollectiveOperations
+import com.kollekt.service.EconomyOperations
+import com.kollekt.service.EventOperations
+import com.kollekt.service.MemberOperations
+import com.kollekt.service.ShoppingOperations
+import com.kollekt.service.StatsService
+import com.kollekt.service.TaskOperations
 import com.kollekt.service.TokenStoreService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -71,7 +79,23 @@ import java.time.LocalTime
 class ControllerEndpointContractTest {
     @Autowired lateinit var mockMvc: MockMvc
 
-    @MockitoBean lateinit var service: KollektService
+    @MockitoBean lateinit var accountOperations: AccountOperations
+
+    @MockitoBean lateinit var collectiveOperations: CollectiveOperations
+
+    @MockitoBean lateinit var taskOperations: TaskOperations
+
+    @MockitoBean lateinit var shoppingOperations: ShoppingOperations
+
+    @MockitoBean lateinit var eventOperations: EventOperations
+
+    @MockitoBean lateinit var chatOperations: ChatOperations
+
+    @MockitoBean lateinit var economyOperations: EconomyOperations
+
+    @MockitoBean lateinit var statsService: StatsService
+
+    @MockitoBean lateinit var memberOperations: MemberOperations
 
     @MockitoBean lateinit var tokenStoreService: TokenStoreService
 
@@ -80,19 +104,14 @@ class ControllerEndpointContractTest {
     @Test
     fun `onboarding create user uses api onboarding users endpoint`() {
         val request = CreateUserRequest(name = "Kasper", email = "kasper@example.com", password = "verysecure")
-        whenever(service.createUser(request))
+        whenever(accountOperations.createUser(request))
             .thenReturn(
                 AuthResponse(
                     accessToken = "token",
                     refreshToken = "refresh-token",
                     tokenType = "Bearer",
                     expiresIn = 3600,
-                    user =
-                        UserDto(
-                            id = 1,
-                            name = "Kasper",
-                            collectiveCode = null,
-                        ),
+                    user = UserDto(id = 1, name = "Kasper", collectiveCode = null),
                 ),
             )
 
@@ -106,14 +125,14 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.user.name").value("Kasper"))
 
-        verify(service).createUser(request)
+        verify(accountOperations).createUser(request)
     }
 
     @Test
     fun `onboarding collective code uses api onboarding collectives code endpoint`() {
-        whenever(service.getUserByName("Kasper"))
+        whenever(accountOperations.getUserByName("Kasper"))
             .thenReturn(UserDto(id = 5, name = "Kasper", collectiveCode = "ABC123"))
-        whenever(service.getCollectiveCodeForUser(5))
+        whenever(collectiveOperations.getCollectiveCodeForUser(5))
             .thenReturn(CollectiveCodeDto(joinCode = "ABC123"))
 
         mockMvc
@@ -123,13 +142,13 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.joinCode").value("ABC123"))
 
-        verify(service).getUserByName("Kasper")
-        verify(service).getCollectiveCodeForUser(5)
+        verify(accountOperations).getUserByName("Kasper")
+        verify(collectiveOperations).getCollectiveCodeForUser(5)
     }
 
     @Test
     fun `onboarding me returns the authenticated user including status`() {
-        whenever(service.getUserByName("Kasper"))
+        whenever(accountOperations.getUserByName("Kasper"))
             .thenReturn(
                 UserDto(
                     id = 5,
@@ -148,12 +167,12 @@ class ControllerEndpointContractTest {
             .andExpect(jsonPath("$.email").value("kasper@example.com"))
             .andExpect(jsonPath("$.status").value("AWAY"))
 
-        verify(service).getUserByName("Kasper")
+        verify(accountOperations).getUserByName("Kasper")
     }
 
     @Test
     fun `onboarding create collective rejects mismatched token user`() {
-        whenever(service.getUserByName("Kasper"))
+        whenever(accountOperations.getUserByName("Kasper"))
             .thenReturn(UserDto(id = 1, name = "Kasper", collectiveCode = null))
 
         mockMvc
@@ -176,8 +195,8 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error").value("Token user does not match requested user"))
 
-        verify(service).getUserByName("Kasper")
-        verify(service, never()).createCollective(any())
+        verify(accountOperations).getUserByName("Kasper")
+        verify(collectiveOperations, never()).createCollective(any())
     }
 
     @Test
@@ -191,13 +210,13 @@ class ControllerEndpointContractTest {
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isNoContent)
 
-        verify(service).logout(jwtCaptor.capture(), isNull())
+        verify(accountOperations).logout(jwtCaptor.capture(), isNull())
         assertEquals("Kasper", jwtCaptor.firstValue.subject)
     }
 
     @Test
     fun `task toggle uses api tasks toggle endpoint and values`() {
-        whenever(service.toggleTask(42, "Kasper"))
+        whenever(taskOperations.toggleTask(42, "Kasper"))
             .thenReturn(
                 TaskDto(
                     id = 42,
@@ -221,7 +240,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(42))
 
-        verify(service).toggleTask(42, "Kasper")
+        verify(taskOperations).toggleTask(42, "Kasper")
     }
 
     @Test
@@ -234,7 +253,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error").value("Token subject does not match requested member"))
 
-        verify(service, never()).getTasks(any())
+        verify(taskOperations, never()).getTasks(any())
     }
 
     @Test
@@ -247,7 +266,7 @@ class ControllerEndpointContractTest {
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isNoContent)
 
-        verify(service).deleteShoppingItem(9, "Kasper")
+        verify(shoppingOperations).deleteShoppingItem(9, "Kasper")
     }
 
     @Test
@@ -262,7 +281,7 @@ class ControllerEndpointContractTest {
                 attendees = 4,
                 description = "Ta med snacks",
             )
-        whenever(service.createEvent(request, "Kasper"))
+        whenever(eventOperations.createEvent(request, "Kasper"))
             .thenReturn(
                 EventDto(
                     id = 1,
@@ -298,12 +317,12 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.type").value("MOVIE"))
 
-        verify(service).createEvent(request, "Kasper")
+        verify(eventOperations).createEvent(request, "Kasper")
     }
 
     @Test
     fun `chat messages uses api chat messages endpoint`() {
-        whenever(service.getMessages("Kasper")).thenReturn(emptyList())
+        whenever(chatOperations.getMessages("Kasper")).thenReturn(emptyList())
 
         mockMvc
             .perform(
@@ -312,13 +331,13 @@ class ControllerEndpointContractTest {
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
 
-        verify(service).getMessages("Kasper")
+        verify(chatOperations).getMessages("Kasper")
     }
 
     @Test
     fun `chat create uses api chat messages endpoint`() {
         val request = CreateMessageRequest(sender = "Emma", text = "Hei kollektivet")
-        whenever(service.createMessage(request, "Kasper"))
+        whenever(chatOperations.createMessage(request, "Kasper"))
             .thenReturn(
                 MessageDto(
                     id = 3,
@@ -338,7 +357,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.sender").value("Kasper"))
 
-        verify(service).createMessage(request, "Kasper")
+        verify(chatOperations).createMessage(request, "Kasper")
     }
 
     @Test
@@ -354,7 +373,7 @@ class ControllerEndpointContractTest {
                 imageFileName = "roommate.png",
                 timestamp = LocalDateTime.parse("2026-03-04T10:16:00"),
             )
-        whenever(service.createImageMessage(any(), anyOrNull(), any())).thenReturn(expected)
+        whenever(chatOperations.createImageMessage(any(), anyOrNull(), any())).thenReturn(expected)
 
         val request =
             multipart("/api/chat/images")
@@ -369,12 +388,12 @@ class ControllerEndpointContractTest {
             .andExpect(jsonPath("$.imageMimeType").value("image/png"))
             .andExpect(jsonPath("$.imageFileName").value("roommate.png"))
 
-        verify(service).createImageMessage(any(), anyOrNull(), any())
+        verify(chatOperations).createImageMessage(any(), anyOrNull(), any())
     }
 
     @Test
     fun `economy settle up uses api economy settle up endpoint`() {
-        whenever(service.settleUp("Kasper"))
+        whenever(economyOperations.settleUp("Kasper"))
             .thenReturn(
                 SettleUpResponse(
                     collectiveCode = "ABC123",
@@ -394,7 +413,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.lastExpenseId").value(7))
 
-        verify(service).settleUp("Kasper")
+        verify(economyOperations).settleUp("Kasper")
     }
 
     @Test
@@ -406,7 +425,7 @@ class ControllerEndpointContractTest {
                 addedBy = "Emma",
                 date = LocalDate.parse("2026-03-10"),
             )
-        whenever(service.addPantEntry(request, "Kasper"))
+        whenever(economyOperations.addPantEntry(request, "Kasper"))
             .thenReturn(
                 PantEntryDto(
                     id = 5,
@@ -427,12 +446,12 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.addedBy").value("Kasper"))
 
-        verify(service).addPantEntry(request, "Kasper")
+        verify(economyOperations).addPantEntry(request, "Kasper")
     }
 
     @Test
     fun `economy summary uses api economy summary endpoint`() {
-        whenever(service.getEconomySummary("Kasper"))
+        whenever(economyOperations.getEconomySummary("Kasper"))
             .thenReturn(
                 EconomySummaryDto(
                     expenses =
@@ -470,12 +489,12 @@ class ControllerEndpointContractTest {
             .andExpect(jsonPath("$.balances[0].amount").value(100))
             .andExpect(jsonPath("$.pantSummary.currentAmount").value(54))
 
-        verify(service).getEconomySummary("Kasper")
+        verify(economyOperations).getEconomySummary("Kasper")
     }
 
     @Test
     fun `stats question uses api drinking game endpoint`() {
-        whenever(service.getDrinkingQuestion("Kasper"))
+        whenever(statsService.getDrinkingQuestion("Kasper"))
             .thenReturn(
                 DrinkingQuestionDto(
                     text = "Hvem tar oppvasken?",
@@ -492,12 +511,12 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.type").value("challenge"))
 
-        verify(service).getDrinkingQuestion("Kasper")
+        verify(statsService).getDrinkingQuestion("Kasper")
     }
 
     @Test
     fun `stats achievements uses api achievements endpoint`() {
-        whenever(service.getAchievements())
+        whenever(statsService.getAchievements())
             .thenReturn(
                 listOf(
                     AchievementDto(
@@ -519,12 +538,12 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Oppvaskhelt"))
 
-        verify(service).getAchievements()
+        verify(statsService).getAchievements()
     }
 
     @Test
     fun `members collective uses api members collective endpoint`() {
-        whenever(service.getCollectiveMembers("Kasper"))
+        whenever(memberOperations.getCollectiveMembers("Kasper"))
             .thenReturn(
                 listOf(UserDto(id = 1, name = "Kasper", collectiveCode = "ABC123")),
             )
@@ -537,7 +556,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].collectiveCode").value("ABC123"))
 
-        verify(service).getCollectiveMembers("Kasper")
+        verify(memberOperations).getCollectiveMembers("Kasper")
     }
 
     @Test
@@ -552,7 +571,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Invalid status"))
 
-        verify(service, never()).updateMemberStatus(any(), any())
+        verify(memberOperations, never()).updateMemberStatus(any(), any())
     }
 
     @Test
@@ -567,7 +586,7 @@ class ControllerEndpointContractTest {
             ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Provide either memberName or email and a newPassword"))
 
-        verify(service, never()).resetPassword(anyOrNull(), anyOrNull(), any())
+        verify(accountOperations, never()).resetPassword(anyOrNull(), anyOrNull(), any())
     }
 
     @Test

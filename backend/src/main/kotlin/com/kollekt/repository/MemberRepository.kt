@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param
 interface MemberRepository : JpaRepository<Member, Long> {
     fun findByName(name: String): Member?
 
+    fun findByEmail(email: String): Member?
+
     fun findByNameAndCollectiveCode(
         name: String,
         collectiveCode: String,

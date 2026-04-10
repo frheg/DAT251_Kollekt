@@ -2,7 +2,9 @@
 package com.kollekt.api
 
 import com.kollekt.api.dto.UserDto
-import com.kollekt.service.KollektService
+import com.kollekt.service.AccountOperations
+import com.kollekt.service.CollectiveOperations
+import com.kollekt.service.MemberOperations
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -17,7 +19,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/members")
 class MemberController(
-    private val service: KollektService,
+    private val memberOperations: MemberOperations,
+    private val collectiveOperations: CollectiveOperations,
+    private val accountOperations: AccountOperations,
 ) {
     data class InviteRequest(
         val email: String,
@@ -35,7 +39,7 @@ class MemberController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         requireTokenSubject(jwt, memberName)
-        service.leaveCollective(memberName)
+        memberOperations.leaveCollective(memberName)
     }
 
     @PostMapping("/invite")
@@ -44,7 +48,7 @@ class MemberController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         // Only allow inviting if the user is in the collective
-        service.inviteUserToCollective(req.email, req.collectiveCode, jwt.subject)
+        collectiveOperations.inviteUserToCollective(req.email, req.collectiveCode, jwt.subject)
     }
 
     @PatchMapping("/status")
@@ -60,7 +64,7 @@ class MemberController(
             } catch (e: Exception) {
                 throw IllegalArgumentException("Invalid status")
             }
-        service.updateMemberStatus(req.memberName, newStatus)
+        memberOperations.updateMemberStatus(req.memberName, newStatus)
     }
 
     @GetMapping("/collective")
@@ -69,7 +73,7 @@ class MemberController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<UserDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getCollectiveMembers(memberName)
+        return memberOperations.getCollectiveMembers(memberName)
     }
 
     @PatchMapping("/reset-password")
@@ -82,7 +86,7 @@ class MemberController(
         if ((memberName.isNullOrBlank() && email.isNullOrBlank()) || newPassword.isBlank()) {
             throw IllegalArgumentException("Provide either memberName or email and a newPassword")
         }
-        service.resetPassword(memberName, email, newPassword)
+        accountOperations.resetPassword(memberName, email, newPassword)
     }
 
     @DeleteMapping("/delete")
@@ -91,7 +95,7 @@ class MemberController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         requireTokenSubject(jwt, memberName)
-        service.deleteUser(memberName)
+        memberOperations.deleteUser(memberName)
     }
 
     @PostMapping("/friends/add")
@@ -102,7 +106,7 @@ class MemberController(
     ) {
         requireTokenSubject(jwt, memberName)
         val friendName = body["friendName"] ?: throw IllegalArgumentException("Missing friendName")
-        service.addFriend(memberName, friendName)
+        memberOperations.addFriend(memberName, friendName)
     }
 
     @DeleteMapping("/friends/remove")
@@ -112,6 +116,6 @@ class MemberController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         requireTokenSubject(jwt, memberName)
-        service.removeFriend(memberName, friendName)
+        memberOperations.removeFriend(memberName, friendName)
     }
 }

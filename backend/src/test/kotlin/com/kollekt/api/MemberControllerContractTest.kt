@@ -1,6 +1,8 @@
 package com.kollekt.api
 
-import com.kollekt.service.KollektService
+import com.kollekt.service.AccountOperations
+import com.kollekt.service.CollectiveOperations
+import com.kollekt.service.MemberOperations
 import com.kollekt.service.TokenStoreService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -26,7 +28,11 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class MemberControllerContractTest {
     @Autowired lateinit var mockMvc: MockMvc
 
-    @MockitoBean lateinit var service: KollektService
+    @MockitoBean lateinit var memberOperations: MemberOperations
+
+    @MockitoBean lateinit var collectiveOperations: CollectiveOperations
+
+    @MockitoBean lateinit var accountOperations: AccountOperations
 
     @MockitoBean lateinit var tokenStoreService: TokenStoreService
 
@@ -41,7 +47,7 @@ class MemberControllerContractTest {
                     .content("""{"email":"emma@example.com","collectiveCode":"ABC123"}"""),
             ).andExpect(status().isOk)
 
-        verify(service).inviteUserToCollective("emma@example.com", "ABC123", "Kasper")
+        verify(collectiveOperations).inviteUserToCollective("emma@example.com", "ABC123", "Kasper")
     }
 
     @Test
@@ -55,7 +61,7 @@ class MemberControllerContractTest {
                     .content("""{"memberName":"Kasper","status":"away"}"""),
             ).andExpect(status().isOk)
 
-        verify(service).updateMemberStatus("Kasper", com.kollekt.domain.MemberStatus.AWAY)
+        verify(memberOperations).updateMemberStatus("Kasper", com.kollekt.domain.MemberStatus.AWAY)
     }
 
     @Test
@@ -70,7 +76,7 @@ class MemberControllerContractTest {
                     .content("""{"newPassword":"new-secret"}"""),
             ).andExpect(status().isOk)
 
-        verify(service).resetPassword(null, "kasper@example.com", "new-secret")
+        verify(accountOperations).resetPassword(null, "kasper@example.com", "new-secret")
     }
 
     @Test
@@ -83,7 +89,7 @@ class MemberControllerContractTest {
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
 
-        verify(service).deleteUser("Kasper")
+        verify(memberOperations).deleteUser("Kasper")
     }
 
     @Test
@@ -107,8 +113,8 @@ class MemberControllerContractTest {
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
 
-        verify(service).addFriend("Kasper", "Emma")
-        verify(service).removeFriend("Kasper", "Emma")
+        verify(memberOperations).addFriend("Kasper", "Emma")
+        verify(memberOperations).removeFriend("Kasper", "Emma")
     }
 
     @Test
@@ -123,7 +129,7 @@ class MemberControllerContractTest {
                     .content("""{}"""),
             ).andExpect(status().isBadRequest)
 
-        verify(service, never()).addFriend(any(), any())
+        verify(memberOperations, never()).addFriend(any(), any())
     }
 
     @Test
@@ -138,6 +144,6 @@ class MemberControllerContractTest {
                     .content("""{}"""),
             ).andExpect(status().isBadRequest)
 
-        verify(service, never()).resetPassword(anyOrNull(), anyOrNull(), any())
+        verify(accountOperations, never()).resetPassword(anyOrNull(), anyOrNull(), any())
     }
 }

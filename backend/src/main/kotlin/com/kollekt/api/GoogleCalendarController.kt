@@ -1,7 +1,7 @@
 package com.kollekt.api
 
+import com.kollekt.service.CollectiveOperations
 import com.kollekt.service.GoogleCalendarService
-import com.kollekt.service.KollektService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -18,7 +18,7 @@ import org.springframework.web.servlet.view.RedirectView
 @RequestMapping("/api/google-calendar")
 class GoogleCalendarController(
     private val googleCalendarService: GoogleCalendarService,
-    private val kollektService: KollektService,
+    private val collectiveOperations: CollectiveOperations,
     @Value("\${app.google.frontend-url:http://localhost:5173}") private val frontendUrl: String,
 ) {
     @GetMapping("/auth-url")
@@ -36,7 +36,7 @@ class GoogleCalendarController(
         @RequestParam code: String,
         @RequestParam state: String,
     ): RedirectView {
-        kollektService.saveGoogleCalendarTokens(state, code)
+        collectiveOperations.saveGoogleCalendarTokens(state, code)
         return RedirectView("$frontendUrl?googleCalendarConnected=true")
     }
 
@@ -46,7 +46,7 @@ class GoogleCalendarController(
         @AuthenticationPrincipal jwt: Jwt,
     ): Map<String, Boolean> {
         requireTokenSubject(jwt, memberName)
-        return mapOf("connected" to kollektService.isGoogleCalendarConnected(memberName))
+        return mapOf("connected" to collectiveOperations.isGoogleCalendarConnected(memberName))
     }
 
     @DeleteMapping("/disconnect")
@@ -56,6 +56,6 @@ class GoogleCalendarController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         requireTokenSubject(jwt, memberName)
-        kollektService.disconnectGoogleCalendar(memberName)
+        collectiveOperations.disconnectGoogleCalendar(memberName)
     }
 }
