@@ -5,7 +5,10 @@ import com.kollekt.api.TaskController
 import com.kollekt.api.dto.AuthResponse
 import com.kollekt.api.dto.LoginRequest
 import com.kollekt.api.dto.UserDto
-import com.kollekt.service.KollektService
+import com.kollekt.service.AccountOperations
+import com.kollekt.service.CollectiveOperations
+import com.kollekt.service.ShoppingOperations
+import com.kollekt.service.TaskOperations
 import com.kollekt.service.TokenStoreService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -54,14 +57,20 @@ class SecurityConfigTest {
 
     @Autowired lateinit var passwordEncoder: PasswordEncoder
 
-    @MockitoBean lateinit var service: KollektService
+    @MockitoBean lateinit var accountOperations: AccountOperations
+
+    @MockitoBean lateinit var collectiveOperations: CollectiveOperations
+
+    @MockitoBean lateinit var taskOperations: TaskOperations
+
+    @MockitoBean lateinit var shoppingOperations: ShoppingOperations
 
     @MockitoBean lateinit var tokenStoreService: TokenStoreService
 
     @Test
     fun `security config allows onboarding login without authentication`() {
         val request = LoginRequest(name = "Kasper", password = "verysecure")
-        whenever(service.login(request))
+        whenever(accountOperations.login(request))
             .thenReturn(
                 AuthResponse(
                     accessToken = "access-token",
@@ -80,7 +89,7 @@ class SecurityConfigTest {
                     .content("""{"name":"Kasper","password":"verysecure"}"""),
             ).andExpect(status().isOk)
 
-        verify(service).login(request)
+        verify(accountOperations).login(request)
     }
 
     @Test
@@ -91,12 +100,12 @@ class SecurityConfigTest {
                     .param("memberName", "Kasper"),
             ).andExpect(status().isUnauthorized)
 
-        verify(service, never()).getTasks(any())
+        verify(taskOperations, never()).getTasks(any())
     }
 
     @Test
     fun `security config accepts authenticated task requests`() {
-        whenever(service.getTasks("Kasper")).thenReturn(emptyList())
+        whenever(taskOperations.getTasks("Kasper")).thenReturn(emptyList())
 
         mockMvc
             .perform(
@@ -105,7 +114,7 @@ class SecurityConfigTest {
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
 
-        verify(service).getTasks("Kasper")
+        verify(taskOperations).getTasks("Kasper")
     }
 
     @Test

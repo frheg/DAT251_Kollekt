@@ -3,7 +3,7 @@
 package com.kollekt.api
 
 import com.kollekt.api.dto.*
-import com.kollekt.service.KollektService
+import com.kollekt.service.EconomyOperations
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/economy")
 class EconomyController(
-    private val service: KollektService,
+    private val economyOperations: EconomyOperations,
 ) {
     @GetMapping("/expenses")
     fun getExpenses(
@@ -20,7 +20,7 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<ExpenseDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getExpenses(memberName)
+        return economyOperations.getExpenses(memberName)
     }
 
     @PostMapping("/expenses")
@@ -28,7 +28,7 @@ class EconomyController(
     fun createExpense(
         @RequestBody request: CreateExpenseRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): ExpenseDto = service.createExpense(request, jwt.subject)
+    ): ExpenseDto = economyOperations.createExpense(request, jwt.subject)
 
     @GetMapping("/balances")
     fun getBalances(
@@ -36,7 +36,7 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<BalanceDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getBalances(memberName)
+        return economyOperations.getBalances(memberName)
     }
 
     @GetMapping("/pant")
@@ -45,7 +45,7 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): PantSummaryDto {
         requireTokenSubject(jwt, memberName)
-        return service.getPantSummary(memberName)
+        return economyOperations.getPantSummary(memberName)
     }
 
     @PostMapping("/pant")
@@ -53,7 +53,7 @@ class EconomyController(
     fun addPant(
         @RequestBody request: CreatePantEntryRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): PantEntryDto = service.addPantEntry(request, jwt.subject)
+    ): PantEntryDto = economyOperations.addPantEntry(request, jwt.subject)
 
     @GetMapping("/summary")
     fun getSummary(
@@ -61,7 +61,7 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): EconomySummaryDto {
         requireTokenSubject(jwt, memberName)
-        return service.getEconomySummary(memberName)
+        return economyOperations.getEconomySummary(memberName)
     }
 
     @PostMapping("/settle-up")
@@ -70,6 +70,6 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): SettleUpResponse {
         requireTokenSubject(jwt, request.memberName)
-        return service.settleUp(jwt.subject)
+        return economyOperations.settleUp(jwt.subject)
     }
 }

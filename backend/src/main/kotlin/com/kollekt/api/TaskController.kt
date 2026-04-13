@@ -6,7 +6,8 @@ import com.kollekt.api.dto.CreateShoppingItemRequest
 import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.api.dto.TaskDto
-import com.kollekt.service.KollektService
+import com.kollekt.service.ShoppingOperations
+import com.kollekt.service.TaskOperations
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -24,7 +25,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/tasks")
 class TaskController(
-    private val service: KollektService,
+    private val taskOperations: TaskOperations,
+    private val shoppingOperations: ShoppingOperations,
 ) {
     @GetMapping
     fun getTasks(
@@ -32,7 +34,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<TaskDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getTasks(memberName)
+        return taskOperations.getTasks(memberName)
     }
 
     @PostMapping
@@ -40,7 +42,7 @@ class TaskController(
     fun createTask(
         @RequestBody request: CreateTaskRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): TaskDto = service.createTask(request, jwt.subject)
+    ): TaskDto = taskOperations.createTask(request, jwt.subject)
 
     @PostMapping("/{taskId}/regret")
     fun regretTask(
@@ -49,7 +51,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): TaskDto {
         requireTokenSubject(jwt, memberName)
-        return service.regretTask(taskId, memberName)
+        return taskOperations.regretTask(taskId, memberName)
     }
 
     @PostMapping("/{taskId}/regret-missed")
@@ -59,7 +61,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): TaskDto {
         requireTokenSubject(jwt, memberName)
-        return service.regretMissedTask(taskId, memberName)
+        return taskOperations.regretMissedTask(taskId, memberName)
     }
 
     @PatchMapping("/{taskId}/feedback")
@@ -71,7 +73,7 @@ class TaskController(
     ): TaskDto {
         requireTokenSubject(jwt, memberName)
         val feedbackText = feedback["feedback"] ?: ""
-        return service.giveTaskFeedback(taskId, memberName, feedbackText)
+        return taskOperations.giveTaskFeedback(taskId, memberName, feedbackText)
     }
 
     @PatchMapping("/{taskId}")
@@ -82,7 +84,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): TaskDto {
         requireTokenSubject(jwt, memberName)
-        return service.updateTask(taskId, request, memberName)
+        return taskOperations.updateTask(taskId, request, memberName)
     }
 
     @PatchMapping("/{taskId}/toggle")
@@ -92,7 +94,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): TaskDto {
         requireTokenSubject(jwt, memberName)
-        return service.toggleTask(taskId, memberName)
+        return taskOperations.toggleTask(taskId, memberName)
     }
 
     @DeleteMapping("/{taskId}")
@@ -103,7 +105,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         requireTokenSubject(jwt, memberName)
-        service.deleteTask(taskId, memberName)
+        taskOperations.deleteTask(taskId, memberName)
     }
 
     @GetMapping("/shopping")
@@ -112,7 +114,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<ShoppingItemDto> {
         requireTokenSubject(jwt, memberName)
-        return service.getShoppingItems(memberName)
+        return shoppingOperations.getShoppingItems(memberName)
     }
 
     @PostMapping("/shopping")
@@ -120,7 +122,7 @@ class TaskController(
     fun createShoppingItem(
         @RequestBody request: CreateShoppingItemRequest,
         @AuthenticationPrincipal jwt: Jwt,
-    ): ShoppingItemDto = service.createShoppingItem(request, jwt.subject)
+    ): ShoppingItemDto = shoppingOperations.createShoppingItem(request, jwt.subject)
 
     @PatchMapping("/shopping/{itemId}/toggle")
     fun toggleShoppingItem(
@@ -129,7 +131,7 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ): ShoppingItemDto {
         requireTokenSubject(jwt, memberName)
-        return service.toggleShoppingItem(itemId, memberName)
+        return shoppingOperations.toggleShoppingItem(itemId, memberName)
     }
 
     @DeleteMapping("/shopping/{itemId}")
@@ -140,6 +142,6 @@ class TaskController(
         @AuthenticationPrincipal jwt: Jwt,
     ) {
         requireTokenSubject(jwt, memberName)
-        service.deleteShoppingItem(itemId, memberName)
+        shoppingOperations.deleteShoppingItem(itemId, memberName)
     }
 }
