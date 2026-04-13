@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, Circle, Plus, Package, ChevronRight, ArrowLeft, X,
@@ -28,7 +28,6 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   const [newCategory, setNewCategory] = useState<TaskCategory>('CLEANING');
   const [newXp, setNewXp] = useState('10');
   const [newRecurrence, setNewRecurrence] = useState('NONE');
-  const [newShopItem, setNewShopItem] = useState('');
   const [commentingId, setCommentingId] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -57,7 +56,7 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   useEffect(() => {
     if (!name) return;
     const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'SHOPPING_UPDATED'].includes(event.type)) {
+      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'SHOPPING_UPDATED', 'SHOPPING_ITEM_CREATED', 'SHOPPING_ITEM_TOGGLED', 'SHOPPING_ITEM_DELETED'].includes(event.type)) {
         fetchAll();
       }
     });
@@ -115,7 +114,6 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     setNewCategory(task.category);
     setNewXp(task.xp.toString());
     setNewRecurrence(task.recurrenceRule ?? 'NONE');
-    setShowAdd(true);
   };
 
   const resetForm = () => {
@@ -151,25 +149,16 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     setCommentingId(null);
   };
 
-  const toggleShopItem = async (itemId: number) => {
-    await api.patch(`/tasks/shopping/${itemId}/toggle?memberName=${encodeURIComponent(name)}`);
-    setShopping((prev) => prev.map((s) => s.id === itemId ? { ...s, completed: !s.completed } : s));
-  };
-
   const deleteShopItem = async (itemId: number) => {
     await api.delete(`/tasks/shopping/${itemId}?memberName=${encodeURIComponent(name)}`);
     setShopping((prev) => prev.filter((s) => s.id !== itemId));
   };
 
-  const addShopItem = async () => {
-    if (!newShopItem.trim()) return;
-    const created = await api.post<ShoppingItem>('/tasks/shopping', {
-      item: newShopItem,
-      addedBy: name,
-    });
-    setShopping((prev) => [...prev, created]);
-    setNewShopItem('');
+  const toggleShopItem = async (itemId: number) => {
+    await api.patch(`/tasks/shopping/${itemId}/toggle?memberName=${encodeURIComponent(name)}`);
+    setShopping((prev) => prev.map((s) => s.id === itemId ? { ...s, completed: !s.completed } : s));
   };
+
 
   const filtered = tasks.filter((t) => {
     const today = new Date().toISOString().split('T')[0];
@@ -186,9 +175,11 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 pt-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-bold">Tasks</h2>
-        <button onClick={() => { resetForm(); setShowAdd(true); }} className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center">
-          <Plus className="h-5 w-5 text-primary-foreground" />
-        </button>
+        {tab === 'tasks' && (
+          <button onClick={() => { resetForm(); setShowAdd(true); }} className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center">
+            <Plus className="h-5 w-5 text-primary-foreground" />
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -203,19 +194,6 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
 
       {tab === 'tasks' ? (
         <>
-          {/* Restock card */}
-          <button onClick={onNavigateRestock}
-            className="w-full glass rounded-2xl p-3.5 flex items-center gap-3 hover:scale-[1.01] active:scale-[0.99] transition-transform">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-secondary/30 to-secondary/5 flex items-center justify-center shrink-0">
-              <Package className="h-5 w-5 text-foreground" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-semibold">Restock Supplies</p>
-              <p className="text-[10px] text-muted-foreground">Shopping items that need attention</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-
           {/* Filters */}
           <div className="flex gap-2 flex-wrap">
             {['All', 'Mine', 'Today', 'Incomplete', 'Done'].map((f) => (
@@ -226,9 +204,9 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
             ))}
           </div>
 
-          {/* Add/Edit form */}
+          {/* Add form (new task only) */}
           <AnimatePresence>
-            {showAdd && (
+            {showAdd && !editingId && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                 <div className="glass rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -278,7 +256,8 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
                 const isOverdue = isOverdueTask(task);
                 const isPenalized = (task.penaltyXp ?? 0) < 0;
                 return (
-              <motion.div key={task.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+              <Fragment key={task.id}>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                 className={`glass rounded-xl p-3.5 ${task.completed ? 'opacity-50' : ''}`}>
                 <div className="flex items-center gap-3" onClick={() => handlePrimaryToggle(task)}>
                   {task.completed
@@ -352,6 +331,50 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
                   )}
                 </AnimatePresence>
               </motion.div>
+              <AnimatePresence>
+                {editingId === task.id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2">
+                    <div className="glass rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">Edit Task</p>
+                        <button onClick={resetForm}><X className="h-4 w-4 text-muted-foreground" /></button>
+                      </div>
+                      <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
+                        placeholder="Task title..."
+                        className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={newAssignee} onChange={(e) => setNewAssignee(e.target.value)}
+                          className="bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]">
+                          {(members.length > 0 ? members : [name]).map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <input type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)}
+                          className="bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as TaskCategory)}
+                          className="bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]">
+                          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <select value={newRecurrence} onChange={(e) => setNewRecurrence(e.target.value)}
+                          className="bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]">
+                          {RECURRENCE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-primary" />
+                        <input type="number" value={newXp} onChange={(e) => setNewXp(e.target.value)}
+                          className="w-20 bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                        <span className="text-xs text-muted-foreground">XP reward</span>
+                      </div>
+                      <button onClick={handleSave} className="w-full gradient-primary rounded-lg py-2 text-sm font-semibold text-primary-foreground">
+                        Save Changes
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              </Fragment>
                 );
               })()
             ))}
@@ -360,31 +383,42 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
       ) : (
         /* Shopping List */
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <input value={newShopItem} onChange={(e) => setNewShopItem(e.target.value)}
-              placeholder="Add item..."
-              className="flex-1 glass rounded-xl px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              onKeyDown={(e) => e.key === 'Enter' && addShopItem()} />
-            <button onClick={addShopItem} className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center shrink-0">
-              <Plus className="h-4 w-4 text-primary-foreground" />
-            </button>
-          </div>
+          {/* Restock card */}
+          <button onClick={onNavigateRestock}
+            className="w-full glass rounded-2xl p-3.5 flex items-center gap-3 hover:scale-[1.01] active:scale-[0.99] transition-transform">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-secondary/30 to-secondary/5 flex items-center justify-center shrink-0">
+              <Package className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold">Restock Supplies</p>
+              <p className="text-[10px] text-muted-foreground">Add items that need to be bought</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+
+          {shopping.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-6">No items yet — add supplies in Restock.</p>
+          )}
           <div className="space-y-2">
             {shopping.map((item, i) => (
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                className={`glass rounded-xl p-3 flex items-center gap-3 ${item.completed ? 'opacity-50' : ''}`}>
-                <button onClick={() => toggleShopItem(item.id)}>
-                  {item.completed
-                    ? <CheckCircle2 className="h-5 w-5 text-primary" />
-                    : <Circle className="h-5 w-5 text-muted-foreground" />}
-                </button>
+                className={`glass rounded-xl p-3.5 flex items-center gap-3 ${item.completed ? 'opacity-50' : ''}`}>
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${item.completed ? 'line-through' : ''}`}>{item.item}</p>
                   <p className="text-[10px] text-muted-foreground">Added by {item.addedBy}</p>
                 </div>
-                <button onClick={() => deleteShopItem(item.id)} className="h-7 w-7 rounded-lg glass flex items-center justify-center">
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button onClick={() => toggleShopItem(item.id)}
+                    className={`h-8 px-3 rounded-lg glass text-xs font-medium flex items-center gap-1 ${item.completed ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <ShoppingCart className="h-3 w-3" /> {item.completed ? 'Undo' : 'Bought'}
+                  </button>
+                  <button onClick={() => deleteShopItem(item.id)} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </button>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -403,10 +437,29 @@ function RestockPage({ onBack }: { onBack: () => void }) {
 
   const name = currentUser?.name ?? '';
 
-  useEffect(() => {
+  const fetchItems = () => {
     if (!name) return;
     api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(name)}`).then(setItems).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchItems();
   }, [name]);
+
+  useEffect(() => {
+    if (!name) return;
+    const disconnect = connectCollectiveRealtime(name, (event) => {
+      if (['SHOPPING_ITEM_CREATED', 'SHOPPING_ITEM_TOGGLED', 'SHOPPING_ITEM_DELETED', 'SHOPPING_UPDATED'].includes(event.type)) {
+        fetchItems();
+      }
+    });
+    return disconnect;
+  }, [name]);
+
+  const handleDelete = async (id: number) => {
+    await api.delete(`/tasks/shopping/${id}?memberName=${encodeURIComponent(name)}`);
+    setItems((p) => p.filter((i) => i.id !== id));
+  };
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -417,11 +470,6 @@ function RestockPage({ onBack }: { onBack: () => void }) {
     setItems((p) => [...p, created]);
     setNewName('');
     setShowAdd(false);
-  };
-
-  const handleBought = async (id: number) => {
-    await api.delete(`/tasks/shopping/${id}?memberName=${encodeURIComponent(name)}`);
-    setItems((p) => p.filter((i) => i.id !== id));
   };
 
   return (
@@ -469,9 +517,8 @@ function RestockPage({ onBack }: { onBack: () => void }) {
               <p className="text-sm font-medium">{item.item}</p>
               <p className="text-[10px] text-muted-foreground">Added by {item.addedBy}</p>
             </div>
-            <button onClick={() => handleBought(item.id)}
-              className="h-8 px-3 rounded-lg glass text-xs font-medium text-muted-foreground flex items-center gap-1">
-              <ShoppingCart className="h-3 w-3" /> Bought
+            <button onClick={() => handleDelete(item.id)} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
+              <Trash2 className="h-3 w-3 text-destructive" />
             </button>
           </motion.div>
         ))}
