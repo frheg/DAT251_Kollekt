@@ -154,7 +154,7 @@ class AdditionalControllerCoverageTest {
 
     @Test
     fun `task feedback defaults to empty string when feedback key is missing`() {
-        whenever(taskOperations.giveTaskFeedback(9, "Kasper", ""))
+        whenever(taskOperations.giveTaskFeedback(9, "Kasper", "", false, null, null))
             .thenReturn(
                 TaskDto(
                     id = 9,
@@ -178,7 +178,7 @@ class AdditionalControllerCoverageTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(9))
 
-        verify(taskOperations).giveTaskFeedback(9, "Kasper", "")
+        verify(taskOperations).giveTaskFeedback(9, "Kasper", "", false, null, null)
     }
 
     @Test

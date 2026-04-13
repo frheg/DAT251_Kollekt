@@ -30,7 +30,7 @@ class ShoppingOperationsTest {
         collectiveRepository = mock()
         eventPublisher = mock()
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        operations = ShoppingOperations(shoppingItemRepository, eventPublisher, collectiveAccessService)
+        operations = ShoppingOperations(shoppingItemRepository, eventPublisher, collectiveAccessService, mock())
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
 

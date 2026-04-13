@@ -18,7 +18,7 @@ data class TaskFeedbackDto(
 )
 
 data class GiveTaskFeedbackRequest(
-    val message: String,
+    val message: String = "",
     val anonymous: Boolean = false,
     val imageData: String? = null,
     val imageMimeType: String? = null,
