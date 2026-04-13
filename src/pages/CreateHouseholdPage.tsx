@@ -187,7 +187,7 @@ export default function CreateHouseholdPage() {
                 <input
                   value={houseName}
                   onChange={(e) => setHouseName(e.target.value)}
-                  placeholder="e.g. Strandgaten 42"
+                  placeholder="e.g. Guttas Hus"
                   className="w-full bg-muted/50 rounded-lg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -198,7 +198,7 @@ export default function CreateHouseholdPage() {
                   <input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Street address"
+                    placeholder="Street address: e.g. Strandgaten 42"
                     className="w-full bg-transparent py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none"
                   />
                 </div>
@@ -221,7 +221,7 @@ export default function CreateHouseholdPage() {
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-secondary/30 to-secondary/5 flex items-center justify-center mx-auto">
                 <DoorOpen className="h-7 w-7 text-foreground" />
               </div>
-              <p className="text-sm text-center text-muted-foreground">Add each room and how long it usually takes to clean it</p>
+              <p className="text-sm text-center text-muted-foreground">Add shared rooms and how long they usually take to clean — these become collective tasks for everyone. Private spaces like your own bedroom are not included.</p>
               <div className="space-y-3">
                 {rooms.map((room, i) => (
                   <div key={i} className="glass rounded-xl p-3 space-y-3">

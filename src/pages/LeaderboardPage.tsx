@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Flame, Star, Gift } from 'lucide-react';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import { useUser } from '../context/UserContext';
 import type { LeaderboardResponse, Achievement, LeaderboardPeriod } from '../lib/types';
 
@@ -43,6 +44,16 @@ export default function LeaderboardPage() {
   };
 
   useEffect(() => { fetchData(period); }, [name, period]);
+
+  useEffect(() => {
+    if (!name) return;
+    const disconnect = connectCollectiveRealtime(name, (event) => {
+      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'EXPENSE_CREATED', 'BALANCES_SETTLED'].includes(event.type)) {
+        fetchData(period);
+      }
+    });
+    return disconnect;
+  }, [name, period]);
 
   const handleSetPrize = async () => {
     if (!name) return;

@@ -184,3 +184,29 @@
     animation: page-enter 260ms ease-out;
   }
 }
+
+/* ── Select styling ───────────────────────────────────── */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7a99' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 2.25rem;
+}
+
+/* ── Button interactive glow ──────────────────────────── */
+button:not(:disabled) {
+  cursor: pointer;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(1.1) drop-shadow(0 0 8px rgba(0, 212, 240, 0.35));
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active {
+  filter: brightness(0.95);
+  transform: scale(0.96);
+}

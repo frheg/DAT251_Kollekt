@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Mail, Key, LogOut, Trash2, ArrowRightLeft, Copy, Check, ChevronDown, UserPlus, UserMinus } from 'lucide-react';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import { useUser } from '../context/UserContext';
 import type { AppUser, MemberStatus } from '../lib/types';
 
@@ -39,6 +40,18 @@ export default function ProfilePage() {
     api.get<Notification[]>(`/notifications/${encodeURIComponent(name)}`)
       .then((res) => { setNotifications(res); setLoading(false); })
       .catch(() => setLoading(false));
+  }, [name]);
+
+  useEffect(() => {
+    if (!name) return;
+    const disconnect = connectCollectiveRealtime(name, (event) => {
+      if (['TASK_UPDATED', 'TASK_CREATED', 'EXPENSE_CREATED', 'EVENT_CREATED', 'CHAT_MESSAGE'].includes(event.type)) {
+        api.get<Notification[]>(`/notifications/${encodeURIComponent(name)}`)
+          .then((res) => setNotifications(res))
+          .catch(() => {});
+      }
+    });
+    return disconnect;
   }, [name]);
 
   const handleMarkRead = async () => {

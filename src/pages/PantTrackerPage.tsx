@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Plus, Minus, Recycle, Target } from 'lucide-react';
 import { api } from '../lib/api';
+import { connectCollectiveRealtime } from '../lib/realtime';
 import { useUser } from '../context/UserContext';
 import type { PantSummary } from '../lib/types';
 
@@ -23,6 +24,16 @@ export default function PantTrackerPage() {
   };
 
   useEffect(() => { fetchPant(); }, [name]);
+
+  useEffect(() => {
+    if (!name) return;
+    const disconnect = connectCollectiveRealtime(name, (event) => {
+      if (event.type === 'PANT_ADDED') {
+        fetchPant();
+      }
+    });
+    return disconnect;
+  }, [name]);
 
   const addBottles = async (count: number) => {
     if (count === 0) return;

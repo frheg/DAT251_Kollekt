@@ -138,7 +138,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground text-center py-3">No upcoming tasks 🎉</p>
           )}
           {data.upcomingTasks.slice(0, 5).map((t) => (
-            <div key={t.id} className="glass rounded-xl p-3 flex items-center gap-3">
+            <button key={t.id} onClick={() => navigate('/tasks')} className="glass rounded-xl p-3 flex items-center gap-3 w-full text-left">
               <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <CheckSquare className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -147,7 +147,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-muted-foreground">{t.assignee} • {t.dueDate}</p>
               </div>
               <span className="text-[10px] font-medium text-primary">+{t.xp} XP</span>
-            </div>
+            </button>
           ))}
         </div>
       </motion.div>
@@ -163,7 +163,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground text-center py-3">No upcoming events</p>
           )}
           {data.upcomingEvents.slice(0, 3).map((e) => (
-            <div key={e.id} className="glass rounded-xl p-3 flex items-center gap-3">
+            <button key={e.id} onClick={() => navigate('/calendar')} className="glass rounded-xl p-3 flex items-center gap-3 w-full text-left">
               <div className="h-8 w-8 rounded-lg bg-accent/20 flex items-center justify-center shrink-0">
                 <Calendar className="h-4 w-4 text-accent" />
               </div>
@@ -172,7 +172,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-muted-foreground">{e.date} {e.time}</p>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{e.type}</span>
-            </div>
+            </button>
           ))}
         </div>
       </motion.div>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground text-center py-3">No recent expenses</p>
           )}
           {data.recentExpenses.slice(0, 3).map((e) => (
-            <div key={e.id} className="glass rounded-xl p-3 flex items-center gap-3">
+            <button key={e.id} onClick={() => navigate('/economy')} className="glass rounded-xl p-3 flex items-center gap-3 w-full text-left">
               <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <Wallet className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-muted-foreground">Paid by {e.paidBy} • {e.date}</p>
               </div>
               <p className="text-sm font-bold">kr {e.amount}</p>
-            </div>
+            </button>
           ))}
         </div>
       </motion.div>
