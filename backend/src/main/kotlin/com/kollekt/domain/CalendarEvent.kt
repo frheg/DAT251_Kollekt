@@ -26,6 +26,7 @@ data class CalendarEvent(
     @Column(nullable = true) val collectiveCode: String? = null,
     @Column(nullable = false) val date: LocalDate,
     @Column(nullable = false) val time: LocalTime,
+    @Column(nullable = true) val endTime: LocalTime? = null,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val type: EventType = EventType.OTHER,

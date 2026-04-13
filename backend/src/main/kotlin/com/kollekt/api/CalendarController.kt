@@ -4,6 +4,7 @@ package com.kollekt.api
 
 import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.EventDto
+import com.kollekt.api.dto.UpdateEventRequest
 import com.kollekt.service.EventOperations
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -30,6 +31,13 @@ class CalendarController(
         @RequestBody request: CreateEventRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): EventDto = eventOperations.createEvent(request, jwt.subject)
+
+    @PatchMapping("/{id}")
+    fun updateEvent(
+        @PathVariable id: Long,
+        @RequestBody request: UpdateEventRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): EventDto = eventOperations.updateEvent(id, request, jwt.subject)
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

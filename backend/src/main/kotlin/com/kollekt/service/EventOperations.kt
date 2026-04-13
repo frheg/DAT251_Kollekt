@@ -2,7 +2,9 @@ package com.kollekt.service
 
 import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.EventDto
+import com.kollekt.api.dto.UpdateEventRequest
 import com.kollekt.domain.CalendarEvent
+import com.kollekt.domain.MemberStatus
 import com.kollekt.repository.EventRepository
 import com.kollekt.repository.MemberRepository
 import org.springframework.stereotype.Service
@@ -13,6 +15,7 @@ class EventOperations(
     private val memberRepository: MemberRepository,
     private val eventRepository: EventRepository,
     private val eventPublisher: IntegrationEventPublisher,
+    private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
     private val statsCacheService: StatsCacheService,
     private val googleCalendarService: GoogleCalendarService,
@@ -38,6 +41,7 @@ class EventOperations(
                     collectiveCode = collectiveCode,
                     date = request.date,
                     time = request.time,
+                    endTime = request.endTime,
                     type = request.type,
                     organizer = actorName,
                     attendees = request.attendees,
@@ -57,6 +61,19 @@ class EventOperations(
 
         statsCacheService.clearDashboardCache()
         eventPublisher.chatEvent("EVENT_CREATED", saved.toDto())
+
+        val others =
+            memberRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { it.status == MemberStatus.ACTIVE && it.name != actorName }
+                .map { it.name }
+        if (others.isNotEmpty()) {
+            notificationService.createGroupNotification(
+                userNames = others,
+                message = "New event: '${request.title}' on ${request.date}",
+                type = "EVENT_ADDED",
+            )
+        }
+
         return saved.toDto()
     }
 
@@ -85,5 +102,35 @@ class EventOperations(
         eventPublisher.chatEvent("EVENT_DELETED", mapOf("id" to eventId))
     }
 
-    private fun CalendarEvent.toDto() = EventDto(id, title, date, time, type, organizer, attendees, description)
+    @Transactional
+    fun updateEvent(
+        eventId: Long,
+        request: UpdateEventRequest,
+        actorName: String,
+    ): EventDto {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
+        val event =
+            eventRepository
+                .findById(eventId)
+                .orElseThrow { IllegalArgumentException("Event $eventId not found") }
+
+        require(event.collectiveCode == collectiveCode) { "Event not in your collective" }
+
+        val updated =
+            eventRepository.save(
+                event.copy(
+                    title = request.title,
+                    time = request.time,
+                    endTime = request.endTime,
+                    type = request.type,
+                    description = request.description,
+                ),
+            )
+
+        statsCacheService.clearDashboardCache()
+        eventPublisher.chatEvent("EVENT_UPDATED", updated.toDto())
+        return updated.toDto()
+    }
+
+    private fun CalendarEvent.toDto() = EventDto(id, title, date, time, endTime, type, organizer, attendees, description)
 }

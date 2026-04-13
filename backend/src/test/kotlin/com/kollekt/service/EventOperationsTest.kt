@@ -1,6 +1,7 @@
 package com.kollekt.service
 
 import com.kollekt.api.dto.CreateEventRequest
+import com.kollekt.api.dto.UpdateEventRequest
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Member
@@ -10,6 +11,7 @@ import com.kollekt.repository.MemberRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
@@ -25,6 +27,7 @@ class EventOperationsTest {
     private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var eventRepository: EventRepository
     private lateinit var eventPublisher: IntegrationEventPublisher
+    private lateinit var notificationService: NotificationService
     private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var googleCalendarService: GoogleCalendarService
     private lateinit var collectiveAccessService: CollectiveAccessService
@@ -37,6 +40,7 @@ class EventOperationsTest {
         collectiveRepository = mock()
         eventRepository = mock()
         eventPublisher = mock()
+        notificationService = mock()
         redisTemplate = mock()
         googleCalendarService = mock()
         doReturn(setOf("dashboard:Kasper")).whenever(redisTemplate).keys("dashboard:*")
@@ -47,6 +51,7 @@ class EventOperationsTest {
                 memberRepository,
                 eventRepository,
                 eventPublisher,
+                notificationService,
                 collectiveAccessService,
                 statsCacheService,
                 googleCalendarService,
@@ -110,6 +115,133 @@ class EventOperationsTest {
         verify(googleCalendarService).deleteGoogleEvent(actor, "google-123")
         verify(eventRepository).delete(event)
         verify(eventPublisher).chatEvent("EVENT_DELETED", mapOf("id" to 3L))
+    }
+
+    @Test
+    fun `get events returns events sorted by date`() {
+        whenever(eventRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                CalendarEvent(
+                    id = 2,
+                    title = "Later",
+                    collectiveCode = "ABC123",
+                    date = LocalDate.parse("2026-05-01"),
+                    time = LocalTime.NOON,
+                    type = EventType.OTHER,
+                    organizer = "Kasper",
+                    attendees = 1,
+                ),
+                CalendarEvent(
+                    id = 1,
+                    title = "Earlier",
+                    collectiveCode = "ABC123",
+                    date = LocalDate.parse("2026-04-01"),
+                    time = LocalTime.NOON,
+                    type = EventType.MOVIE,
+                    organizer = "Kasper",
+                    attendees = 1,
+                ),
+            ),
+        )
+
+        val result = operations.getEvents("Kasper")
+
+        assertEquals(listOf("Earlier", "Later"), result.map { it.title })
+    }
+
+    @Test
+    fun `create event sends group notification to other active members`() {
+        val kasper = member("Kasper", "kasper@example.com")
+        val emma = member("Emma", "emma@example.com", id = 2)
+        whenever(memberRepository.findByName("Kasper")).thenReturn(kasper)
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(listOf(kasper, emma))
+        whenever(eventRepository.save(any<CalendarEvent>())).thenAnswer {
+            val e = it.arguments[0] as CalendarEvent
+            if (e.id == 0L) e.copy(id = 5) else e
+        }
+
+        operations.createEvent(
+            CreateEventRequest(
+                title = "Party",
+                date = LocalDate.parse("2026-06-01"),
+                time = LocalTime.of(20, 0),
+                type = EventType.PARTY,
+                organizer = "Ignored",
+                attendees = 1,
+                syncToGoogle = false,
+            ),
+            actorName = "Kasper",
+        )
+
+        verify(notificationService).createGroupNotification(
+            userNames = listOf("Emma"),
+            message = "New event: 'Party' on 2026-06-01",
+            type = "EVENT_ADDED",
+        )
+    }
+
+    @Test
+    fun `delete event throws when event not found`() {
+        whenever(eventRepository.findById(99L)).thenReturn(Optional.empty())
+
+        assertThrows<IllegalArgumentException> {
+            operations.deleteEvent(eventId = 99L, actorName = "Kasper")
+        }
+    }
+
+    @Test
+    fun `delete event throws when event belongs to different collective`() {
+        val event =
+            CalendarEvent(
+                id = 5,
+                title = "Other",
+                collectiveCode = "DIFFERENT",
+                date = LocalDate.now(),
+                time = LocalTime.NOON,
+                type = EventType.OTHER,
+                organizer = "Other",
+                attendees = 1,
+            )
+        whenever(eventRepository.findById(5L)).thenReturn(Optional.of(event))
+
+        assertThrows<IllegalArgumentException> {
+            operations.deleteEvent(eventId = 5L, actorName = "Kasper")
+        }
+    }
+
+    @Test
+    fun `update event saves changed fields and publishes event`() {
+        val existing =
+            CalendarEvent(
+                id = 3,
+                title = "Old",
+                collectiveCode = "ABC123",
+                date = LocalDate.now(),
+                time = LocalTime.of(18, 0),
+                type = EventType.OTHER,
+                organizer = "Kasper",
+                attendees = 1,
+            )
+        whenever(eventRepository.findById(3L)).thenReturn(Optional.of(existing))
+        whenever(eventRepository.save(any<CalendarEvent>())).thenAnswer { it.arguments[0] as CalendarEvent }
+
+        val result =
+            operations.updateEvent(
+                eventId = 3L,
+                request =
+                    UpdateEventRequest(
+                        title = "New Title",
+                        time = LocalTime.of(20, 0),
+                        endTime = LocalTime.of(22, 0),
+                        type = EventType.PARTY,
+                    ),
+                actorName = "Kasper",
+            )
+
+        assertEquals("New Title", result.title)
+        assertEquals(EventType.PARTY, result.type)
+        verify(eventPublisher).chatEvent("EVENT_UPDATED", result)
+        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
     }
 
     private fun member(

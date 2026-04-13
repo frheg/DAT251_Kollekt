@@ -80,6 +80,7 @@ data class EventDto(
     val title: String,
     val date: LocalDate,
     val time: LocalTime,
+    val endTime: LocalTime?,
     val type: EventType,
     val organizer: String,
     val attendees: Int,
@@ -90,11 +91,20 @@ data class CreateEventRequest(
     val title: String,
     val date: LocalDate,
     val time: LocalTime,
+    val endTime: LocalTime? = null,
     val type: EventType = EventType.OTHER,
     val organizer: String,
     val attendees: Int = 1,
     val description: String? = null,
     val syncToGoogle: Boolean = false,
+)
+
+data class UpdateEventRequest(
+    val title: String,
+    val time: LocalTime,
+    val endTime: LocalTime? = null,
+    val type: EventType,
+    val description: String? = null,
 )
 
 data class MessageDto(

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, ExternalLink, Pencil } from 'lucide-react';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import { connectCollectiveRealtime } from '../lib/realtime';
@@ -38,7 +38,13 @@ export default function CalendarPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('12:00');
+  const [newEndTime, setNewEndTime] = useState('');
   const [newType, setNewType] = useState<EventType>('OTHER');
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
+  const [editType, setEditType] = useState<EventType>('OTHER');
   const [googleConnected, setGoogleConnected] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -87,20 +93,40 @@ export default function CalendarPage() {
       title: newTitle,
       date,
       time: newTime,
+      endTime: newEndTime || null,
       type: newType,
       organizer: name,
       attendees: 1,
-      // Ask backend to mirror events to Google when account tokens are available.
       syncToGoogle: true,
     });
     setEvents((prev) => [...prev, created]);
-    setNewTitle(''); setNewTime('12:00'); setNewType('OTHER');
+    setNewTitle(''); setNewTime('12:00'); setNewEndTime(''); setNewType('OTHER');
     setShowAdd(false);
   };
 
   const handleDelete = async (id: number) => {
     await api.delete(`/events/${id}`);
     setEvents((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const openEdit = (e: CalendarEvent) => {
+    setEditingEvent(e);
+    setEditTitle(e.title);
+    setEditTime(e.time);
+    setEditEndTime(e.endTime ?? '');
+    setEditType(e.type);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingEvent || !editTitle.trim()) return;
+    const updated = await api.patch<CalendarEvent>(`/events/${editingEvent.id}`, {
+      title: editTitle,
+      time: editTime,
+      endTime: editEndTime || null,
+      type: editType,
+    });
+    setEvents((prev) => prev.map((e) => e.id === updated.id ? updated : e));
+    setEditingEvent(null);
   };
 
   const handleGoogleSync = async () => {
@@ -209,8 +235,18 @@ export default function CalendarPage() {
                   placeholder="Event title..."
                   className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()} />
-                <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)}
-                  className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[10px] text-muted-foreground">Start</p>
+                    <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)}
+                      className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[10px] text-muted-foreground">End (optional)</p>
+                    <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
+                      className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   {EVENT_TYPES.map((t) => (
                     <button key={t} onClick={() => setNewType(t)}
@@ -234,14 +270,63 @@ export default function CalendarPage() {
         {dayEvents.map((e, i) => (
           <motion.div key={e.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
             className={`glass rounded-xl p-3 border-l-2 ${typeColors[e.type]} flex items-center gap-3`}>
-            <span className="text-xs text-muted-foreground w-12 shrink-0">{e.time}</span>
+            <div className="flex flex-col shrink-0 w-14">
+              <span className="text-xs text-muted-foreground">{e.time}</span>
+              {e.endTime && <span className="text-[10px] text-muted-foreground/70">{e.endTime}</span>}
+            </div>
             <span className="text-lg shrink-0">{typeEmoji[e.type]}</span>
             <span className="text-sm font-medium flex-1">{e.title}</span>
+            <button onClick={() => openEdit(e)} className="h-7 w-7 rounded-lg glass flex items-center justify-center shrink-0">
+              <Pencil className="h-3 w-3 text-muted-foreground" />
+            </button>
             <button onClick={() => handleDelete(e.id)} className="h-7 w-7 rounded-lg glass flex items-center justify-center shrink-0">
               <Trash2 className="h-3 w-3 text-destructive" />
             </button>
           </motion.div>
         ))}
+
+        {/* Edit modal */}
+        <AnimatePresence>
+          {editingEvent && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 pb-6 px-4"
+              onClick={(ev) => { if (ev.target === ev.currentTarget) setEditingEvent(null); }}>
+              <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+                className="w-full max-w-md glass rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Edit Event</p>
+                  <button onClick={() => setEditingEvent(null)}><X className="h-4 w-4 text-muted-foreground" /></button>
+                </div>
+                <input value={editTitle} onChange={(ev) => setEditTitle(ev.target.value)}
+                  placeholder="Event title..."
+                  className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[10px] text-muted-foreground">Start</p>
+                    <input type="time" value={editTime} onChange={(ev) => setEditTime(ev.target.value)}
+                      className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[10px] text-muted-foreground">End (optional)</p>
+                    <input type="time" value={editEndTime} onChange={(ev) => setEditEndTime(ev.target.value)}
+                      className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {EVENT_TYPES.map((t) => (
+                    <button key={t} onClick={() => setEditType(t)}
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all ${editType === t ? 'gradient-primary text-primary-foreground' : 'glass text-muted-foreground'}`}>
+                      {typeEmoji[t]} {t}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleEditSave} className="w-full gradient-primary rounded-lg py-2 text-sm font-semibold text-primary-foreground">
+                  Save Changes
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );

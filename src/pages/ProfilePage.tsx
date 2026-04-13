@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, Mail, Key, LogOut, Trash2, ArrowRightLeft, Copy, Check, ChevronDown, UserPlus, UserMinus } from 'lucide-react';
-import { api } from '../lib/api';
-import { connectCollectiveRealtime } from '../lib/realtime';
+import { Bell, Mail, Key, LogOut, Trash2, ArrowRightLeft, Copy, Check, ChevronDown, UserPlus, UserMinus, Settings, X } from 'lucide-react';
+import { api, getNotificationPreferences, updateNotificationPreference } from '../lib/api';
 import { useUser } from '../context/UserContext';
-import type { AppUser, MemberStatus } from '../lib/types';
+import type { AppUser, MemberStatus, NotificationPreferences } from '../lib/types';
 
-interface Notification { id: number; userName: string; message: string; timestamp: string; read: boolean; }
+const NOTIFICATION_LABELS: Record<string, string> = {
+  TASK_ASSIGNED: 'Task assigned to me',
+  TASK_DEADLINE_SOON: 'Task due tomorrow',
+  TASK_OVERDUE: 'Task deadline expired',
+  NEW_MESSAGE: 'New chat message',
+  EXPENSE_OWED: 'Expense — you owe money',
+  SHOPPING_ITEM_ADDED: 'Item added to shopping list',
+  EVENT_ADDED: 'New calendar event',
+};
 
 const STATUS_OPTIONS: { value: MemberStatus; label: string; emoji: string }[] = [
   { value: 'ACTIVE', label: 'Active', emoji: '🟢' },
@@ -16,8 +23,12 @@ const STATUS_OPTIONS: { value: MemberStatus; label: string; emoji: string }[] = 
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { currentUser, setCurrentUser, handleLogout } = useUser();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const {
+    currentUser, setCurrentUser, handleLogout,
+    notifications, notificationsLoading,
+    dismissNotification, clearAllNotifications, markAllNotificationsRead,
+  } = useUser();
+
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteSent, setInviteSent] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -26,9 +37,10 @@ export default function ProfilePage() {
   const [pwSuccess, setPwSuccess] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [expandNotifs, setExpandNotifs] = useState(false);
+  const [expandNotifPrefs, setExpandNotifPrefs] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>({});
   const [expandInvite, setExpandInvite] = useState(false);
   const [expandPassword, setExpandPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [friendName, setFriendName] = useState('');
   const [friendError, setFriendError] = useState('');
@@ -37,27 +49,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!name) return;
-    api.get<Notification[]>(`/notifications/${encodeURIComponent(name)}`)
-      .then((res) => { setNotifications(res); setLoading(false); })
-      .catch(() => setLoading(false));
+    getNotificationPreferences(name).then(setNotifPrefs).catch(() => {});
   }, [name]);
 
-  useEffect(() => {
+  const handleToggleNotifPref = async (type: string, enabled: boolean) => {
     if (!name) return;
-    const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (['TASK_UPDATED', 'TASK_CREATED', 'EXPENSE_CREATED', 'EVENT_CREATED', 'CHAT_MESSAGE'].includes(event.type)) {
-        api.get<Notification[]>(`/notifications/${encodeURIComponent(name)}`)
-          .then((res) => setNotifications(res))
-          .catch(() => {});
-      }
-    });
-    return disconnect;
-  }, [name]);
-
-  const handleMarkRead = async () => {
-    if (!name) return;
-    await api.post(`/notifications/${encodeURIComponent(name)}/read`, {});
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const updated = { ...notifPrefs, [type]: enabled };
+    setNotifPrefs(updated);
+    await updateNotificationPreference(name, updated).catch(() => {});
   };
 
   const handleStatusChange = async (status: MemberStatus) => {
@@ -201,7 +200,9 @@ export default function ProfilePage() {
           </div>
           <div className="flex-1 text-left">
             <p className="text-sm font-semibold">Notifications</p>
-            <p className="text-[10px] text-muted-foreground">{loading ? 'Loading...' : unread > 0 ? `${unread} unread` : 'All caught up'}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {notificationsLoading ? 'Loading...' : unread > 0 ? `${unread} unread` : 'All caught up'}
+            </p>
           </div>
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandNotifs ? 'rotate-180' : ''}`} />
         </button>
@@ -210,22 +211,74 @@ export default function ProfilePage() {
           {expandNotifs && (
             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
               <div className="px-4 pb-4 space-y-2">
-                {unread > 0 && (
-                  <button onClick={handleMarkRead} className="text-xs text-primary font-medium">
-                    Mark all as read
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {unread > 0 && (
+                    <button onClick={markAllNotificationsRead} className="text-xs text-primary font-medium">
+                      Mark all as read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button onClick={clearAllNotifications} className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium ml-auto">
+                      Clear all
+                    </button>
+                  )}
+                </div>
                 {notifications.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-2">No notifications</p>
                 )}
                 {notifications.slice(0, 8).map((n) => (
-                  <div key={n.id} className={`rounded-xl p-2.5 text-xs ${n.read ? 'bg-muted/20' : 'bg-primary/10 border border-primary/20'}`}>
-                    <p>{n.message}</p>
+                  <div key={n.id} className={`group relative rounded-xl p-2.5 text-xs ${n.read ? 'bg-muted/20' : 'bg-primary/10 border border-primary/20'}`}>
+                    <button
+                      onClick={() => dismissNotification(n.id)}
+                      className="absolute top-2 right-2 h-4 w-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted/60"
+                    >
+                      <X className="h-2.5 w-2.5 text-muted-foreground" />
+                    </button>
+                    <p className="pr-4">{n.message}</p>
                     <p className="text-muted-foreground text-[9px] mt-0.5">
                       {new Date(n.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Notification preferences */}
+      <div className="glass rounded-2xl overflow-hidden">
+        <button onClick={() => setExpandNotifPrefs((v) => !v)}
+          className="w-full flex items-center gap-3 p-4">
+          <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+            <Settings className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-semibold">Notification Settings</p>
+            <p className="text-[10px] text-muted-foreground">Choose which notifications you receive</p>
+          </div>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandNotifPrefs ? 'rotate-180' : ''}`} />
+        </button>
+
+        <AnimatePresence>
+          {expandNotifPrefs && (
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+              <div className="px-4 pb-4 space-y-1">
+                {Object.entries(NOTIFICATION_LABELS).map(([type, label]) => {
+                  const enabled = notifPrefs[type] !== false;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => handleToggleNotifPref(type, !enabled)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted/30 transition-colors"
+                    >
+                      <span className="text-sm text-left">{label}</span>
+                      <div className={`h-5 w-9 rounded-full transition-colors flex items-center px-0.5 shrink-0 ${enabled ? 'bg-primary' : 'bg-muted'}`}>
+                        <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </motion.div>
           )}

@@ -476,6 +476,7 @@ class AdditionalControllerCoverageTest {
                     title = "Movie night",
                     date = LocalDate.parse("2026-04-25"),
                     time = LocalTime.parse("19:00:00"),
+                    endTime = null,
                     type = EventType.MOVIE,
                     organizer = "Kasper",
                     attendees = 4,
