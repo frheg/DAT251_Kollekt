@@ -1,5 +1,15 @@
 export type TaskCategory = 'CLEANING' | 'SHOPPING' | 'OTHER';
 
+export interface TaskFeedback {
+  id: number;
+  author: string | null; // null when anonymous
+  message: string;
+  anonymous: boolean;
+  imageData: string | null;
+  imageMimeType: string | null;
+  createdAt: string;
+}
+
 export interface Task {
   id: number;
   title: string;
@@ -14,7 +24,8 @@ export interface Task {
    * If null or 'NONE', the task does not repeat.
    */
   recurrenceRule: string | null;
-  assignmentReason?: string; // Optional: why this user was assigned
+  assignmentReason?: string;
+  feedbacks: TaskFeedback[];
 }
 
 export interface ShoppingItem {

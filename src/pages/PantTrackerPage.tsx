@@ -93,18 +93,32 @@ export default function PantTrackerPage() {
         <p className="text-sm text-muted-foreground mt-1">bottles collected</p>
         <p className="font-display text-xl font-bold text-primary mt-2">kr {earned}</p>
         <p className="text-xs text-muted-foreground">earned so far</p>
-        <div className="flex items-center justify-center gap-4 mt-4">
+        <div className="flex items-center gap-2 mt-4 justify-center">
           <button
-            onClick={() => addBottles(-1)}
-            className="h-12 w-12 rounded-xl glass flex items-center justify-center hover:bg-muted/40 transition-colors"
+            onClick={() => setCustomAmount((v) => String(Math.max(0, (parseInt(v) || 0) - 1)))}
+            className="h-9 w-9 rounded-xl glass flex items-center justify-center hover:bg-muted/40 transition-colors shrink-0"
           >
-            <Minus className="h-5 w-5" />
+            <Minus className="h-4 w-4" />
+          </button>
+          <input
+            type="number"
+            value={customAmount}
+            onChange={(e) => setCustomAmount(e.target.value)}
+            placeholder="Amount"
+            onKeyDown={(e) => e.key === 'Enter' && addCustomAmount()}
+            className="w-24 bg-muted/50 rounded-lg px-3 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+          />
+          <button
+            onClick={() => setCustomAmount((v) => String((parseInt(v) || 0) + 1))}
+            className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center shrink-0"
+          >
+            <Plus className="h-4 w-4 text-primary-foreground" />
           </button>
           <button
-            onClick={() => addBottles(1)}
-            className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center"
+            onClick={addCustomAmount}
+            className="px-3 py-2 rounded-xl glass text-xs font-medium hover:bg-muted/40 transition-colors"
           >
-            <Plus className="h-5 w-5 text-primary-foreground" />
+            Add
           </button>
         </div>
         <div className="flex gap-2 mt-3 justify-center">
@@ -114,21 +128,6 @@ export default function PantTrackerPage() {
               +{n}
             </button>
           ))}
-        </div>
-        <div className="flex gap-2 mt-3 justify-center">
-          <input
-            type="number"
-            value={customAmount}
-            onChange={(e) => setCustomAmount(e.target.value)}
-            placeholder="Custom kr"
-            className="w-28 bg-muted/50 rounded-lg px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
-          />
-          <button
-            onClick={addCustomAmount}
-            className="px-3 py-1.5 rounded-lg glass text-xs font-medium hover:bg-muted/40 transition-colors"
-          >
-            Add amount
-          </button>
         </div>
       </div>
 

@@ -4,8 +4,11 @@ package com.kollekt.api
 
 import com.kollekt.api.dto.CreateShoppingItemRequest
 import com.kollekt.api.dto.CreateTaskRequest
+import com.kollekt.api.dto.GiveTaskFeedbackRequest
+import com.kollekt.api.dto.MarkSupplyBoughtRequest
 import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.api.dto.TaskDto
+import com.kollekt.api.dto.UpdateShoppingItemRequest
 import com.kollekt.service.ShoppingOperations
 import com.kollekt.service.TaskOperations
 import org.springframework.http.HttpStatus
@@ -68,12 +71,18 @@ class TaskController(
     fun giveTaskFeedback(
         @PathVariable taskId: Long,
         @RequestParam memberName: String,
-        @RequestBody feedback: Map<String, String>,
+        @RequestBody request: GiveTaskFeedbackRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): TaskDto {
         requireTokenSubject(jwt, memberName)
-        val feedbackText = feedback["feedback"] ?: ""
-        return taskOperations.giveTaskFeedback(taskId, memberName, feedbackText)
+        return taskOperations.giveTaskFeedback(
+            taskId,
+            memberName,
+            request.message,
+            request.anonymous,
+            request.imageData,
+            request.imageMimeType,
+        )
     }
 
     @PatchMapping("/{taskId}")
@@ -123,6 +132,28 @@ class TaskController(
         @RequestBody request: CreateShoppingItemRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): ShoppingItemDto = shoppingOperations.createShoppingItem(request, jwt.subject)
+
+    @PatchMapping("/shopping/{itemId}")
+    fun updateShoppingItem(
+        @PathVariable itemId: Long,
+        @RequestParam memberName: String,
+        @RequestBody request: UpdateShoppingItemRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ShoppingItemDto {
+        requireTokenSubject(jwt, memberName)
+        return shoppingOperations.updateShoppingItem(itemId, request, memberName)
+    }
+
+    @PostMapping("/shopping/{itemId}/bought")
+    fun markSupplyBought(
+        @PathVariable itemId: Long,
+        @RequestParam memberName: String,
+        @RequestBody request: MarkSupplyBoughtRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ShoppingItemDto {
+        requireTokenSubject(jwt, memberName)
+        return shoppingOperations.markSupplyBought(itemId, request, memberName)
+    }
 
     @PatchMapping("/shopping/{itemId}/toggle")
     fun toggleShoppingItem(

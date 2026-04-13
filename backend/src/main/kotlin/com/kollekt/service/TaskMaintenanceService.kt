@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 class TaskMaintenanceService(
     private val collectiveRepository: CollectiveRepository,
     private val taskOperations: TaskOperations,
+    private val shoppingOperations: ShoppingOperations,
 ) {
     private val reminderDaysBeforeDue = 1L
 
@@ -21,6 +22,9 @@ class TaskMaintenanceService(
 
     @Scheduled(cron = "0 0 4 * * *")
     fun penalizeMissedTasks() = taskOperations.penalizeMissedTasks()
+
+    @Scheduled(cron = "0 0 3 * * *")
+    fun cleanupBoughtShoppingItems() = shoppingOperations.cleanupBoughtItems()
 
     @Scheduled(cron = "0 0 3 * * MON")
     fun scheduledWeeklyTaskRotation() {

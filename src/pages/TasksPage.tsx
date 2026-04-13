@@ -1,8 +1,8 @@
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, Circle, Plus, Package, ChevronRight, ArrowLeft, X,
-  ShoppingCart, Edit3, Trash2, MessageSquare, Clock, RotateCcw, Zap,
+  ShoppingCart, Edit3, Trash2, MessageSquare, Clock, RotateCcw, Zap, Image, EyeOff,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
@@ -30,6 +30,16 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   const [newRecurrence, setNewRecurrence] = useState('NONE');
   const [commentingId, setCommentingId] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
+  const [feedbackAnonymous, setFeedbackAnonymous] = useState(false);
+  const [feedbackImage, setFeedbackImage] = useState<{ data: string; mimeType: string } | null>(null);
+  const feedbackImageRef = useRef<HTMLInputElement>(null);
+  const [editingShopId, setEditingShopId] = useState<number | null>(null);
+  const [editShopText, setEditShopText] = useState('');
+  const [buyingShopId, setBuyingShopId] = useState<number | null>(null);
+  const [buyAmount, setBuyAmount] = useState('');
+  const [buyPaidBy, setBuyPaidBy] = useState('');
+  const [buyParticipants, setBuyParticipants] = useState<string[]>([]);
+  const [buyDate, setBuyDate] = useState('');
   const [loading, setLoading] = useState(true);
 
   const name = currentUser?.name ?? '';
@@ -56,7 +66,7 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   useEffect(() => {
     if (!name) return;
     const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'SHOPPING_UPDATED', 'SHOPPING_ITEM_CREATED', 'SHOPPING_ITEM_TOGGLED', 'SHOPPING_ITEM_DELETED'].includes(event.type)) {
+      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'SHOPPING_UPDATED', 'SHOPPING_ITEM_CREATED', 'SHOPPING_ITEM_TOGGLED', 'SHOPPING_ITEM_DELETED', 'SHOPPING_ITEM_UPDATED', 'SHOPPING_ITEM_BOUGHT'].includes(event.type)) {
         fetchAll();
       }
     });
@@ -142,11 +152,30 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     resetForm();
   };
 
+  const handleFeedbackImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFeedbackImage({ data: (reader.result as string).split(',')[1], mimeType: file.type });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const addFeedback = async (taskId: number) => {
     if (!commentText.trim()) return;
-    await api.patch(`/tasks/${taskId}/feedback?memberName=${encodeURIComponent(name)}`, { feedback: commentText });
+    await api.patch(`/tasks/${taskId}/feedback?memberName=${encodeURIComponent(name)}`, {
+      message: commentText,
+      anonymous: feedbackAnonymous,
+      imageData: feedbackImage?.data ?? null,
+      imageMimeType: feedbackImage?.mimeType ?? null,
+    });
     setCommentText('');
+    setFeedbackAnonymous(false);
+    setFeedbackImage(null);
+    if (feedbackImageRef.current) feedbackImageRef.current.value = '';
     setCommentingId(null);
+    fetchAll();
   };
 
   const deleteShopItem = async (itemId: number) => {
@@ -157,6 +186,45 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   const toggleShopItem = async (itemId: number) => {
     await api.patch(`/tasks/shopping/${itemId}/toggle?memberName=${encodeURIComponent(name)}`);
     setShopping((prev) => prev.map((s) => s.id === itemId ? { ...s, completed: !s.completed } : s));
+  };
+
+  const openBuyForm = (item: ShoppingItem) => {
+    setBuyingShopId(item.id);
+    setBuyAmount('');
+    setBuyPaidBy(name);
+    setBuyParticipants(members.length > 0 ? members : [name]);
+    setBuyDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const toggleBuyParticipant = (member: string) => {
+    setBuyParticipants((prev) =>
+      prev.includes(member) ? prev.filter((m) => m !== member) : [...prev, member],
+    );
+  };
+
+  const submitBought = async (itemId: number) => {
+    if (!buyAmount.trim()) return;
+    await api.post(`/tasks/shopping/${itemId}/bought?memberName=${encodeURIComponent(name)}`, {
+      amount: parseInt(buyAmount),
+      paidBy: buyPaidBy,
+      participantNames: buyParticipants,
+      date: buyDate,
+    });
+    setBuyingShopId(null);
+    fetchAll();
+  };
+
+  const startEditShop = (item: ShoppingItem) => {
+    setEditingShopId(item.id);
+    setEditShopText(item.item);
+  };
+
+  const saveEditShop = async (itemId: number) => {
+    if (!editShopText.trim()) return;
+    const updated = await api.patch<ShoppingItem>(`/tasks/shopping/${itemId}?memberName=${encodeURIComponent(name)}`, { item: editShopText });
+    setShopping((prev) => prev.map((s) => s.id === itemId ? updated : s));
+    setEditingShopId(null);
+    setEditShopText('');
   };
 
 
@@ -316,7 +384,36 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
                 <AnimatePresence>
                   {commentingId === task.id && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden mt-2 ml-8">
+                      className="overflow-hidden mt-2 ml-8 space-y-2">
+                      {/* Existing feedbacks */}
+                      {task.feedbacks && task.feedbacks.length > 0 && (
+                        <div className="space-y-1.5">
+                          {task.feedbacks.map((fb) => (
+                            <div key={fb.id} className="bg-muted/30 rounded-lg px-2.5 py-2 space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-semibold text-primary">
+                                  {fb.author ?? 'Anonymous'}
+                                </span>
+                                {fb.anonymous && (
+                                  <EyeOff className="h-2.5 w-2.5 text-muted-foreground" />
+                                )}
+                                <span className="text-[9px] text-muted-foreground ml-auto">
+                                  {new Date(fb.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-foreground">{fb.message}</p>
+                              {fb.imageData && fb.imageMimeType && (
+                                <img
+                                  src={`data:${fb.imageMimeType};base64,${fb.imageData}`}
+                                  alt="feedback"
+                                  className="mt-1 rounded-lg max-h-40 object-contain"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* New feedback input */}
                       <div className="flex gap-2">
                         <input value={commentText} onChange={(e) => setCommentText(e.target.value)}
                           placeholder="Add feedback..."
@@ -326,6 +423,28 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
                           className="px-2 rounded-lg gradient-primary text-[10px] font-medium text-primary-foreground">
                           Send
                         </button>
+                      </div>
+                      {/* Anonymous toggle + image upload */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setFeedbackAnonymous((v) => !v)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors ${feedbackAnonymous ? 'bg-primary/20 text-primary' : 'glass text-muted-foreground'}`}>
+                          <EyeOff className="h-3 w-3" />
+                          {feedbackAnonymous ? 'Anonymous' : 'Public'}
+                        </button>
+                        <button
+                          onClick={() => feedbackImageRef.current?.click()}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors ${feedbackImage ? 'bg-primary/20 text-primary' : 'glass text-muted-foreground'}`}>
+                          <Image className="h-3 w-3" />
+                          {feedbackImage ? 'Image attached' : 'Add image'}
+                        </button>
+                        {feedbackImage && (
+                          <button onClick={() => { setFeedbackImage(null); if (feedbackImageRef.current) feedbackImageRef.current.value = ''; }}
+                            className="text-[10px] text-destructive">
+                            Remove
+                          </button>
+                        )}
+                        <input ref={feedbackImageRef} type="file" accept="image/*" className="hidden" onChange={handleFeedbackImage} />
                       </div>
                     </motion.div>
                   )}
@@ -402,23 +521,76 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
           <div className="space-y-2">
             {shopping.map((item, i) => (
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                className={`glass rounded-xl p-3.5 flex items-center gap-3 ${item.completed ? 'opacity-50' : ''}`}>
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <Package className="h-4 w-4 text-muted-foreground" />
+                className={`glass rounded-xl p-3.5 ${item.completed ? 'opacity-50' : ''}`}>
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${item.completed ? 'line-through' : ''}`}>{item.item}</p>
+                    <p className="text-[10px] text-muted-foreground">Added by {item.addedBy}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {item.completed
+                      ? (
+                        <button onClick={() => toggleShopItem(item.id)}
+                          className="h-8 px-3 rounded-lg glass text-xs font-medium flex items-center gap-1 text-primary">
+                          <ShoppingCart className="h-3 w-3" /> Undo
+                        </button>
+                      ) : (
+                        <button onClick={() => { setEditingShopId(null); openBuyForm(item); }}
+                          className="h-8 px-3 rounded-lg glass text-xs font-medium flex items-center gap-1 text-muted-foreground">
+                          <ShoppingCart className="h-3 w-3" /> Bought
+                        </button>
+                      )}
+                    <button onClick={() => { setBuyingShopId(null); startEditShop(item); }} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
+                      <Edit3 className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                    <button onClick={() => deleteShopItem(item.id)} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${item.completed ? 'line-through' : ''}`}>{item.item}</p>
-                  <p className="text-[10px] text-muted-foreground">Added by {item.addedBy}</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button onClick={() => toggleShopItem(item.id)}
-                    className={`h-8 px-3 rounded-lg glass text-xs font-medium flex items-center gap-1 ${item.completed ? 'text-primary' : 'text-muted-foreground'}`}>
-                    <ShoppingCart className="h-3 w-3" /> {item.completed ? 'Undo' : 'Bought'}
-                  </button>
-                  <button onClick={() => deleteShopItem(item.id)} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </button>
-                </div>
+                <AnimatePresence>
+                  {buyingShopId === item.id && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)}
+                          placeholder="Amount (kr)"
+                          className="bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                        <select value={buyPaidBy} onChange={(e) => setBuyPaidBy(e.target.value)}
+                          className="bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]">
+                          {(members.length > 0 ? members : [name]).map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(members.length > 0 ? members : [name]).map((m) => (
+                          <button key={m} onClick={() => toggleBuyParticipant(m)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${buyParticipants.includes(m) ? 'gradient-primary text-primary-foreground' : 'glass text-muted-foreground'}`}>
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input type="date" value={buyDate} onChange={(e) => setBuyDate(e.target.value)}
+                          className="flex-1 bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]" />
+                        <button onClick={() => submitBought(item.id)} className="px-4 rounded-lg gradient-primary text-xs font-semibold text-primary-foreground">Log</button>
+                        <button onClick={() => setBuyingShopId(null)} className="h-9 w-9 rounded-lg glass flex items-center justify-center"><X className="h-3 w-3 text-muted-foreground" /></button>
+                      </div>
+                    </motion.div>
+                  )}
+                  {editingShopId === item.id && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2">
+                      <div className="flex gap-2">
+                        <input value={editShopText} onChange={(e) => setEditShopText(e.target.value)}
+                          className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          onKeyDown={(e) => { if (e.key === 'Enter') saveEditShop(item.id); if (e.key === 'Escape') setEditingShopId(null); }} />
+                        <button onClick={() => saveEditShop(item.id)} className="px-3 rounded-lg gradient-primary text-xs font-medium text-primary-foreground">Save</button>
+                        <button onClick={() => setEditingShopId(null)} className="h-8 w-8 rounded-lg glass flex items-center justify-center"><X className="h-3 w-3 text-muted-foreground" /></button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ))}
           </div>
@@ -434,6 +606,8 @@ function RestockPage({ onBack }: { onBack: () => void }) {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [newName, setNewName] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
 
   const name = currentUser?.name ?? '';
 
@@ -449,7 +623,7 @@ function RestockPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (!name) return;
     const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (['SHOPPING_ITEM_CREATED', 'SHOPPING_ITEM_TOGGLED', 'SHOPPING_ITEM_DELETED', 'SHOPPING_UPDATED'].includes(event.type)) {
+      if (['SHOPPING_ITEM_CREATED', 'SHOPPING_ITEM_TOGGLED', 'SHOPPING_ITEM_DELETED', 'SHOPPING_UPDATED', 'SHOPPING_ITEM_UPDATED', 'SHOPPING_ITEM_BOUGHT'].includes(event.type)) {
         fetchItems();
       }
     });
@@ -459,6 +633,14 @@ function RestockPage({ onBack }: { onBack: () => void }) {
   const handleDelete = async (id: number) => {
     await api.delete(`/tasks/shopping/${id}?memberName=${encodeURIComponent(name)}`);
     setItems((p) => p.filter((i) => i.id !== id));
+  };
+
+  const handleEdit = async (id: number) => {
+    if (!editText.trim()) return;
+    const updated = await api.patch<ShoppingItem>(`/tasks/shopping/${id}?memberName=${encodeURIComponent(name)}`, { item: editText });
+    setItems((p) => p.map((i) => i.id === id ? updated : i));
+    setEditingId(null);
+    setEditText('');
   };
 
   const handleAdd = async () => {
@@ -509,17 +691,35 @@ function RestockPage({ onBack }: { onBack: () => void }) {
       <div className="space-y-2">
         {items.map((item, i) => (
           <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="glass rounded-xl p-3.5 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Package className="h-4 w-4 text-muted-foreground" />
+            className="glass rounded-xl p-3.5">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{item.item}</p>
+                <p className="text-[10px] text-muted-foreground">Added by {item.addedBy}</p>
+              </div>
+              <button onClick={() => { setEditingId(item.id); setEditText(item.item); }} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
+                <Edit3 className="h-3 w-3 text-muted-foreground" />
+              </button>
+              <button onClick={() => handleDelete(item.id)} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">{item.item}</p>
-              <p className="text-[10px] text-muted-foreground">Added by {item.addedBy}</p>
-            </div>
-            <button onClick={() => handleDelete(item.id)} className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0">
-              <Trash2 className="h-3 w-3 text-destructive" />
-            </button>
+            <AnimatePresence>
+              {editingId === item.id && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2">
+                  <div className="flex gap-2">
+                    <input value={editText} onChange={(e) => setEditText(e.target.value)}
+                      className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleEdit(item.id); if (e.key === 'Escape') setEditingId(null); }} />
+                    <button onClick={() => handleEdit(item.id)} className="px-3 rounded-lg gradient-primary text-xs font-medium text-primary-foreground">Save</button>
+                    <button onClick={() => setEditingId(null)} className="h-8 w-8 rounded-lg glass flex items-center justify-center"><X className="h-3 w-3 text-muted-foreground" /></button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         ))}
       </div>
