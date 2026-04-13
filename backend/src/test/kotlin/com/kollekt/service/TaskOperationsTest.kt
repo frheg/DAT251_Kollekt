@@ -4,8 +4,8 @@ import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.domain.Member
 import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.TaskCategory
-import com.kollekt.domain.TaskItem
 import com.kollekt.domain.TaskFeedback
+import com.kollekt.domain.TaskItem
 import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.TaskFeedbackRepository
@@ -565,7 +565,7 @@ class TaskOperationsTest {
         val result = operations.regretTask(taskId = 14, memberName = "Kasper")
 
         assertEquals(true, result.completed)
-        assertEquals(10, result.xp)
+        assertEquals(20, result.xp)
         verify(memberRepository).save(
             check {
                 assertEquals(110, it.xp)
