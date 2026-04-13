@@ -14,14 +14,18 @@ import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.RoomRepository
 import com.kollekt.repository.TaskRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.check
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -196,6 +200,113 @@ class CollectiveOperationsTest {
                 assertEquals(null, it.googleRefreshToken)
             },
         )
+    }
+
+    @Test
+    fun `create collective adds existing resident without collective to join code`() {
+        val owner = member("Kasper", "kasper@example.com", collectiveCode = null)
+        val existingResident = member("Emma", "emma@example.com", id = 2, collectiveCode = null)
+        whenever(memberRepository.findById(1)).thenReturn(Optional.of(owner))
+        whenever(collectiveRepository.existsByJoinCode(any())).thenReturn(false)
+        whenever(collectiveRepository.save(any<Collective>())).thenReturn(
+            Collective(id = 10, name = "Villa", joinCode = "ABC123", ownerMemberId = 1),
+        )
+        whenever(memberRepository.findByName("Emma")).thenReturn(existingResident)
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+
+        operations.createCollective(
+            CreateCollectiveRequest(
+                name = "Villa",
+                ownerUserId = 1,
+                numRooms = 1,
+                residents = listOf("Emma"),
+                rooms = listOf(RoomRequest(name = "Kitchen", minutes = 25)),
+            ),
+        )
+
+        val memberCaptor = argumentCaptor<Member>()
+        verify(memberRepository, times(2)).save(memberCaptor.capture())
+        assertTrue(
+            memberCaptor.allValues.any { it.name == "Emma" && it.collectiveCode == "ABC123" },
+        )
+    }
+
+    @Test
+    fun `join collective redistributes recurring tasks to active members`() {
+        val pendingUser = member("Kasper", "kasper@example.com", id = 7, collectiveCode = null)
+        val existingMember = member("Emma", "emma@example.com", id = 2)
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(
+            Collective(id = 1, name = "Villa", joinCode = "ABC123", ownerMemberId = 2),
+        )
+        whenever(memberRepository.findById(7)).thenReturn(Optional.of(pendingUser))
+        whenever(memberRepository.save(any<Member>())).thenAnswer { it.arguments[0] as Member }
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(null)
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(recurringTask(id = 8, title = "Kitchen", assignee = "Kasper")),
+        )
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(existingMember, pendingUser.copy(id = 7, collectiveCode = "ABC123")),
+        )
+
+        operations.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = "ABC123"))
+
+        verify(taskRepository).save(
+            check {
+                assertEquals("Emma", it.assignee)
+            },
+        )
+    }
+
+    @Test
+    fun `invite user ignores realtime publish failures`() {
+        val inviter = member("Emma", "emma@example.com", collectiveCode = "ABC123")
+        whenever(memberRepository.findByName("Emma")).thenReturn(inviter)
+        whenever(invitationRepository.findByEmailAndCollectiveCode("kasper@example.com", "ABC123")).thenReturn(null)
+        whenever(invitationRepository.save(any<Invitation>())).thenAnswer {
+            (it.arguments[0] as Invitation).copy(id = 1)
+        }
+        doThrow(RuntimeException("realtime unavailable"))
+            .whenever(invitationRealtimeService)
+            .publish(any(), any(), any())
+
+        operations.inviteUserToCollective("kasper@example.com", "ABC123", "Emma")
+
+        verify(invitationRepository).save(any<Invitation>())
+        verify(invitationRealtimeService).publish(eq("kasper@example.com"), eq("INVITATION_CREATED"), any())
+    }
+
+    @Test
+    fun `get collective code for user returns stored join code`() {
+        whenever(memberRepository.findById(5)).thenReturn(
+            Optional.of(member("Kasper", "kasper@example.com", id = 5, collectiveCode = "ABC123")),
+        )
+
+        val result = operations.getCollectiveCodeForUser(5)
+
+        assertEquals("ABC123", result.joinCode)
+    }
+
+    @Test
+    fun `is google calendar connected delegates to service`() {
+        val member = member("Kasper", "kasper@example.com")
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member)
+        whenever(googleCalendarService.isConnected(member)).thenReturn(true)
+
+        val connected = operations.isGoogleCalendarConnected("Kasper")
+
+        assertTrue(connected)
+        verify(googleCalendarService).isConnected(member)
+    }
+
+    @Test
+    fun `is google calendar connected returns false when member is missing`() {
+        whenever(memberRepository.findByName("Kasper")).thenReturn(null)
+
+        val connected = operations.isGoogleCalendarConnected("Kasper")
+
+        assertFalse(connected)
+        verify(googleCalendarService, never()).isConnected(any())
     }
 
     private fun member(
