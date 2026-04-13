@@ -1,0 +1,1 @@
+ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;

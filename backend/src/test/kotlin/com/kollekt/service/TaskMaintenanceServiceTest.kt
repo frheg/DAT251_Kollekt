@@ -17,7 +17,7 @@ class TaskMaintenanceServiceTest {
     fun setUp() {
         collectiveRepository = mock()
         taskOperations = mock()
-        service = TaskMaintenanceService(collectiveRepository, taskOperations)
+        service = TaskMaintenanceService(collectiveRepository, taskOperations, mock())
     }
 
     @Test

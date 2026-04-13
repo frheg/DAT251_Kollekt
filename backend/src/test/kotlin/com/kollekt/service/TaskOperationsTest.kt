@@ -4,9 +4,11 @@ import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.domain.Member
 import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.TaskCategory
+import com.kollekt.domain.TaskFeedback
 import com.kollekt.domain.TaskItem
 import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.MemberRepository
+import com.kollekt.repository.TaskFeedbackRepository
 import com.kollekt.repository.TaskRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -36,6 +38,7 @@ class TaskOperationsTest {
     private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var statsCacheService: StatsCacheService
+    private lateinit var taskFeedbackRepository: TaskFeedbackRepository
     private lateinit var operations: TaskOperations
 
     @BeforeEach
@@ -46,6 +49,7 @@ class TaskOperationsTest {
         eventPublisher = mock()
         realtimeUpdateService = mock()
         notificationService = mock()
+        taskFeedbackRepository = mock()
         redisTemplate = mock()
         whenever(redisTemplate.keys("dashboard:*")).thenReturn(emptySet())
         whenever(redisTemplate.keys("leaderboard:*")).thenReturn(emptySet())
@@ -55,6 +59,7 @@ class TaskOperationsTest {
             TaskOperations(
                 taskRepository = taskRepository,
                 memberRepository = memberRepository,
+                taskFeedbackRepository = taskFeedbackRepository,
                 eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
                 notificationService = notificationService,
@@ -391,18 +396,53 @@ class TaskOperationsTest {
                 category = TaskCategory.CLEANING,
             ),
         )
-        whenever(taskRepository.save(any<TaskItem>())).thenAnswer { it.arguments[0] as TaskItem }
+        val savedFeedback = TaskFeedback(id = 1, taskId = 13, author = "Kasper", message = "Bra jobbet", anonymous = false)
+        whenever(taskFeedbackRepository.save(any<TaskFeedback>())).thenReturn(savedFeedback)
+        whenever(taskFeedbackRepository.findAllByTaskId(13)).thenReturn(listOf(savedFeedback))
 
-        val result = operations.giveTaskFeedback(13, "Kasper", "Bra jobbet")
+        val result = operations.giveTaskFeedback(13, "Kasper", "Bra jobbet", false, null, null)
 
         assertEquals(13, result.id)
-        verify(taskRepository).save(
+        assertEquals(1, result.feedbacks.size)
+        assertEquals("Kasper", result.feedbacks[0].author)
+        assertEquals("Bra jobbet", result.feedbacks[0].message)
+        verify(taskFeedbackRepository).save(
             check {
-                assertEquals("Bra jobbet", it.assignmentFeedback)
+                assertEquals("Bra jobbet", it.message)
+                assertEquals("Kasper", it.author)
+                assertEquals(false, it.anonymous)
             },
         )
         verify(eventPublisher).taskEvent("TASK_FEEDBACK_UPDATED", result)
         verify(realtimeUpdateService).publish("ABC123", "TASK_FEEDBACK_UPDATED", result)
+    }
+
+    @Test
+    fun `give task feedback notifies assignee when actor is different member`() {
+        whenever(taskRepository.findByIdAndCollectiveCodeForUpdate(14, "ABC123")).thenReturn(
+            TaskItem(
+                id = 14,
+                title = "Støvsuge",
+                assignee = "Emma",
+                collectiveCode = "ABC123",
+                dueDate = LocalDate.parse("2026-04-20"),
+                category = TaskCategory.CLEANING,
+            ),
+        )
+        val savedFeedback = TaskFeedback(id = 2, taskId = 14, author = "Kasper", message = "Ikke grundig nok", anonymous = true)
+        whenever(taskFeedbackRepository.save(any<TaskFeedback>())).thenReturn(savedFeedback)
+        whenever(taskFeedbackRepository.findAllByTaskId(14)).thenReturn(listOf(savedFeedback))
+
+        val result = operations.giveTaskFeedback(14, "Kasper", "Ikke grundig nok", true, null, null)
+
+        assertEquals(14, result.id)
+        assertEquals(1, result.feedbacks.size)
+        assertEquals(null, result.feedbacks[0].author) // anonymous — author hidden
+        verify(notificationService).createCustomNotification(
+            userName = "Emma",
+            message = "Someone left feedback on your task 'Støvsuge'.",
+            type = "TASK_FEEDBACK",
+        )
     }
 
     @Test
@@ -525,7 +565,7 @@ class TaskOperationsTest {
         val result = operations.regretTask(taskId = 14, memberName = "Kasper")
 
         assertEquals(true, result.completed)
-        assertEquals(10, result.xp)
+        assertEquals(20, result.xp)
         verify(memberRepository).save(
             check {
                 assertEquals(110, it.xp)

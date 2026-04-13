@@ -7,6 +7,23 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
+data class TaskFeedbackDto(
+    val id: Long,
+    val author: String?,
+    val message: String,
+    val anonymous: Boolean,
+    val imageData: String?,
+    val imageMimeType: String?,
+    val createdAt: LocalDateTime,
+)
+
+data class GiveTaskFeedbackRequest(
+    val message: String = "",
+    val anonymous: Boolean = false,
+    val imageData: String? = null,
+    val imageMimeType: String? = null,
+)
+
 enum class LeaderboardPeriod {
     OVERALL,
     YEAR,
@@ -23,6 +40,7 @@ data class TaskDto(
     val xp: Int,
     val recurrenceRule: String? = null,
     val penaltyXp: Int = 0,
+    val feedbacks: List<TaskFeedbackDto> = emptyList(),
 )
 
 data class CreateTaskRequest(
@@ -44,6 +62,17 @@ data class ShoppingItemDto(
 data class CreateShoppingItemRequest(
     val item: String,
     val addedBy: String,
+)
+
+data class UpdateShoppingItemRequest(
+    val item: String,
+)
+
+data class MarkSupplyBoughtRequest(
+    val amount: Int,
+    val paidBy: String,
+    val participantNames: List<String> = emptyList(),
+    val date: LocalDate,
 )
 
 data class EventDto(

@@ -2,10 +2,13 @@ package com.kollekt.service
 
 import com.kollekt.api.dto.CreateTaskRequest
 import com.kollekt.api.dto.TaskDto
+import com.kollekt.api.dto.TaskFeedbackDto
 import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.TaskCategory
+import com.kollekt.domain.TaskFeedback
 import com.kollekt.domain.TaskItem
 import com.kollekt.repository.MemberRepository
+import com.kollekt.repository.TaskFeedbackRepository
 import com.kollekt.repository.TaskRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -16,6 +19,7 @@ import java.time.LocalDateTime
 class TaskOperations(
     private val taskRepository: TaskRepository,
     private val memberRepository: MemberRepository,
+    private val taskFeedbackRepository: TaskFeedbackRepository,
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val notificationService: NotificationService,
@@ -65,7 +69,7 @@ class TaskOperations(
         return taskRepository
             .findAllByCollectiveCode(collectiveCode)
             .sortedBy { it.dueDate }
-            .map { it.toDto() }
+            .map { it.toDto(taskFeedbackRepository.findAllByTaskId(it.id)) }
     }
 
     @Transactional
@@ -122,17 +126,37 @@ class TaskOperations(
     fun giveTaskFeedback(
         taskId: Long,
         memberName: String,
-        feedback: String,
+        message: String,
+        anonymous: Boolean,
+        imageData: String?,
+        imageMimeType: String?,
     ): TaskDto {
         val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         val task =
             taskRepository.findByIdAndCollectiveCodeForUpdate(taskId, collectiveCode)
                 ?: throw IllegalArgumentException("Task $taskId not found")
 
-        val saved = taskRepository.save(task.copy(assignmentFeedback = feedback))
+        taskFeedbackRepository.save(
+            TaskFeedback(
+                taskId = taskId,
+                author = memberName,
+                message = message,
+                anonymous = anonymous,
+                imageData = imageData,
+                imageMimeType = imageMimeType,
+            ),
+        )
 
-        statsCacheService.clearTaskCaches()
-        val dto = saved.toDto()
+        if (task.assignee != memberName) {
+            notificationService.createCustomNotification(
+                userName = task.assignee,
+                message = "${if (anonymous) "Someone" else memberName} left feedback on your task '${task.title}'.",
+                type = "TASK_FEEDBACK",
+            )
+        }
+
+        val feedbacks = taskFeedbackRepository.findAllByTaskId(taskId)
+        val dto = task.toDto(feedbacks)
         eventPublisher.taskEvent("TASK_FEEDBACK_UPDATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_FEEDBACK_UPDATED", dto)
         return dto
@@ -299,7 +323,6 @@ class TaskOperations(
             taskRepository.save(
                 task.copy(
                     completed = true,
-                    xp = calculateLateCompletionXp(task.xp),
                     completedBy = memberName,
                     completedAt = LocalDateTime.now(),
                     xpAwarded = (memberName == task.assignee),
@@ -549,7 +572,7 @@ class TaskOperations(
 
     private fun isRecurringTask(recurrenceRule: String?): Boolean = !recurrenceRule.isNullOrBlank() && recurrenceRule.uppercase() != "NONE"
 
-    private fun TaskItem.toDto() =
+    private fun TaskItem.toDto(feedbacks: List<TaskFeedback> = emptyList()) =
         TaskDto(
             id = id,
             title = title,
@@ -560,5 +583,17 @@ class TaskOperations(
             xp = xp,
             recurrenceRule = recurrenceRule,
             penaltyXp = penaltyXp,
+            feedbacks =
+                feedbacks.map { fb ->
+                    TaskFeedbackDto(
+                        id = fb.id,
+                        author = if (fb.anonymous) null else fb.author,
+                        message = fb.message,
+                        anonymous = fb.anonymous,
+                        imageData = fb.imageData,
+                        imageMimeType = fb.imageMimeType,
+                        createdAt = fb.createdAt,
+                    )
+                },
         )
 }

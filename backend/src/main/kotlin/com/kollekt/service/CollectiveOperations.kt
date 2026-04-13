@@ -120,7 +120,6 @@ class CollectiveOperations(
         acceptInvitationIfPresent(updated.email, joinCode)
         redistributeRecurringTasks(joinCode)
         statsCacheService.clearAllCaches()
-        taskOperations.regenerateRecurringTasksForCollective(joinCode)
         return userProfileService.toUserDto(updated)
     }
 

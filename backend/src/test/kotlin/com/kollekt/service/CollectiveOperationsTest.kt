@@ -118,7 +118,7 @@ class CollectiveOperationsTest {
     }
 
     @Test
-    fun `join collective accepts invitation and triggers recurring rebuild`() {
+    fun `join collective accepts invitation and updates caches`() {
         val pendingUser = member("Kasper", "kasper@example.com", id = 7, collectiveCode = null)
         val existingMember = member("Emma", "emma@example.com", id = 2)
         val invitation = Invitation(id = 3, email = "kasper@example.com", collectiveCode = "ABC123", invitedBy = "Emma")
@@ -146,7 +146,6 @@ class CollectiveOperationsTest {
                 assertTrue(it.accepted)
             },
         )
-        verify(taskOperations).regenerateRecurringTasksForCollective("ABC123")
     }
 
     @Test
