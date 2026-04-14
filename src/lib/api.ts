@@ -225,6 +225,22 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
   return text as T;
 }
 
+export async function deleteNotification(userName: string, id: number): Promise<void> {
+  await api.delete(`/notifications/${encodeURIComponent(userName)}/${id}`);
+}
+
+export async function deleteAllNotifications(userName: string): Promise<void> {
+  await api.delete(`/notifications/${encodeURIComponent(userName)}`);
+}
+
+export async function getNotificationPreferences(memberName: string): Promise<Record<string, boolean>> {
+  return api.get<Record<string, boolean>>(`/notifications/preferences?memberName=${encodeURIComponent(memberName)}`);
+}
+
+export async function updateNotificationPreference(memberName: string, prefs: Record<string, boolean>): Promise<void> {
+  await api.patch(`/notifications/preferences?memberName=${encodeURIComponent(memberName)}`, prefs);
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }),

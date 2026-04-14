@@ -62,6 +62,7 @@ class EconomyOperationsTest {
                 pantEntryRepository = pantEntryRepository,
                 eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
+                notificationService = mock(),
                 collectiveAccessService = collectiveAccessService,
                 statsCacheService = statsCacheService,
             )

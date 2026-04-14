@@ -9,7 +9,9 @@ import com.kollekt.api.dto.PollDto
 import com.kollekt.api.dto.PollOptionDto
 import com.kollekt.api.dto.ReactionDto
 import com.kollekt.domain.ChatMessage
+import com.kollekt.domain.MemberStatus
 import com.kollekt.repository.ChatMessageRepository
+import com.kollekt.repository.MemberRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
@@ -19,8 +21,10 @@ import java.util.Base64
 @Service
 class ChatOperations(
     private val chatMessageRepository: ChatMessageRepository,
+    private val memberRepository: MemberRepository,
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
+    private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
 ) {
     private val objectMapper = jacksonObjectMapper()
@@ -56,6 +60,7 @@ class ChatOperations(
         val dto = saved.toDto()
         eventPublisher.chatEvent("MESSAGE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
+        notifyOtherMembers(collectiveCode, actorName, normalizedText, "NEW_MESSAGE")
         return dto
     }
 
@@ -94,6 +99,8 @@ class ChatOperations(
         val dto = saved.toDto()
         eventPublisher.chatEvent("MESSAGE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
+        val previewText = if (normalizedCaption.isNotBlank()) normalizedCaption else "[Image]"
+        notifyOtherMembers(collectiveCode, actorName, previewText, "NEW_MESSAGE")
         return dto
     }
 
@@ -211,6 +218,7 @@ class ChatOperations(
         val dto = saved.toDto()
         eventPublisher.chatEvent("MESSAGE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
+        notifyOtherMembers(collectiveCode, actorName, "📊 $question", "NEW_MESSAGE")
         return dto
     }
 
@@ -251,6 +259,21 @@ class ChatOperations(
         val dto = updated.toDto()
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_POLL_UPDATED", dto)
         return dto
+    }
+
+    private fun notifyOtherMembers(
+        collectiveCode: String,
+        sender: String,
+        text: String,
+        type: String,
+    ) {
+        val others =
+            memberRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { it.status == MemberStatus.ACTIVE && it.name != sender }
+                .map { it.name }
+        if (others.isEmpty()) return
+        val preview = if (text.length > 60) text.take(60) + "..." else text
+        notificationService.createGroupNotification(others, "$sender: \"$preview\"", type)
     }
 
     private data class PollPayload(

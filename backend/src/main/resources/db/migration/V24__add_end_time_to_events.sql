@@ -1,0 +1,1 @@
+ALTER TABLE events ADD COLUMN end_time TIME NULL;

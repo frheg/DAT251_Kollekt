@@ -5,7 +5,9 @@ import com.kollekt.api.dto.CreateShoppingItemRequest
 import com.kollekt.api.dto.MarkSupplyBoughtRequest
 import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.api.dto.UpdateShoppingItemRequest
+import com.kollekt.domain.MemberStatus
 import com.kollekt.domain.ShoppingItem
+import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.ShoppingItemRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,7 +16,9 @@ import java.time.LocalDateTime
 @Service
 class ShoppingOperations(
     private val shoppingItemRepository: ShoppingItemRepository,
+    private val memberRepository: MemberRepository,
     private val eventPublisher: IntegrationEventPublisher,
+    private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
     private val economyOperations: EconomyOperations,
 ) {
@@ -38,6 +42,19 @@ class ShoppingOperations(
                 ),
             )
         eventPublisher.taskEvent("SHOPPING_ITEM_CREATED", saved.toDto())
+
+        val others =
+            memberRepository.findAllByCollectiveCode(collectiveCode)
+                .filter { it.status == MemberStatus.ACTIVE && it.name != actorName }
+                .map { it.name }
+        if (others.isNotEmpty()) {
+            notificationService.createGroupNotification(
+                userNames = others,
+                message = "$actorName added '${request.item}' to the shopping list",
+                type = "SHOPPING_ITEM_ADDED",
+            )
+        }
+
         return saved.toDto()
     }
 

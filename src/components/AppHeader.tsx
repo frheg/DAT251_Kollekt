@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  User, LogOut, Bell, Mail, ArrowRightLeft, Key, Trash2, Settings,
+  User, LogOut, Bell, Mail, ArrowRightLeft, Key, X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '../context/UserContext';
@@ -20,25 +20,18 @@ const pageTitles: Record<string, string> = {
   '/profile':     'Profile',
 };
 
-interface Notification { id: number; userName: string; message: string; timestamp: string; read: boolean; }
-
 export default function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, setCurrentUser, handleLogout } = useUser();
+  const {
+    currentUser, setCurrentUser, handleLogout,
+    notifications, dismissNotification, clearAllNotifications, markAllNotificationsRead,
+  } = useUser();
   const [showMenu, setShowMenu] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const title = pageTitles[location.pathname] ?? 'Kollekt';
-
-  useEffect(() => {
-    if (!currentUser) return;
-    api.get<Notification[]>(`/notifications/${encodeURIComponent(currentUser.name)}`)
-      .then(setNotifications)
-      .catch(() => {});
-  }, [currentUser]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -54,18 +47,11 @@ export default function AppHeader() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkRead = async () => {
-    if (!currentUser) return;
-    await api.post(`/notifications/${encodeURIComponent(currentUser.name)}/read`, {});
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
   const handleStatusChange = async (status: MemberStatus) => {
     if (!currentUser) return;
     try {
       await api.patch('/members/status', { memberName: currentUser.name, status });
-      const updated = { ...currentUser, status };
-      setCurrentUser(updated);
+      setCurrentUser({ ...currentUser, status });
     } catch {}
   };
 
@@ -80,8 +66,7 @@ export default function AppHeader() {
     setShowMenu(false);
     try {
       await api.patch(`/members/leave-collective?memberName=${encodeURIComponent(currentUser.name)}`);
-      const updated = { ...currentUser, collectiveCode: '' };
-      setCurrentUser(updated);
+      setCurrentUser({ ...currentUser, collectiveCode: '' });
       navigate('/create-household');
     } catch {}
   };
@@ -132,18 +117,31 @@ export default function AppHeader() {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs font-semibold">Notifications</p>
-                      {unreadCount > 0 && (
-                        <button onClick={handleMarkRead} className="text-[10px] text-primary font-medium">
-                          Mark all read
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {unreadCount > 0 && (
+                          <button onClick={markAllNotificationsRead} className="text-[10px] text-primary font-medium">
+                            Mark all read
+                          </button>
+                        )}
+                        {notifications.length > 0 && (
+                          <button onClick={clearAllNotifications} className="text-[10px] text-muted-foreground hover:text-destructive transition-colors font-medium">
+                            Clear all
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {notifications.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-2">All caught up! ✅</p>
                     )}
                     {notifications.slice(0, 6).map((n) => (
-                      <div key={n.id} className={`rounded-lg p-2 text-xs ${n.read ? 'bg-muted/20' : 'bg-primary/10 border border-primary/20'}`}>
-                        <p className="text-foreground">{n.message}</p>
+                      <div key={n.id} className={`group relative rounded-lg p-2 text-xs ${n.read ? 'bg-muted/20' : 'bg-primary/10 border border-primary/20'}`}>
+                        <button
+                          onClick={() => dismissNotification(n.id)}
+                          className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted/60"
+                        >
+                          <X className="h-2.5 w-2.5 text-muted-foreground" />
+                        </button>
+                        <p className="text-foreground pr-4">{n.message}</p>
                         <p className="text-muted-foreground text-[9px] mt-0.5">
                           {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>

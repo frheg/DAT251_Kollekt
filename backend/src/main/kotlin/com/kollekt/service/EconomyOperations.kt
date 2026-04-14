@@ -27,6 +27,7 @@ class EconomyOperations(
     private val pantEntryRepository: PantEntryRepository,
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
+    private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
     private val statsCacheService: StatsCacheService,
 ) {
@@ -83,6 +84,17 @@ class EconomyOperations(
         val dto = saved.toDto()
         eventPublisher.economyEvent("EXPENSE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "EXPENSE_CREATED", dto)
+
+        val perPerson = request.amount / participants.size
+        val debtors = participants.filter { it != actorName }
+        for (debtor in debtors) {
+            notificationService.createCustomNotification(
+                userName = debtor,
+                message = "$actorName paid for '${request.description}' — you owe ${"%.0f".format(perPerson.toDouble())} kr",
+                type = "EXPENSE_OWED",
+            )
+        }
+
         return dto
     }
 

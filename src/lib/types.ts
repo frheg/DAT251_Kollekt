@@ -42,6 +42,7 @@ export interface CalendarEvent {
   title: string;
   date: string;
   time: string;
+  endTime?: string | null;
   type: EventType;
   organizer: string;
   attendees: number;
@@ -188,6 +189,27 @@ export interface ChatPoll {
   question: string;
   options: ChatPollOption[];
 }
+
+export type NotificationType =
+  | 'TASK_ASSIGNED'
+  | 'TASK_DEADLINE_SOON'
+  | 'TASK_OVERDUE'
+  | 'NEW_MESSAGE'
+  | 'EXPENSE_OWED'
+  | 'SHOPPING_ITEM_ADDED'
+  | 'EVENT_ADDED'
+  | string;
+
+export interface Notification {
+  id: number;
+  userName: string;
+  message: string;
+  type: NotificationType;
+  timestamp: string;
+  read: boolean;
+}
+
+export type NotificationPreferences = Record<string, boolean>;
 
 export interface ChatMessage {
   id: number;

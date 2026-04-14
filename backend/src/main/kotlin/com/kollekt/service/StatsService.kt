@@ -219,7 +219,7 @@ class StatsService(
             penaltyXp = penaltyXp,
         )
 
-    private fun CalendarEvent.toDto() = EventDto(id, title, date, time, type, organizer, attendees, description)
+    private fun CalendarEvent.toDto() = EventDto(id, title, date, time, endTime, type, organizer, attendees, description)
 
     private fun Expense.toDto() =
         ExpenseDto(

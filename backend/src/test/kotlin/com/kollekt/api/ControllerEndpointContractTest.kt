@@ -288,6 +288,7 @@ class ControllerEndpointContractTest {
                     title = request.title,
                     date = request.date,
                     time = request.time,
+                    endTime = null,
                     type = request.type,
                     organizer = request.organizer,
                     attendees = request.attendees,

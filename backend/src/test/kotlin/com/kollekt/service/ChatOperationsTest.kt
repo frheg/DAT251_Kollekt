@@ -26,6 +26,7 @@ class ChatOperationsTest {
     private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var realtimeUpdateService: RealtimeUpdateService
+    private lateinit var notificationService: NotificationService
     private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var operations: ChatOperations
 
@@ -36,8 +37,17 @@ class ChatOperationsTest {
         collectiveRepository = mock()
         eventPublisher = mock()
         realtimeUpdateService = mock()
+        notificationService = mock()
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        operations = ChatOperations(chatMessageRepository, eventPublisher, realtimeUpdateService, collectiveAccessService)
+        operations =
+            ChatOperations(
+                chatMessageRepository,
+                memberRepository,
+                eventPublisher,
+                realtimeUpdateService,
+                notificationService,
+                collectiveAccessService,
+            )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
 
