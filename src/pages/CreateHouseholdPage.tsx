@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Home, Users, MapPin, ArrowRight, ArrowLeft, Plus, X, DoorOpen, Copy, Check, KeyRound } from 'lucide-react';
-import { api } from '../lib/api';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { api, getUserMessage } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import type { AppUser } from '../lib/types';
 
 export default function CreateHouseholdPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { currentUser, setCurrentUser, handleLogout } = useUser();
 
   const [setupMode, setSetupMode] = useState<'create' | 'join'>('create');
@@ -53,13 +56,13 @@ export default function CreateHouseholdPage() {
         .filter((room) => room.name);
 
       if (roomConfigs.length === 0) {
-        setError('Add at least one room');
+        setError(t('createHousehold.errors.addRoom'));
         setLoading(false);
         return;
       }
 
       const res = await api.post<{ joinCode: string }>('/onboarding/collectives', {
-        name: houseName || address || 'My Household',
+        name: houseName || address || t('createHousehold.defaultHouseholdName'),
         ownerUserId: currentUser.id,
         numRooms: roomConfigs.length,
         residents: [currentUser.name],
@@ -71,7 +74,7 @@ export default function CreateHouseholdPage() {
       setCurrentUser(updated);
       setStep(3);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not create household');
+      setError(getUserMessage(err, t('createHousehold.errors.createFailure')));
     } finally {
       setLoading(false);
     }
@@ -100,7 +103,7 @@ export default function CreateHouseholdPage() {
       setCurrentUser(joined);
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not join household');
+      setError(getUserMessage(err, t('createHousehold.errors.joinFailure')));
     } finally {
       setJoining(false);
     }
@@ -112,15 +115,24 @@ export default function CreateHouseholdPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
+    <div className="relative min-h-screen bg-background flex flex-col items-center justify-center px-6">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm space-y-6"
       >
         <div className="text-center">
-          <h1 className="font-display text-2xl font-bold">Create Your Household</h1>
-          <p className="text-sm text-muted-foreground mt-1">Step {step} of 3</p>
+          <h1 className="font-display text-2xl font-bold">
+            {setupMode === 'create' ? t('createHousehold.titleCreate') : t('createHousehold.titleJoin')}
+          </h1>
+          {setupMode === 'create' && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {t('createHousehold.stepOf', { step, total: 3 })}
+            </p>
+          )}
         </div>
 
         <div className="flex gap-1 glass rounded-xl p-1">
@@ -130,7 +142,7 @@ export default function CreateHouseholdPage() {
               setupMode === 'create' ? 'gradient-primary text-primary-foreground' : 'text-muted-foreground'
             }`}
           >
-            Create Home
+            {t('createHousehold.createHome')}
           </button>
           <button
             onClick={() => setSetupMode('join')}
@@ -138,7 +150,7 @@ export default function CreateHouseholdPage() {
               setupMode === 'join' ? 'gradient-primary text-primary-foreground' : 'text-muted-foreground'
             }`}
           >
-            Join Home
+            {t('createHousehold.joinHome')}
           </button>
         </div>
 
@@ -156,11 +168,11 @@ export default function CreateHouseholdPage() {
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-accent/30 to-accent/5 flex items-center justify-center mx-auto">
                 <KeyRound className="h-7 w-7 text-foreground" />
               </div>
-              <p className="text-sm text-center text-muted-foreground">Join an existing household with invite code</p>
+              <p className="text-sm text-center text-muted-foreground">{t('createHousehold.joinIntro')}</p>
               <input
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="Enter invite code"
+                placeholder={t('createHousehold.enterInviteCode')}
                 className="w-full bg-muted/50 rounded-lg px-3 py-2.5 text-sm font-mono tracking-wider placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -170,7 +182,7 @@ export default function CreateHouseholdPage() {
               disabled={joining || !joinCode.trim()}
               className="w-full gradient-primary rounded-xl py-3 text-sm font-semibold text-primary-foreground flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {joining ? 'Joining...' : <>Join Home <ArrowRight className="h-4 w-4" /></>}
+              {joining ? t('createHousehold.joining') : <>{t('createHousehold.joinButton')} <ArrowRight className="h-4 w-4" /></>}
             </button>
           </motion.div>
         )}
@@ -183,22 +195,22 @@ export default function CreateHouseholdPage() {
                 <Home className="h-7 w-7 text-primary-foreground" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Household Name</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t('createHousehold.householdName')}</label>
                 <input
                   value={houseName}
                   onChange={(e) => setHouseName(e.target.value)}
-                  placeholder="e.g. Guttas Hus"
+                  placeholder={t('createHousehold.householdNamePlaceholder')}
                   className="w-full bg-muted/50 rounded-lg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Address</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t('createHousehold.address')}</label>
                 <div className="glass rounded-lg flex items-center gap-3 px-3">
                   <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                   <input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Street address: e.g. Strandgaten 42"
+                    placeholder={t('createHousehold.addressPlaceholder')}
                     className="w-full bg-transparent py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none"
                   />
                 </div>
@@ -209,7 +221,7 @@ export default function CreateHouseholdPage() {
               disabled={!houseName.trim() && !address.trim()}
               className="w-full gradient-primary rounded-xl py-3 text-sm font-semibold text-primary-foreground flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              Next <ArrowRight className="h-4 w-4" />
+              {t('common.next')} <ArrowRight className="h-4 w-4" />
             </button>
           </motion.div>
         )}
@@ -221,12 +233,12 @@ export default function CreateHouseholdPage() {
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-secondary/30 to-secondary/5 flex items-center justify-center mx-auto">
                 <DoorOpen className="h-7 w-7 text-foreground" />
               </div>
-              <p className="text-sm text-center text-muted-foreground">Add shared rooms and how long they usually take to clean — these become collective tasks for everyone. Private spaces like your own bedroom are not included.</p>
+              <p className="text-sm text-center text-muted-foreground">{t('createHousehold.roomSetupDescription')}</p>
               <div className="space-y-3">
                 {rooms.map((room, i) => (
                   <div key={i} className="glass rounded-xl p-3 space-y-3">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-medium text-muted-foreground">Room {i + 1}</span>
+                      <span className="text-xs font-medium text-muted-foreground">{t('createHousehold.room', { index: i + 1 })}</span>
                       {rooms.length > 1 && (
                         <button onClick={() => removeRoom(i)} className="h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center">
                           <X className="h-4 w-4 text-muted-foreground" />
@@ -235,16 +247,16 @@ export default function CreateHouseholdPage() {
                     </div>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Room name</label>
+                        <label className="text-xs text-muted-foreground mb-1 block">{t('createHousehold.roomName')}</label>
                         <input
                           value={room.name}
                           onChange={(e) => updateRoomName(i, e.target.value)}
-                          placeholder="e.g. Kitchen"
+                          placeholder={t('createHousehold.roomNamePlaceholder')}
                           className="w-full bg-muted/50 rounded-lg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">Minutes to clean</label>
+                        <label className="text-xs text-muted-foreground mb-1 block">{t('createHousehold.minutesToClean')}</label>
                         <input
                           type="number"
                           min="1"
@@ -262,20 +274,20 @@ export default function CreateHouseholdPage() {
                 onClick={addRoom}
                 className="w-full glass rounded-xl py-3 text-sm font-medium text-muted-foreground flex items-center justify-center gap-2"
               >
-                <Plus className="h-4 w-4" /> Add room
+                <Plus className="h-4 w-4" /> {t('createHousehold.addRoom')}
               </button>
             </div>
             {error && <p className="text-xs text-destructive text-center">{error}</p>}
             <div className="flex gap-3">
               <button onClick={() => setStep(1)} className="flex-1 glass rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2">
-                <ArrowLeft className="h-4 w-4" /> Back
+                <ArrowLeft className="h-4 w-4" /> {t('common.back')}
               </button>
               <button
                 onClick={handleCreateCollective}
                 disabled={loading}
                 className="flex-1 gradient-primary rounded-xl py-3 text-sm font-semibold text-primary-foreground flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {loading ? 'Creating...' : <> Next <ArrowRight className="h-4 w-4" /></>}
+                {loading ? t('createHousehold.creating') : <>{t('common.next')} <ArrowRight className="h-4 w-4" /></>}
               </button>
             </div>
           </motion.div>
@@ -290,7 +302,7 @@ export default function CreateHouseholdPage() {
               </div>
 
               <div className="bg-muted/30 rounded-xl p-3 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Share this code with roommates</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('createHousehold.shareCode')}</p>
                 <div className="flex items-center justify-center gap-2">
                   <span className="font-mono text-lg font-bold tracking-widest text-primary">{createdCode}</span>
                   <button onClick={handleCopy} className="h-8 w-8 rounded-lg glass flex items-center justify-center">
@@ -303,7 +315,7 @@ export default function CreateHouseholdPage() {
 
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">or invite by email</span>
+                <span className="text-xs text-muted-foreground">{t('createHousehold.inviteByEmail')}</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
 
@@ -313,7 +325,7 @@ export default function CreateHouseholdPage() {
                     type="email"
                     value={email}
                     onChange={(e) => updateInvite(i, e.target.value)}
-                    placeholder={`Roommate ${i + 1} email`}
+                    placeholder={t('createHousehold.roommateEmail', { index: i + 1 })}
                     className="flex-1 bg-muted/50 rounded-lg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {invites.length > 1 && (
@@ -328,7 +340,7 @@ export default function CreateHouseholdPage() {
                 onClick={addInvite}
                 className="w-full glass rounded-lg py-2 text-xs font-medium text-muted-foreground flex items-center justify-center gap-1"
               >
-                <Plus className="h-3 w-3" /> Add another
+                <Plus className="h-3 w-3" /> {t('createHousehold.addAnother')}
               </button>
             </div>
 
@@ -336,14 +348,14 @@ export default function CreateHouseholdPage() {
               onClick={handleSendInvites}
               className="w-full gradient-primary rounded-xl py-3 text-sm font-semibold text-primary-foreground flex items-center justify-center gap-2"
             >
-              Create <ArrowRight className="h-4 w-4" />
+              {t('common.create')} <ArrowRight className="h-4 w-4" />
             </button>
 
             <button
               onClick={() => navigate('/', { replace: true })}
               className="w-full text-center text-xs text-muted-foreground"
             >
-              Skip for now
+              {t('createHousehold.skipForNow')}
             </button>
           </motion.div>
         )}
@@ -352,7 +364,7 @@ export default function CreateHouseholdPage() {
           onClick={goBackToAuth}
           className="w-full text-center text-xs text-muted-foreground"
         >
-          Back to login/sign up
+          {t('createHousehold.backToAuth')}
         </button>
       </motion.div>
     </div>

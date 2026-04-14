@@ -1,7 +1,9 @@
-import { motion } from "framer-motion";
+import { motion, type HTMLMotionProps } from "framer-motion";
 import React from "react";
 
-export const AnimatedButton = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+type AnimatedButtonProps = HTMLMotionProps<"button">;
+
+export const AnimatedButton = ({ children, ...props }: AnimatedButtonProps) => (
   <motion.button
     whileHover={{ scale: 1.07, boxShadow: "0 4px 24px #a5b4fc33" }}
     whileTap={{ scale: 0.96 }}

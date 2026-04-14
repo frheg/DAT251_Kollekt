@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
-import { api, setAccessToken, setRefreshToken } from '../lib/api';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { api, getUserMessage, setAccessToken, setRefreshToken } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import type { AuthResponse, AppUser, Invitation } from '../lib/types';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { setCurrentUser } = useUser();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -57,14 +60,17 @@ export default function LoginPage() {
 
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setError(getUserMessage(err, t('errors.generic')));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
+    <div className="relative min-h-screen bg-background flex flex-col items-center justify-center px-6">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -73,7 +79,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center">
           <h1 className="font-display text-4xl font-bold text-gradient">Kollekt</h1>
-          <p className="text-sm text-muted-foreground mt-2">Shared living, simplified</p>
+          <p className="text-sm text-muted-foreground mt-2">{t('app.tagline')}</p>
         </div>
 
         {/* Mode tabs */}
@@ -86,7 +92,7 @@ export default function LoginPage() {
                 mode === m ? 'gradient-primary text-primary-foreground' : 'text-muted-foreground'
               }`}
             >
-              {m === 'login' ? 'Log In' : 'Sign Up'}
+              {m === 'login' ? t('auth.loginTab') : t('auth.signUpTab')}
             </button>
           ))}
         </div>
@@ -107,7 +113,7 @@ export default function LoginPage() {
                     <input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Full name"
+                      placeholder={t('auth.fullName')}
                       className="w-full bg-transparent py-3 text-sm placeholder:text-muted-foreground focus:outline-none"
                       required
                     />
@@ -122,7 +128,7 @@ export default function LoginPage() {
                     type="text"
                     value={loginName}
                     onChange={(e) => setLoginName(e.target.value)}
-                    placeholder="Username"
+                    placeholder={t('auth.username')}
                     className="w-full bg-transparent py-3 text-sm placeholder:text-muted-foreground focus:outline-none"
                     required
                   />
@@ -134,7 +140,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email address"
+                    placeholder={t('auth.emailAddress')}
                     className="w-full bg-transparent py-3 text-sm placeholder:text-muted-foreground focus:outline-none"
                     required
                   />
@@ -147,12 +153,16 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder={t('auth.password')}
                   className="w-full bg-transparent py-3 text-sm placeholder:text-muted-foreground focus:outline-none"
                   required
                   minLength={8}
                 />
-                <button type="button" onClick={() => setShowPassword((v) => !v)}>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                >
                   {showPassword
                     ? <EyeOff className="h-4 w-4 text-muted-foreground" />
                     : <Eye className="h-4 w-4 text-muted-foreground" />}
@@ -170,9 +180,9 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full gradient-primary rounded-xl py-3 text-sm font-semibold text-primary-foreground flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {loading ? 'Please wait...' : (
+            {loading ? t('auth.pleaseWait') : (
               <>
-                {mode === 'login' ? 'Log In' : 'Create Account'}
+                {mode === 'login' ? t('auth.logIn') : t('auth.createAccount')}
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
@@ -180,7 +190,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
-          Got an email invite? Check your inbox for a link to join automatically.
+          {t('auth.inviteHint')}
         </p>
       </motion.div>
     </div>

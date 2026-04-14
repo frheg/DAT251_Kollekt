@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Image as ImageIcon, BarChart3, X, Smile } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
+import { formatTime } from '../i18n/helpers';
 import { connectCollectiveRealtime } from '../lib/realtime';
 import type { ChatMessage } from '../lib/types';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮'];
 
 export default function ChatPage() {
+  const { t } = useTranslation();
   const { currentUser } = useUser();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -116,7 +119,7 @@ export default function ChatPage() {
       <div className="flex items-center gap-2 pt-4 pb-2">
         <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
         <p className="text-[10px] text-muted-foreground">
-          Live • {onlineCount > 0 ? `${onlineCount} online` : 'connecting...'}
+          {t('common.live')} • {onlineCount > 0 ? t('chat.onlineCount', { count: onlineCount }) : t('common.connecting')}
         </p>
       </div>
 
@@ -139,7 +142,7 @@ export default function ChatPage() {
                   {m.imageData && (
                     <img
                       src={`data:${m.imageMimeType};base64,${m.imageData}`}
-                      alt={m.imageFileName ?? 'image'}
+                      alt={m.imageFileName ?? t('chat.imageAlt')}
                       className="rounded-lg mt-1 max-h-40 object-cover"
                     />
                   )}
@@ -164,7 +167,7 @@ export default function ChatPage() {
                     </div>
                   )}
                   <p className={`text-[9px] mt-1 ${isSelf ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {formatTime(m.timestamp)}
                   </p>
                 </div>
 
@@ -172,7 +175,7 @@ export default function ChatPage() {
                   <button
                     onClick={() => setReactingId(reactingId === m.id ? null : m.id)}
                     className="h-6 w-6 rounded-full glass flex items-center justify-center"
-                    aria-label="React to message"
+                    aria-label={t('chat.reactToMessage')}
                   >
                     <Smile className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
@@ -220,24 +223,24 @@ export default function ChatPage() {
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="glass rounded-xl p-3 space-y-2 mb-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold">Create Poll</p>
+                <p className="text-xs font-semibold">{t('chat.createPoll')}</p>
                 <button onClick={() => setShowPollForm(false)}><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
               </div>
               <input value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)}
-                placeholder="Question..."
+                placeholder={t('chat.pollQuestionPlaceholder')}
                 className="w-full bg-muted/50 rounded-lg px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
               {pollOptions.map((opt, i) => (
                 <input key={i} value={opt}
                   onChange={(e) => setPollOptions((prev) => prev.map((o, j) => j === i ? e.target.value : o))}
-                  placeholder={`Option ${i + 1}`}
+                  placeholder={t('chat.pollOption', { index: i + 1 })}
                   className="w-full bg-muted/50 rounded-lg px-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
               ))}
               <div className="flex gap-2">
                 <button onClick={() => setPollOptions((p) => [...p, ''])} className="text-[10px] text-primary font-medium">
-                  + Add option
+                  {t('chat.addOption')}
                 </button>
                 <button onClick={sendPoll} className="ml-auto px-3 py-1 rounded-lg gradient-primary text-[10px] font-semibold text-primary-foreground">
-                  Send Poll
+                  {t('chat.sendPoll')}
                 </button>
               </div>
             </div>
@@ -249,20 +252,20 @@ export default function ChatPage() {
       <div className="flex gap-2 pt-2 pb-1">
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic"
           className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) sendImage(f); }} />
-        <button onClick={() => fileInputRef.current?.click()} className="h-10 w-10 rounded-xl glass flex items-center justify-center shrink-0">
+        <button onClick={() => fileInputRef.current?.click()} className="h-10 w-10 rounded-xl glass flex items-center justify-center shrink-0" aria-label={t('chat.sendImage')}>
           <ImageIcon className="h-4 w-4 text-muted-foreground" />
         </button>
-        <button onClick={() => setShowPollForm((v) => !v)} className="h-10 w-10 rounded-xl glass flex items-center justify-center shrink-0">
+        <button onClick={() => setShowPollForm((v) => !v)} className="h-10 w-10 rounded-xl glass flex items-center justify-center shrink-0" aria-label={t('chat.togglePollForm')}>
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
         </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-          placeholder="Type a message..."
+          placeholder={t('chat.messagePlaceholder')}
           className="flex-1 glass rounded-xl px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
-        <button onClick={sendMessage} className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center shrink-0">
+        <button onClick={sendMessage} className="h-10 w-10 rounded-xl gradient-primary flex items-center justify-center shrink-0" aria-label={t('common.send')}>
           <Send className="h-4 w-4 text-primary-foreground" />
         </button>
       </div>
