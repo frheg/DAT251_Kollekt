@@ -1,0 +1,404 @@
+{
+  "app": {
+    "name": "Kollekt",
+    "tagline": "Shared living, simplified",
+    "logoAlt": "Kollekt logo"
+  },
+  "languages": {
+    "en": "English",
+    "no": "Norwegian"
+  },
+  "languageSwitcher": {
+    "label": "Language",
+    "ariaLabel": "Select language"
+  },
+  "common": {
+    "seeAll": "See all",
+    "back": "Back",
+    "next": "Next",
+    "today": "Today",
+    "loading": "Loading...",
+    "connecting": "connecting...",
+    "live": "Live",
+    "or": "or",
+    "active": "Active",
+    "connected": "Connected",
+    "create": "Create",
+    "send": "Send",
+    "add": "Add",
+    "all": "All",
+    "mine": "Mine",
+    "done": "Done",
+    "incomplete": "Incomplete",
+    "undo": "Undo",
+    "bought": "Bought",
+    "taskCategories": {
+      "CLEANING": "Cleaning",
+      "SHOPPING": "Shopping",
+      "OTHER": "Other"
+    },
+    "recurrence": {
+      "NONE": "None",
+      "DAILY": "Daily",
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly"
+    },
+    "eventTypes": {
+      "PARTY": "Party",
+      "MOVIE": "Movie",
+      "DINNER": "Dinner",
+      "OTHER": "Other"
+    },
+    "memberStatus": {
+      "ACTIVE": "Active",
+      "AWAY": "Away",
+      "LEFT": "Left"
+    },
+    "leaderboardPeriods": {
+      "OVERALL": "Overall",
+      "YEAR": "Year",
+      "MONTH": "Month"
+    },
+    "expenseCategories": {
+      "Groceries": "Groceries",
+      "Bills": "Bills",
+      "Cleaning": "Cleaning",
+      "Entertainment": "Entertainment",
+      "Food": "Food",
+      "Other": "Other"
+    },
+    "drinkingTypes": {
+      "drink": "Drink",
+      "distribute": "Distribute",
+      "vote": "Vote",
+      "challenge": "Challenge"
+    },
+    "taskAssignmentReasons": {
+      "LATE": "Completed late"
+    }
+  },
+  "errors": {
+    "network": "Couldn't connect right now. Please try again in a moment.",
+    "sessionExpired": "Your session has expired. Sign in again and try once more.",
+    "forbidden": "You don't have access to this right now.",
+    "notFound": "What you're looking for wasn't found.",
+    "invalidCredentials": "Your username or password is incorrect.",
+    "alreadyExists": "This already exists.",
+    "alreadyInCollective": "You're already part of a household.",
+    "invalidJoinCode": "That code doesn't look right. Check it and try again.",
+    "generic": "Something went wrong. Please try again."
+  },
+  "header": {
+    "pageTitles": {
+      "tasks": "Tasks",
+      "calendar": "Calendar",
+      "chat": "Chat",
+      "economy": "Economy",
+      "pantTracker": "Pant Tracker",
+      "leaderboard": "Leaderboard",
+      "games": "Games",
+      "profile": "Profile"
+    },
+    "notifications": "Notifications",
+    "markAllRead": "Mark all read",
+    "clearAll": "Clear all",
+    "allCaughtUp": "All caught up!",
+    "openNotifications": "Open notifications",
+    "openAccountMenu": "Open account menu",
+    "profile": "Profile",
+    "inviteFriends": "Invite friends",
+    "resetPassword": "Reset password",
+    "switchCollective": "Switch household",
+    "logOut": "Log out"
+  },
+  "bottomNav": {
+    "home": "Home",
+    "tasks": "Tasks",
+    "calendar": "Calendar",
+    "chat": "Chat",
+    "economy": "Economy",
+    "board": "Board",
+    "games": "Games"
+  },
+  "auth": {
+    "loginTab": "Log In",
+    "signUpTab": "Sign Up",
+    "fullName": "Full name",
+    "username": "Username",
+    "emailAddress": "Email address",
+    "password": "Password",
+    "logIn": "Log In",
+    "createAccount": "Create Account",
+    "pleaseWait": "Please wait...",
+    "inviteHint": "Got an email invite? Check your inbox for a link to join automatically.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "createHousehold": {
+    "titleCreate": "Create Your Household",
+    "titleJoin": "Join a Household",
+    "stepOf": "Step {{step}} of {{total}}",
+    "createHome": "Create home",
+    "joinHome": "Join home",
+    "joinIntro": "Join an existing household with an invite code",
+    "enterInviteCode": "Enter invite code",
+    "joining": "Joining...",
+    "joinButton": "Join home",
+    "householdName": "Household name",
+    "defaultHouseholdName": "My Household",
+    "householdNamePlaceholder": "e.g. The House on Strandgaten",
+    "address": "Address",
+    "addressPlaceholder": "Street address, e.g. Strandgaten 42",
+    "roomSetupDescription": "Add shared rooms and how long they usually take to clean. These become household tasks for everyone. Private spaces like your own bedroom are not included.",
+    "room": "Room {{index}}",
+    "roomName": "Room name",
+    "roomNamePlaceholder": "e.g. Kitchen",
+    "minutesToClean": "Minutes to clean",
+    "addRoom": "Add room",
+    "creating": "Creating...",
+    "shareCode": "Share this code with roommates",
+    "inviteByEmail": "or invite by email",
+    "roommateEmail": "Roommate {{index}} email",
+    "addAnother": "Add another",
+    "skipForNow": "Skip for now",
+    "backToAuth": "Back to login/sign up",
+    "errors": {
+      "addRoom": "Add at least one room",
+      "createFailure": "Couldn't create household",
+      "joinFailure": "Couldn't join household"
+    }
+  },
+  "dashboard": {
+    "welcomeBack": "Welcome back",
+    "householdTitle": "Your Household",
+    "level": "Level {{level}}",
+    "rank": "Rank #{{rank}}",
+    "stats": {
+      "tasksDone": "Tasks done",
+      "balance": "Balance",
+      "xpEarned": "XP earned"
+    },
+    "onlineRoommates_one": "{{count}} roommate online",
+    "onlineRoommates_other": "{{count}} roommates online",
+    "upcomingTasks": "Upcoming Tasks",
+    "noUpcomingTasks": "No upcoming tasks",
+    "upcomingEvents": "Upcoming Events",
+    "noUpcomingEvents": "No upcoming events",
+    "recentExpenses": "Recent Expenses",
+    "noRecentExpenses": "No recent expenses",
+    "paidBy": "Paid by {{name}}",
+    "xpValue": "+{{xp}} XP"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "tabs": {
+      "tasks": "Tasks",
+      "shopping": "Shopping List"
+    },
+    "filters": {
+      "ALL": "All",
+      "MINE": "Mine",
+      "TODAY": "Today",
+      "INCOMPLETE": "Incomplete",
+      "DONE": "Done"
+    },
+    "newTask": "New Task",
+    "editTask": "Edit Task",
+    "taskTitlePlaceholder": "Task title...",
+    "xpReward": "XP reward",
+    "addTask": "Add Task",
+    "saveChanges": "Save changes",
+    "overdue": "Overdue",
+    "penaltyApplied": "Penalty applied",
+    "completeLate": "Complete late (50%)",
+    "regretMissed": "Regret missed (50%)",
+    "feedbackPlaceholder": "Add feedback...",
+    "feedbackAnonymous": "Anonymous",
+    "feedbackPublic": "Public",
+    "feedbackImageAttached": "Image attached",
+    "feedbackAddImage": "Add image",
+    "feedbackRemoveImage": "Remove",
+    "feedbackAnonymousAuthor": "Anonymous",
+    "feedbackImageAlt": "Task feedback image",
+    "restockSupplies": "Restock Supplies",
+    "restockHint": "Add items that need to be bought",
+    "noItemsYet": "No items yet. Add supplies in Restock.",
+    "addedBy": "Added by {{name}}",
+    "restockTitle": "Restock",
+    "restockSubtitle": "Shared supplies tracker",
+    "addSupply": "Add Supply",
+    "supplyNamePlaceholder": "Supply name...",
+    "toggleComments": "Toggle feedback",
+    "editTaskAria": "Edit task",
+    "deleteTaskAria": "Delete task",
+    "editShoppingItemAria": "Edit shopping item",
+    "deleteShoppingItemAria": "Delete shopping item",
+    "shopping": {
+      "amountPlaceholder": "Amount (NOK)",
+      "splitWith": "Split with",
+      "purchaseDate": "Purchase date",
+      "logPurchase": "Log",
+      "closePurchaseForm": "Close purchase form"
+    }
+  },
+  "calendar": {
+    "syncGoogleCalendar": "Sync Google Calendar",
+    "syncConnected": "Connected, click to disconnect",
+    "syncDisconnected": "Connect to import and export events",
+    "newEvent": "New Event",
+    "eventTitlePlaceholder": "Event title...",
+    "addEvent": "Add Event",
+    "noEventsForDay": "No events for this day",
+    "startTime": "Start",
+    "endTimeOptional": "End (optional)",
+    "editEvent": "Edit Event",
+    "saveChanges": "Save changes"
+  },
+  "chat": {
+    "onlineCount": "{{count}} online",
+    "createPoll": "Create Poll",
+    "pollQuestionPlaceholder": "Question...",
+    "pollOption": "Option {{index}}",
+    "addOption": "+ Add option",
+    "sendPoll": "Send Poll",
+    "messagePlaceholder": "Type a message...",
+    "reactToMessage": "React to message",
+    "sendImage": "Send image",
+    "togglePollForm": "Toggle poll form",
+    "imageAlt": "Shared image"
+  },
+  "economy": {
+    "title": "Economy",
+    "yourBalance": "Your balance",
+    "owe": "You owe {{name}} {{amount}}",
+    "othersOweYou": "Others owe you",
+    "allSettled": "All settled!",
+    "payAmount": "Pay {{amount}}",
+    "settleAll": "Settle all",
+    "newExpense": "New Expense",
+    "expenseTitlePlaceholder": "What was it for?",
+    "expenseAmountPlaceholder": "Amount (NOK)",
+    "splitWith": "Split with",
+    "addExpense": "Add Expense",
+    "pantTracker": "Pant Tracker",
+    "pantTrackerSummary": "{{bottles}} bottles • {{current}} / {{goal}} goal",
+    "pantTrackerEmpty": "Track bottle returns toward your goal",
+    "balances": "Balances",
+    "settled": "Settled",
+    "expenseHistory": "Expense History",
+    "splitCount": "Split {{count}}"
+  },
+  "pant": {
+    "title": "Pant Tracker",
+    "subtitle": "Track bottles and save toward {{goal}}",
+    "bottlesCollected": "bottles collected",
+    "earnedSoFar": "earned so far",
+    "customAmount": "Custom amount",
+    "addAmount": "Add amount",
+    "savingGoal": "Saving Goal",
+    "goalTitle": "Pant Goal",
+    "saved": "{{amount}} saved",
+    "goal": "{{amount}} goal",
+    "goalReached": "Goal reached!",
+    "bottlesToGo": "{{count}} bottles to go",
+    "collectionHistory": "Collection History",
+    "historyEntry": "{{name}} added {{count}} bottles"
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "Who's the best roommate?",
+    "monthlyPrize": "Monthly Prize",
+    "monthlyPrizePlaceholder": "e.g. Pizza for the winner",
+    "savePrize": "Save prize",
+    "monthlyPrizeHint": "The top performer this month wins the prize!",
+    "topThree": "Top 3",
+    "podiumView": "Podium view",
+    "fullRankings": "Full Rankings",
+    "levelShort": "Lv.{{level}}",
+    "tasksCompleted_one": "{{count}} task",
+    "tasksCompleted_other": "{{count}} tasks",
+    "streak": "{{count}}d streak",
+    "statsTitle": "{{period}} Stats",
+    "stats": {
+      "totalTasks": "Total tasks",
+      "totalXp": "Total XP",
+      "avgXp": "Avg XP",
+      "topContributor": "Top contributor"
+    },
+    "achievements": "Achievements"
+  },
+  "games": {
+    "title": "Drinking Game",
+    "subtitle": "Draw a card and take a sip",
+    "players": "Players",
+    "you": "(you)",
+    "idlePrompt": "Press \"Draw Question\" to start the game",
+    "targeting": "Targeting: {{name}}",
+    "nextQuestion": "Next Question",
+    "drawQuestion": "Draw Question",
+    "previousCards": "Previous Cards"
+  },
+  "profile": {
+    "householdCode": "Household code",
+    "copyHouseholdCode": "Copy household code",
+    "notifications": {
+      "title": "Notifications",
+      "loading": "Loading...",
+      "unread_one": "{{count}} unread",
+      "unread_other": "{{count}} unread",
+      "allCaughtUp": "All caught up",
+      "markAllAsRead": "Mark all as read",
+      "empty": "No notifications",
+      "dismiss": "Dismiss notification"
+    },
+    "notificationPreferences": {
+      "title": "Notification Settings",
+      "subtitle": "Choose which notifications you receive",
+      "types": {
+        "TASK_ASSIGNED": "Task assigned to me",
+        "TASK_DEADLINE_SOON": "Task due tomorrow",
+        "TASK_OVERDUE": "Task deadline expired",
+        "NEW_MESSAGE": "New chat message",
+        "EXPENSE_OWED": "Expense: you owe money",
+        "SHOPPING_ITEM_ADDED": "Item added to shopping list",
+        "EVENT_ADDED": "New calendar event"
+      }
+    },
+    "inviteRoommates": {
+      "title": "Invite Roommates",
+      "subtitle": "Send an email invite to join your household",
+      "emailPlaceholder": "friend@example.com",
+      "send": "Send Invite",
+      "sent": "Invite Sent!"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "subtitle": "Update your account password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password",
+      "update": "Update Password",
+      "updated": "Password Updated!"
+    },
+    "friends": {
+      "title": "Friends",
+      "subtitle": "Manage your friend list for household features",
+      "placeholder": "Friend username",
+      "add": "Add",
+      "empty": "No friends added yet.",
+      "remove": "Remove friend {{name}}"
+    },
+    "account": "Account",
+    "logOut": "Log out",
+    "leaveHousehold": "Leave Household",
+    "leaveHouseholdSubtitle": "You can join or create a new one",
+    "deleteAccount": "Delete Account",
+    "deleteAccountSubtitle": "Permanently remove your account",
+    "deleteConfirm": "Delete your account? This cannot be undone.",
+    "errors": {
+      "passwordTooShort": "Password must be at least 6 characters",
+      "passwordsMismatch": "Passwords do not match",
+      "passwordUpdateFailed": "Failed to update password",
+      "addFriendFailed": "Could not add friend"
+    }
+  }
+}

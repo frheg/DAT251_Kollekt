@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Flame, Star, Gift } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { connectCollectiveRealtime } from '../lib/realtime';
 import { useUser } from '../context/UserContext';
+import { translateKey } from '../i18n/helpers';
 import type { LeaderboardResponse, Achievement, LeaderboardPeriod } from '../lib/types';
 
 const rankIcons: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -12,14 +14,10 @@ const rankColors: Record<number, string> = {
   2: 'from-primary/30 to-primary/5 border-primary/20',
   3: 'from-accent/30 to-accent/5 border-accent/20',
 };
-
-const PERIODS: { label: string; value: LeaderboardPeriod }[] = [
-  { label: 'Overall', value: 'OVERALL' },
-  { label: 'Year',    value: 'YEAR' },
-  { label: 'Month',   value: 'MONTH' },
-];
+const PERIODS: LeaderboardPeriod[] = ['OVERALL', 'YEAR', 'MONTH'];
 
 export default function LeaderboardPage() {
+  const { t } = useTranslation();
   const { currentUser } = useUser();
   const [period, setPeriod] = useState<LeaderboardPeriod>('OVERALL');
   const [data, setData] = useState<LeaderboardResponse | null>(null);
@@ -73,8 +71,8 @@ export default function LeaderboardPage() {
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5 pt-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-xl font-bold">Leaderboard</h2>
-          <p className="text-sm text-muted-foreground mt-1">Who's the best roommate?</p>
+          <h2 className="font-display text-xl font-bold">{t('leaderboard.title')}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{t('leaderboard.subtitle')}</p>
         </div>
         <button onClick={() => setShowPrize((v) => !v)} className="h-9 w-9 rounded-xl glass flex items-center justify-center">
           <Gift className="h-4 w-4 text-secondary" />
@@ -86,14 +84,14 @@ export default function LeaderboardPage() {
         {showPrize && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="glass rounded-xl p-4 space-y-2 glow-accent">
-              <p className="text-xs font-semibold flex items-center gap-1">🏆 Monthly Prize</p>
+              <p className="text-xs font-semibold flex items-center gap-1">🏆 {t('leaderboard.monthlyPrize')}</p>
               <input value={prize} onChange={(e) => setPrize(e.target.value)}
-                placeholder="e.g. Pizza for the winner 🍕"
+                placeholder={t('leaderboard.monthlyPrizePlaceholder')}
                 className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
               <button onClick={handleSetPrize} className="w-full gradient-primary rounded-lg py-1.5 text-xs font-semibold text-primary-foreground">
-                Save Prize
+                {t('leaderboard.savePrize')}
               </button>
-              <p className="text-[10px] text-muted-foreground">Top performer this month wins the prize!</p>
+              <p className="text-[10px] text-muted-foreground">{t('leaderboard.monthlyPrizeHint')}</p>
             </div>
           </motion.div>
         )}
@@ -104,8 +102,8 @@ export default function LeaderboardPage() {
         <div className="rounded-2xl glass p-4 glow-primary/30">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-sm font-semibold">Top 3</h3>
-              <p className="text-[10px] text-muted-foreground">Podium view</p>
+              <h3 className="text-sm font-semibold">{t('leaderboard.topThree')}</h3>
+              <p className="text-[10px] text-muted-foreground">{t('leaderboard.podiumView')}</p>
             </div>
           </div>
           <div className="flex items-end justify-center gap-3 pt-2">
@@ -119,7 +117,7 @@ export default function LeaderboardPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-medium">{user.name}</p>
-                    <p className="text-[10px] text-muted-foreground">Lv.{user.level}</p>
+                    <p className="text-[10px] text-muted-foreground">{t('leaderboard.levelShort', { level: user.level })}</p>
                   </div>
                   <div className={`${podiumHeights[i]} w-20 rounded-t-xl bg-gradient-to-t ${rankColors[user.rank] ?? 'from-muted to-muted border-border'} border border-b-0 flex flex-col items-center justify-center`}>
                     <span className="text-lg">{rankIcons[user.rank] ?? `#${user.rank}`}</span>
@@ -135,19 +133,19 @@ export default function LeaderboardPage() {
 
       {/* Period filter */}
       <div className="flex gap-2">
-        {PERIODS.map((p) => (
-          <button key={p.value} onClick={() => setPeriod(p.value)}
+        {PERIODS.map((periodValue) => (
+          <button key={periodValue} onClick={() => setPeriod(periodValue)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              p.value === period ? 'gradient-primary text-primary-foreground' : 'glass text-muted-foreground'
+              periodValue === period ? 'gradient-primary text-primary-foreground' : 'glass text-muted-foreground'
             }`}>
-            {p.label}
+            {translateKey('common.leaderboardPeriods', periodValue)}
           </button>
         ))}
       </div>
 
       {/* Full rankings */}
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">Full Rankings</h3>
+        <h3 className="text-sm font-semibold text-muted-foreground">{t('leaderboard.fullRankings')}</h3>
         {data.players.map((user, i) => (
           <motion.div key={user.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
             className={`glass rounded-xl p-3.5 flex items-center gap-3 ${user.name === name ? 'glow-primary border-primary/20' : ''}`}>
@@ -160,11 +158,11 @@ export default function LeaderboardPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
                 <p className="text-sm font-medium">{user.name}</p>
-                <span className="text-[10px] text-muted-foreground">Lv.{user.level}</span>
+                <span className="text-[10px] text-muted-foreground">{t('leaderboard.levelShort', { level: user.level })}</span>
               </div>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                <span>{user.tasksCompleted} tasks</span>
-                <span className="flex items-center gap-0.5"><Flame className="h-2.5 w-2.5 text-secondary" />{user.streak}d streak</span>
+                <span>{t('leaderboard.tasksCompleted', { count: user.tasksCompleted })}</span>
+                <span className="flex items-center gap-0.5"><Flame className="h-2.5 w-2.5 text-secondary" />{t('leaderboard.streak', { count: user.streak })}</span>
                 {user.badges.length > 0 && <span>{user.badges.join('')}</span>}
               </div>
             </div>
@@ -181,14 +179,14 @@ export default function LeaderboardPage() {
         <div className="glass rounded-2xl p-4 glow-accent">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold">{PERIODS.find(p => p.value === period)?.label} Stats</p>
+            <p className="text-sm font-semibold">{t('leaderboard.statsTitle', { period: translateKey('common.leaderboardPeriods', period) })}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: 'Total tasks', value: data.weeklyStats.totalTasks.toString() },
-              { label: 'Total XP',    value: data.weeklyStats.totalXp.toString() },
-              { label: 'Avg XP',      value: Math.round(data.weeklyStats.avgPerPerson).toString() },
-              { label: 'Top contributor', value: data.weeklyStats.topContributor },
+              { label: t('leaderboard.stats.totalTasks'), value: data.weeklyStats.totalTasks.toString() },
+              { label: t('leaderboard.stats.totalXp'), value: data.weeklyStats.totalXp.toString() },
+              { label: t('leaderboard.stats.avgXp'), value: Math.round(data.weeklyStats.avgPerPerson).toString() },
+              { label: t('leaderboard.stats.topContributor'), value: data.weeklyStats.topContributor },
             ].map((s) => (
               <div key={s.label} className="bg-background/30 rounded-lg p-2">
                 <p className="text-[10px] text-muted-foreground">{s.label}</p>
@@ -202,7 +200,7 @@ export default function LeaderboardPage() {
       {/* Monthly prize display */}
       {data.monthlyPrize && (
         <div className="glass rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">🏆 Monthly Prize</p>
+          <p className="text-xs text-muted-foreground">🏆 {t('leaderboard.monthlyPrize')}</p>
           <p className="text-sm font-semibold mt-0.5">{data.monthlyPrize}</p>
         </div>
       )}
@@ -211,7 +209,7 @@ export default function LeaderboardPage() {
       {achievements.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-            <Star className="h-3.5 w-3.5" /> Achievements
+            <Star className="h-3.5 w-3.5" /> {t('leaderboard.achievements')}
           </h3>
           <div className="space-y-2">
             {achievements.map((a, i) => (

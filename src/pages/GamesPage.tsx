@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dices, Users, RefreshCw, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
+import { translateLowerKey } from '../i18n/helpers';
 import type { DrinkingQuestion } from '../lib/types';
 
 const typeColors: Record<string, string> = {
@@ -16,6 +18,7 @@ const typeEmoji: Record<string, string> = {
 };
 
 export default function GamesPage() {
+  const { t } = useTranslation();
   const { currentUser } = useUser();
   const [question, setQuestion] = useState<DrinkingQuestion | null>(null);
   const [history, setHistory] = useState<DrinkingQuestion[]>([]);
@@ -50,8 +53,8 @@ export default function GamesPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5 pt-4">
       <div>
-        <h2 className="font-display text-xl font-bold">Drinking Game</h2>
-        <p className="text-sm text-muted-foreground mt-1">Draw a card & take a sip 🍻</p>
+        <h2 className="font-display text-xl font-bold">{t('games.title')}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{t('games.subtitle')} 🍻</p>
       </div>
 
       {/* Players */}
@@ -59,7 +62,7 @@ export default function GamesPage() {
         <div className="glass rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Users className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold">Players</p>
+            <p className="text-sm font-semibold">{t('games.players')}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             {members.map((m) => (
@@ -68,7 +71,7 @@ export default function GamesPage() {
                   {m[0]}
                 </div>
                 {m}
-                {m === name && <span className="text-[9px] text-primary">(you)</span>}
+                {m === name && <span className="text-[9px] text-primary">{t('games.you')}</span>}
               </div>
             ))}
           </div>
@@ -82,7 +85,7 @@ export default function GamesPage() {
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="glass rounded-2xl p-8 text-center w-full">
               <Dices className="h-12 w-12 text-primary mx-auto mb-3 opacity-60" />
-              <p className="text-muted-foreground text-sm">Press "Draw Question" to start the game</p>
+              <p className="text-muted-foreground text-sm">{t('games.idlePrompt')}</p>
             </motion.div>
           ) : question ? (
             <motion.div key={question.text} initial={{ opacity: 0, scale: 0.9, rotateY: -15 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }}
@@ -91,14 +94,14 @@ export default function GamesPage() {
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-2xl">{typeEmoji[typeLower] ?? '🎲'}</span>
                 <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-background/30`}>
-                  {question.type}
+                  {translateLowerKey('common.drinkingTypes', question.type, question.type)}
                 </span>
               </div>
               <p className="font-display text-xl font-bold leading-snug">{question.text}</p>
               {question.targetedPlayer && (
                 <div className="mt-4 flex items-center gap-2">
                   <Zap className="h-3.5 w-3.5" />
-                  <p className="text-sm font-semibold">Targeting: {question.targetedPlayer}</p>
+                  <p className="text-sm font-semibold">{t('games.targeting', { name: question.targetedPlayer })}</p>
                 </div>
               )}
             </motion.div>
@@ -112,13 +115,13 @@ export default function GamesPage() {
         {loading
           ? <RefreshCw className="h-5 w-5 animate-spin" />
           : <Dices className="h-5 w-5" />}
-        {started ? 'Next Question' : 'Draw Question'}
+        {started ? t('games.nextQuestion') : t('games.drawQuestion')}
       </button>
 
       {/* History */}
       {history.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2">Previous Cards</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('games.previousCards')}</h3>
           <div className="space-y-2">
             {history.map((q, i) => {
               const tl = q.type?.toLowerCase() ?? '';
@@ -127,7 +130,9 @@ export default function GamesPage() {
                   className="glass rounded-xl p-3 flex items-start gap-3 opacity-60">
                   <span className="text-base shrink-0">{typeEmoji[tl] ?? '🎲'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">{q.type}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">
+                      {translateLowerKey('common.drinkingTypes', q.type, q.type)}
+                    </p>
                     <p className="text-sm mt-0.5">{q.text}</p>
                     {q.targetedPlayer && <p className="text-[10px] text-muted-foreground mt-0.5">→ {q.targetedPlayer}</p>}
                   </div>

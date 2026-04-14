@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 // Late approval (regret missed task)
 export async function regretTask(taskId: string, memberName: string) {
   return api.post(`/tasks/${taskId}/regret?memberName=${encodeURIComponent(memberName)}`, {});
@@ -57,6 +59,10 @@ export async function logoutSession(): Promise<void> {
   }
 }
 
+function t(key: string, defaultValue?: string): string {
+  return i18n.t(key, { defaultValue });
+}
+
 function sanitizeMessage(message: string, fallback: string): string {
   const normalized = message.trim();
   if (!normalized) return fallback;
@@ -68,7 +74,7 @@ function sanitizeMessage(message: string, fallback: string): string {
     lower.includes('networkerror') ||
     lower.includes('load failed')
   ) {
-    return 'Kunne ikke koble til akkurat nå. Prøv igjen om litt.';
+    return t('errors.network', fallback);
   }
 
   if (
@@ -77,31 +83,31 @@ function sanitizeMessage(message: string, fallback: string): string {
     lower.includes('token expired') ||
     lower.includes('jwt')
   ) {
-    return 'Økten din har gått ut. Logg inn på nytt og prøv igjen.';
+    return t('errors.sessionExpired', fallback);
   }
 
   if (lower.includes('403') || lower.includes('forbidden')) {
-    return 'Du har ikke tilgang til dette akkurat nå.';
+    return t('errors.forbidden', fallback);
   }
 
   if (lower.includes('404') || lower.includes('not found')) {
-    return 'Det du leter etter ble ikke funnet.';
+    return t('errors.notFound', fallback);
   }
 
   if (lower.includes('invalid credentials')) {
-    return 'Navn eller passord stemmer ikke.';
+    return t('errors.invalidCredentials', fallback);
   }
 
   if (lower.includes('already exists') || lower.includes('duplicate')) {
-    return 'Dette finnes allerede.';
+    return t('errors.alreadyExists', fallback);
   }
 
   if (lower.includes('already belongs')) {
-    return 'Du er allerede med i et kollektiv.';
+    return t('errors.alreadyInCollective', fallback);
   }
 
   if (lower.includes('join code') || lower.includes('collective not found')) {
-    return 'Koden stemmer ikke. Sjekk den og prøv igjen.';
+    return t('errors.invalidJoinCode', fallback);
   }
 
   if (
@@ -118,7 +124,7 @@ function sanitizeMessage(message: string, fallback: string): string {
   return normalized;
 }
 
-export function getUserMessage(error: unknown, fallback = 'Noe gikk galt. Prøv igjen.'): string {
+export function getUserMessage(error: unknown, fallback = t('errors.generic', 'Something went wrong. Please try again.')): string {
   if (error instanceof Error) {
     return sanitizeMessage(error.message, fallback);
   }
@@ -183,7 +189,7 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
       headers: mergedHeaders,
     });
   } catch (error) {
-    throw new Error(getUserMessage(error, 'Kunne ikke koble til akkurat nå. Prøv igjen om litt.'));
+    throw new Error(getUserMessage(error, t('errors.network', 'Couldn\'t connect right now. Please try again in a moment.')));
   }
 
   if (response.status === 401 && retryOnAuthFailure && path !== '/onboarding/refresh') {
@@ -204,7 +210,7 @@ async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure =
         // Keep raw body when it is not JSON.
       }
     }
-    throw new Error(getUserMessage(message, 'Noe gikk galt. Prøv igjen.'));
+    throw new Error(getUserMessage(message, t('errors.generic', 'Something went wrong. Please try again.')));
   }
 
   if (response.status === 204) {
