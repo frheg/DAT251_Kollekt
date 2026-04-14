@@ -11,13 +11,17 @@ import org.mockito.kotlin.whenever
 class TaskMaintenanceServiceTest {
     private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var taskOperations: TaskOperations
+    private lateinit var shoppingOperations: ShoppingOperations
+    private lateinit var economyOperations: EconomyOperations
     private lateinit var service: TaskMaintenanceService
 
     @BeforeEach
     fun setUp() {
         collectiveRepository = mock()
         taskOperations = mock()
-        service = TaskMaintenanceService(collectiveRepository, taskOperations, mock())
+        shoppingOperations = mock()
+        economyOperations = mock()
+        service = TaskMaintenanceService(collectiveRepository, taskOperations, shoppingOperations, economyOperations)
     }
 
     @Test

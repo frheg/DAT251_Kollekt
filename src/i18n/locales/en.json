@@ -15,6 +15,7 @@
   "common": {
     "seeAll": "See all",
     "showLess": "Show less",
+    "cancel": "Cancel",
     "back": "Back",
     "next": "Next",
     "today": "Today",
@@ -284,6 +285,8 @@
     "othersOweYou": "Others owe you",
     "allSettled": "All settled!",
     "payAmount": "Pay {{amount}}",
+    "payAmountTo": "Pay {{name}} {{amount}}",
+    "payPersonLabel": "Choose who to pay",
     "settleAll": "Settle all",
     "newExpense": "New Expense",
     "expenseTitlePlaceholder": "What was it for?",
@@ -298,7 +301,9 @@
     "balances": "Balances",
     "settled": "Settled",
     "expenseHistory": "Expense History",
-    "splitCount": "Split {{count}}"
+    "splitCount": "Split {{count}}",
+    "editExpense": "Edit Expense",
+    "saveChanges": "Save Changes"
   },
   "pant": {
     "title": "Pant Tracker",
@@ -314,7 +319,9 @@
     "goalReached": "Goal reached!",
     "bottlesToGo": "{{count}} bottles to go",
     "collectionHistory": "Collection History",
-    "historyEntry": "{{name}} added {{count}} bottles"
+    "historyEntry": "{{name}} added {{count}} bottles",
+    "editEntry": "Edit Entry",
+    "bottlesPlaceholder": "Bottles"
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -361,7 +368,21 @@
       "allCaughtUp": "All caught up",
       "markAllAsRead": "Mark all as read",
       "empty": "No notifications",
-      "dismiss": "Dismiss notification"
+      "dismiss": "Dismiss notification",
+      "messages": {
+        "EXPENSE_OWED": "{{paidBy}} paid for '{{description}}' — you owe {{amount}} kr",
+        "EXPENSE_DEADLINE_SOON": "'{{description}}' payment is due tomorrow ({{date}})",
+        "EXPENSE_OVERDUE": "'{{description}}' payment deadline has expired ({{date}})",
+        "TASK_ASSIGNED": "You have been assigned a new task: {{title}}",
+        "TASK_DEADLINE_SOON": "Your task '{{title}}' is due in {{days}} day(s).",
+        "TASK_OVERDUE": "Your task '{{title}}' is overdue! A penalty has been applied.",
+        "TASK_OVERDUE_GROUP": "Task '{{title}}' assigned to {{assignee}} is overdue and not completed.",
+        "TASK_FEEDBACK": "{{author}} left feedback on your task '{{title}}'.",
+        "TASK_COMPLETED_LATE": "You completed '{{title}}' late. XP has been reduced.",
+        "SHOPPING_ITEM_ADDED": "{{actorName}} added '{{item}}' to the shopping list",
+        "EVENT_ADDED": "New event: '{{title}}' on {{date}}",
+        "NEW_MESSAGE": "{{sender}}: \"{{preview}}\""
+      }
     },
     "notificationPreferences": {
       "title": "Notification Settings",
@@ -372,6 +393,8 @@
         "TASK_OVERDUE": "Task deadline expired",
         "NEW_MESSAGE": "New chat message",
         "EXPENSE_OWED": "Expense: you owe money",
+        "EXPENSE_DEADLINE_SOON": "Expense: payment due tomorrow",
+        "EXPENSE_OVERDUE": "Expense: payment deadline expired",
         "SHOPPING_ITEM_ADDED": "Item added to shopping list",
         "EVENT_ADDED": "New calendar event"
       }

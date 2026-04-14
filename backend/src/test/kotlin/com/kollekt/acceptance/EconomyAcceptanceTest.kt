@@ -19,6 +19,46 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class EconomyAcceptanceTest : AcceptanceTestSupport() {
     @Test
+    fun `settle-with clears only the paying member's balance`() {
+        mockMvc
+            .perform(
+                post("/api/economy/expenses")
+                    .contentType("application/json")
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content(
+                        """
+                        {
+                            "description": "Groceries",
+                            "amount": 200,
+                            "paidBy": "Kasper",
+                            "category": "Food",
+                            "date": "2026-03-10",
+                            "participantNames": ["Kasper", "Emma"]
+                        }
+                        """.trimIndent(),
+                    ),
+            ).andExpect(status().isCreated)
+
+        mockMvc
+            .perform(
+                post("/api/economy/settle-with")
+                    .contentType("application/json")
+                    .with(jwt().jwt { it.subject("Emma") })
+                    .content("""{"creditorName":"Kasper"}"""),
+            ).andExpect(status().isNoContent)
+
+        mockMvc
+            .perform(
+                get("/api/economy/balances")
+                    .param("memberName", "Emma")
+                    .with(jwt().jwt { it.subject("Emma") }),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].amount").value(0))
+            .andExpect(jsonPath("$[1].amount").value(0))
+    }
+
+    @Test
     fun `economy flow creates summary and clears balances after settle up`() {
         mockMvc
             .perform(
@@ -89,6 +129,10 @@ class EconomyAcceptanceTest : AcceptanceTestSupport() {
                     .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
-            .andExpect(jsonPath("$.length()").value(0))
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].name").value("Kasper"))
+            .andExpect(jsonPath("$[0].amount").value(100))
+            .andExpect(jsonPath("$[1].name").value("Emma"))
+            .andExpect(jsonPath("$[1].amount").value(-100))
     }
 }

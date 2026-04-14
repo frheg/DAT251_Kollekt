@@ -67,10 +67,10 @@ class EventOperations(
                 .filter { it.status == MemberStatus.ACTIVE && it.name != actorName }
                 .map { it.name }
         if (others.isNotEmpty()) {
-            notificationService.createGroupNotification(
+            notificationService.createParameterizedGroupNotification(
                 userNames = others,
-                message = "New event: '${request.title}' on ${request.date}",
                 type = "EVENT_ADDED",
+                params = mapOf("title" to request.title, "date" to request.date.toString()),
             )
         }
 

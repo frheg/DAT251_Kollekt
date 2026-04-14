@@ -16,6 +16,8 @@ val ALL_NOTIFICATION_TYPES =
         "TASK_OVERDUE",
         "NEW_MESSAGE",
         "EXPENSE_OWED",
+        "EXPENSE_DEADLINE_SOON",
+        "EXPENSE_OVERDUE",
         "SHOPPING_ITEM_ADDED",
         "EVENT_ADDED",
     )
@@ -86,7 +88,7 @@ class NotificationService(
         saveAndPublish(
             Notification(
                 userName = userName,
-                message = "You have been assigned a new task: $taskTitle",
+                message = objectMapper.writeValueAsString(mapOf("title" to taskTitle)),
                 type = "TASK_ASSIGNED",
                 timestamp = Instant.now(),
                 read = false,
@@ -111,6 +113,23 @@ class NotificationService(
         )
     }
 
+    fun createParameterizedNotification(
+        userName: String,
+        type: String,
+        params: Map<String, String>,
+    ) {
+        if (!isNotificationEnabled(userName, type)) return
+        saveAndPublish(
+            Notification(
+                userName = userName,
+                message = objectMapper.writeValueAsString(params),
+                type = type,
+                timestamp = Instant.now(),
+                read = false,
+            ),
+        )
+    }
+
     fun createGroupNotification(
         userNames: List<String>,
         message: String,
@@ -122,6 +141,26 @@ class NotificationService(
         val notifications =
             enabled.map { userName ->
                 Notification(userName = userName, message = message, type = type, timestamp = now, read = false)
+            }
+        notificationRepository.saveAll(notifications)
+        val collectiveCodes = enabled.mapNotNull { memberRepository.findByName(it)?.collectiveCode }.distinct()
+        for (code in collectiveCodes) {
+            realtimeUpdateService.publish(code, "NOTIFICATION_CREATED", mapOf("type" to type))
+        }
+    }
+
+    fun createParameterizedGroupNotification(
+        userNames: List<String>,
+        type: String,
+        params: Map<String, String>,
+    ) {
+        val enabled = userNames.filter { isNotificationEnabled(it, type) }
+        if (enabled.isEmpty()) return
+        val messageJson = objectMapper.writeValueAsString(params)
+        val now = Instant.now()
+        val notifications =
+            enabled.map { userName ->
+                Notification(userName = userName, message = messageJson, type = type, timestamp = now, read = false)
             }
         notificationRepository.saveAll(notifications)
         val collectiveCodes = enabled.mapNotNull { memberRepository.findByName(it)?.collectiveCode }.distinct()
