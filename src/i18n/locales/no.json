@@ -14,6 +14,7 @@
   },
   "common": {
     "seeAll": "Se alle",
+    "showLess": "Vis færre",
     "back": "Tilbake",
     "next": "Neste",
     "today": "I dag",
@@ -34,8 +35,17 @@
     "bought": "Kjøpt",
     "taskCategories": {
       "CLEANING": "Rengjøring",
+      "VACUUMING": "Støvsuging",
+      "MOPPING": "Gulvvask",
+      "BATHROOM": "Baderom",
+      "KITCHEN": "Kjøkken",
+      "LAUNDRY": "Klesvask",
+      "DISHES": "Oppvask",
+      "TRASH": "Søppel",
+      "DUSTING": "Støv av",
+      "WINDOWS": "Vindusvask",
       "SHOPPING": "Handling",
-      "OTHER": "Annet"
+      "OTHER": "Egendefinert"
     },
     "recurrence": {
       "NONE": "Ingen",
@@ -280,6 +290,8 @@
     "expenseAmountPlaceholder": "Beløp (kr)",
     "splitWith": "Del med",
     "addExpense": "Legg til utgift",
+    "deadlineDateLabel": "Betalingsfrist (valgfri)",
+    "deadlineBadge": "Frist: {{date}}",
     "pantTracker": "Pantoversikt",
     "pantTrackerSummary": "{{bottles}} flasker • {{current}} / {{goal}} mål",
     "pantTrackerEmpty": "Følg med på pant mot målet deres",

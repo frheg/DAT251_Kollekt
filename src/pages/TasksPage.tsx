@@ -6,8 +6,6 @@ import {
   Circle,
   Plus,
   Package,
-  ChevronRight,
-  ArrowLeft,
   X,
   ShoppingCart,
   Edit3,
@@ -25,7 +23,7 @@ import { connectCollectiveRealtime } from '../lib/realtime';
 import { formatDate, formatDateTime, translateKey } from '../i18n/helpers';
 import type { Task, ShoppingItem, TaskCategory } from '../lib/types';
 
-const CATEGORIES: TaskCategory[] = ['CLEANING', 'SHOPPING', 'OTHER'];
+const CATEGORIES: TaskCategory[] = ['CLEANING', 'VACUUMING', 'MOPPING', 'BATHROOM', 'KITCHEN', 'LAUNDRY', 'DISHES', 'TRASH', 'DUSTING', 'WINDOWS', 'OTHER'];
 const RECURRENCE_OPTIONS = ['NONE', 'DAILY', 'WEEKLY', 'MONTHLY'] as const;
 const TASK_FILTERS = ['ALL', 'MINE', 'TODAY', 'INCOMPLETE', 'DONE'] as const;
 
@@ -150,7 +148,7 @@ function TaskEditor({
   );
 }
 
-function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
+function TasksMain() {
   const { t } = useTranslation();
   const { currentUser } = useUser();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -159,6 +157,8 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   const [filter, setFilter] = useState<TaskFilter>('ALL');
   const [tab, setTab] = useState<'tasks' | 'shopping'>('tasks');
   const [showAdd, setShowAdd] = useState(false);
+  const [showShoppingAdd, setShowShoppingAdd] = useState(false);
+  const [newShoppingName, setNewShoppingName] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newAssignee, setNewAssignee] = useState('');
@@ -181,6 +181,7 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   const [buyPaidBy, setBuyPaidBy] = useState('');
   const [buyParticipants, setBuyParticipants] = useState<string[]>([]);
   const [buyDate, setBuyDate] = useState('');
+  const [buyDeadline, setBuyDeadline] = useState('');
   const [loading, setLoading] = useState(true);
 
   const name = currentUser?.name ?? '';
@@ -226,6 +227,17 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     });
     return disconnect;
   }, [name]);
+
+  const handleShoppingAdd = async () => {
+    if (!newShoppingName.trim()) return;
+    const created = await api.post<ShoppingItem>('/tasks/shopping', {
+      item: newShoppingName,
+      addedBy: name,
+    });
+    setShopping((prev) => [...prev, created]);
+    setNewShoppingName('');
+    setShowShoppingAdd(false);
+  };
 
   const toggleTask = async (taskId: number) => {
     await api.patch(`/tasks/${taskId}/toggle?memberName=${encodeURIComponent(name)}`);
@@ -382,6 +394,7 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     setBuyPaidBy(name);
     setBuyParticipants(memberOptions);
     setBuyDate(new Date().toISOString().split('T')[0]);
+    setBuyDeadline('');
   };
 
   const toggleBuyParticipant = (member: string) => {
@@ -402,8 +415,10 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
         paidBy: buyPaidBy || name,
         participantNames: buyParticipants,
         date: buyDate,
+        ...(buyDeadline ? { deadlineDate: buyDeadline } : {}),
       },
     );
+    setBuyDeadline('');
     setBuyingShopId(null);
     await fetchAll();
   };
@@ -452,18 +467,16 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
     >
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-bold">{t('tasks.title')}</h2>
-        {tab === 'tasks' && (
-          <button
-            onClick={() => {
-              resetForm();
-              setShowAdd(true);
-            }}
-            className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center"
-            aria-label={t('tasks.addTask')}
-          >
-            <Plus className="h-5 w-5 text-primary-foreground" />
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (tab === 'tasks') { resetForm(); setShowAdd(true); }
+            else { setShowShoppingAdd(true); }
+          }}
+          className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center"
+          aria-label={tab === 'tasks' ? t('tasks.addTask') : t('tasks.addSupply')}
+        >
+          <Plus className="h-5 w-5 text-primary-foreground" />
+        </button>
       </div>
 
       <div className="flex gap-1 glass rounded-xl p-1">
@@ -481,6 +494,40 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
           </button>
         ))}
       </div>
+
+      <AnimatePresence>
+        {showShoppingAdd && tab === 'shopping' && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="glass rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">{t('tasks.addSupply')}</p>
+                <button onClick={() => setShowShoppingAdd(false)} aria-label={t('common.back')}>
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+              <input
+                value={newShoppingName}
+                onChange={(e) => setNewShoppingName(e.target.value)}
+                placeholder={t('tasks.supplyNamePlaceholder')}
+                className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                onKeyDown={(e) => e.key === 'Enter' && void handleShoppingAdd()}
+                autoFocus
+              />
+              <button
+                onClick={() => void handleShoppingAdd()}
+                className="w-full gradient-primary rounded-lg py-2 text-sm font-semibold text-primary-foreground"
+              >
+                {t('tasks.addSupply')}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {tab === 'tasks' ? (
         <>
@@ -805,19 +852,20 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
         </>
       ) : (
         <div className="space-y-3">
-          <button
-            onClick={onNavigateRestock}
-            className="w-full glass rounded-2xl p-3.5 flex items-center gap-3 hover:scale-[1.01] active:scale-[0.99] transition-transform"
-          >
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-secondary/30 to-secondary/5 flex items-center justify-center shrink-0">
-              <Package className="h-5 w-5 text-foreground" />
+          <div className="glass rounded-2xl p-4 flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-secondary/40 to-secondary/10 flex items-center justify-center shrink-0">
+              <Package className="h-6 w-6 text-foreground" />
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-semibold">{t('tasks.restockSupplies')}</p>
-              <p className="text-[10px] text-muted-foreground">{t('tasks.restockHint')}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">{t('tasks.restockTitle')}</p>
+              <p className="text-[10px] text-muted-foreground">{t('tasks.restockSubtitle')}</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
+            {shopping.filter((i) => !i.completed).length > 0 && (
+              <span className="shrink-0 px-2.5 py-1 rounded-full gradient-primary text-[11px] font-bold text-primary-foreground">
+                {shopping.filter((i) => !i.completed).length}
+              </span>
+            )}
+          </div>
 
           {shopping.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">
@@ -941,6 +989,13 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
                           className="flex-1 bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
                           aria-label={t('tasks.shopping.purchaseDate')}
                         />
+                        <input
+                          type="date"
+                          value={buyDeadline}
+                          onChange={(event) => setBuyDeadline(event.target.value)}
+                          className="flex-1 bg-muted/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+                          aria-label={t('economy.deadlineDateLabel')}
+                        />
                         <button
                           onClick={() => {
                             void submitBought(item.id);
@@ -1005,230 +1060,6 @@ function TasksMain({ onNavigateRestock }: { onNavigateRestock: () => void }) {
   );
 }
 
-function RestockPage({ onBack }: { onBack: () => void }) {
-  const { t } = useTranslation();
-  const { currentUser } = useUser();
-  const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [newName, setNewName] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editText, setEditText] = useState('');
-
-  const name = currentUser?.name ?? '';
-
-  const fetchItems = () => {
-    if (!name) return;
-    api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(name)}`)
-      .then(setItems)
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    fetchItems();
-  }, [name]);
-
-  useEffect(() => {
-    if (!name) return;
-    const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (
-        [
-          'SHOPPING_ITEM_CREATED',
-          'SHOPPING_ITEM_TOGGLED',
-          'SHOPPING_ITEM_DELETED',
-          'SHOPPING_UPDATED',
-          'SHOPPING_ITEM_UPDATED',
-          'SHOPPING_ITEM_BOUGHT',
-        ].includes(event.type)
-      ) {
-        fetchItems();
-      }
-    });
-    return disconnect;
-  }, [name]);
-
-  const handleDelete = async (id: number) => {
-    await api.delete(`/tasks/shopping/${id}?memberName=${encodeURIComponent(name)}`);
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const handleEdit = async (id: number) => {
-    if (!editText.trim()) return;
-    const updated = await api.patch<ShoppingItem>(
-      `/tasks/shopping/${id}?memberName=${encodeURIComponent(name)}`,
-      { item: editText },
-    );
-    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
-    setEditingId(null);
-    setEditText('');
-  };
-
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    const created = await api.post<ShoppingItem>('/tasks/shopping', {
-      item: newName,
-      addedBy: name,
-    });
-    setItems((prev) => [...prev, created]);
-    setNewName('');
-    setShowAdd(false);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 50 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 50 }}
-      className="space-y-4 pt-4"
-    >
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="h-9 w-9 rounded-xl glass flex items-center justify-center"
-          aria-label={t('common.back')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="flex-1">
-          <h2 className="font-display text-xl font-bold">{t('tasks.restockTitle')}</h2>
-          <p className="text-xs text-muted-foreground">{t('tasks.restockSubtitle')}</p>
-        </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center"
-          aria-label={t('tasks.addSupply')}
-        >
-          <Plus className="h-5 w-5 text-primary-foreground" />
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {showAdd && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="glass rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">{t('tasks.addSupply')}</p>
-                <button onClick={() => setShowAdd(false)} aria-label={t('common.back')}>
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-              <input
-                value={newName}
-                onChange={(event) => setNewName(event.target.value)}
-                placeholder={t('tasks.supplyNamePlaceholder')}
-                className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                onKeyDown={(event) => event.key === 'Enter' && void handleAdd()}
-              />
-              <button
-                onClick={() => {
-                  void handleAdd();
-                }}
-                className="w-full gradient-primary rounded-lg py-2 text-sm font-semibold text-primary-foreground"
-              >
-                {t('tasks.addSupply')}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="space-y-2">
-        {items.map((item, index) => (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="glass rounded-xl p-3.5"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{item.item}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {t('tasks.addedBy', { name: item.addedBy })}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setEditingId(item.id);
-                  setEditText(item.item);
-                }}
-                className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0"
-                aria-label={t('tasks.editShoppingItemAria')}
-              >
-                <Edit3 className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <button
-                onClick={() => {
-                  void handleDelete(item.id);
-                }}
-                className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0"
-                aria-label={t('tasks.deleteShoppingItemAria')}
-              >
-                <Trash2 className="h-3 w-3 text-destructive" />
-              </button>
-            </div>
-            <AnimatePresence>
-              {editingId === item.id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden mt-2"
-                >
-                  <div className="flex gap-2">
-                    <input
-                      value={editText}
-                      onChange={(event) => setEditText(event.target.value)}
-                      className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') void handleEdit(item.id);
-                        if (event.key === 'Escape') setEditingId(null);
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        void handleEdit(item.id);
-                      }}
-                      className="px-3 rounded-lg gradient-primary text-xs font-medium text-primary-foreground"
-                    >
-                      {t('tasks.saveChanges')}
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="h-8 w-8 rounded-lg glass flex items-center justify-center"
-                      aria-label={t('common.back')}
-                    >
-                      <X className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 export default function TasksPage() {
-  const [view, setView] = useState<'tasks' | 'restock'>('tasks');
-
-  return (
-    <AnimatePresence mode="wait">
-      {view === 'tasks' ? (
-        <TasksMain key="tasks" onNavigateRestock={() => setView('restock')} />
-      ) : (
-        <RestockPage key="restock" onBack={() => setView('tasks')} />
-      )}
-    </AnimatePresence>
-  );
+  return <TasksMain />;
 }

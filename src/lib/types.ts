@@ -1,4 +1,4 @@
-export type TaskCategory = 'CLEANING' | 'SHOPPING' | 'OTHER';
+export type TaskCategory = 'CLEANING' | 'VACUUMING' | 'MOPPING' | 'BATHROOM' | 'KITCHEN' | 'LAUNDRY' | 'DISHES' | 'TRASH' | 'DUSTING' | 'WINDOWS' | 'SHOPPING' | 'OTHER';
 
 export interface TaskFeedback {
   id: number;
@@ -57,6 +57,7 @@ export interface Expense {
   category: string;
   date: string;
   participantNames: string[];
+  deadlineDate?: string;
 }
 
 export interface Balance {

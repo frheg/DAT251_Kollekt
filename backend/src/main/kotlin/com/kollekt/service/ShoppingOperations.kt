@@ -140,6 +140,7 @@ class ShoppingOperations(
                 category = "SUPPLIES",
                 date = request.date,
                 participantNames = request.participantNames,
+                deadlineDate = request.deadlineDate,
             ),
             memberName,
         )
