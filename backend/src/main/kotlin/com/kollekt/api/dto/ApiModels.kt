@@ -73,6 +73,7 @@ data class MarkSupplyBoughtRequest(
     val paidBy: String,
     val participantNames: List<String> = emptyList(),
     val date: LocalDate,
+    val deadlineDate: LocalDate? = null,
 )
 
 data class EventDto(
@@ -220,6 +221,7 @@ data class ExpenseDto(
     val category: String,
     val date: LocalDate,
     val participantNames: List<String>,
+    val deadlineDate: LocalDate? = null,
 )
 
 data class CreateExpenseRequest(
@@ -229,6 +231,7 @@ data class CreateExpenseRequest(
     val category: String,
     val date: LocalDate,
     val participantNames: List<String> = emptyList(),
+    val deadlineDate: LocalDate? = null,
 )
 
 data class PantEntryDto(
@@ -244,6 +247,11 @@ data class CreatePantEntryRequest(
     val amount: Int,
     val addedBy: String,
     val date: LocalDate,
+)
+
+data class UpdatePantGoalRequest(
+    val memberName: String,
+    val goal: Int,
 )
 
 data class BalanceDto(

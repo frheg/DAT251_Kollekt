@@ -14,6 +14,7 @@
   },
   "common": {
     "seeAll": "See all",
+    "showLess": "Show less",
     "back": "Back",
     "next": "Next",
     "today": "Today",
@@ -34,6 +35,15 @@
     "bought": "Bought",
     "taskCategories": {
       "CLEANING": "Cleaning",
+      "VACUUMING": "Vacuuming",
+      "MOPPING": "Mopping",
+      "BATHROOM": "Bathroom",
+      "KITCHEN": "Kitchen",
+      "LAUNDRY": "Laundry",
+      "DISHES": "Dishes",
+      "TRASH": "Trash",
+      "DUSTING": "Dusting",
+      "WINDOWS": "Windows",
       "SHOPPING": "Shopping",
       "OTHER": "Other"
     },
@@ -280,6 +290,8 @@
     "expenseAmountPlaceholder": "Amount (NOK)",
     "splitWith": "Split with",
     "addExpense": "Add Expense",
+    "deadlineDateLabel": "Payment deadline (optional)",
+    "deadlineBadge": "Due: {{date}}",
     "pantTracker": "Pant Tracker",
     "pantTrackerSummary": "{{bottles}} bottles • {{current}} / {{goal}} goal",
     "pantTrackerEmpty": "Track bottle returns toward your goal",

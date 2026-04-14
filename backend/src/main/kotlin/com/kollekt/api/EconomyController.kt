@@ -55,6 +55,15 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): PantEntryDto = economyOperations.addPantEntry(request, jwt.subject)
 
+    @PatchMapping("/pant/goal")
+    fun updatePantGoal(
+        @RequestBody request: UpdatePantGoalRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) {
+        requireTokenSubject(jwt, request.memberName)
+        economyOperations.updatePantGoal(request.memberName, request.goal)
+    }
+
     @GetMapping("/summary")
     fun getSummary(
         @RequestParam memberName: String,

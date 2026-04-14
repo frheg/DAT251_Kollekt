@@ -22,6 +22,7 @@ data class Expense(
     @Column(nullable = true) val collectiveCode: String? = null,
     @Column(nullable = false) val category: String,
     @Column(nullable = false) val date: LocalDate,
+    @Column(nullable = true) val deadlineDate: LocalDate? = null,
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
         name = "expense_participants",

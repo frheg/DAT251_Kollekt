@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ArrowDownLeft, Plus, Check, Recycle, ChevronRight, X, Users } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Plus, Check, Recycle, ChevronRight, X, Users, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
@@ -24,6 +24,8 @@ export default function EconomyPage() {
   const [newSplit, setNewSplit] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [settling, setSettling] = useState(false);
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
+  const [newDeadline, setNewDeadline] = useState('');
 
   const name = currentUser?.name ?? '';
 
@@ -68,8 +70,9 @@ export default function EconomyPage() {
       category: newCategory,
       date: new Date().toISOString().split('T')[0],
       participantNames: newSplit.length > 0 ? newSplit : [name],
+      ...(newDeadline ? { deadlineDate: newDeadline } : {}),
     });
-    setNewTitle(''); setNewAmount(''); setNewCategory('Other'); setNewSplit(members);
+    setNewTitle(''); setNewAmount(''); setNewCategory('Other'); setNewSplit(members); setNewDeadline('');
     setShowAdd(false);
     fetchSummary();
   };
@@ -95,7 +98,10 @@ export default function EconomyPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5 pt-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-bold">{t('economy.title')}</h2>
+        <div className="flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-primary" />
+          <h2 className="font-display text-xl font-bold">{t('economy.title')}</h2>
+        </div>
         <button onClick={() => setShowAdd(true)} className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center">
           <Plus className="h-5 w-5 text-primary-foreground" />
         </button>
@@ -160,6 +166,14 @@ export default function EconomyPage() {
                   </div>
                 </div>
               )}
+              <input
+                type="date"
+                value={newDeadline}
+                onChange={(e) => setNewDeadline(e.target.value)}
+                className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+                aria-label={t('economy.deadlineDateLabel')}
+                placeholder={t('economy.deadlineDateLabel')}
+              />
               <button onClick={handleAddExpense} className="w-full gradient-primary rounded-lg py-2 text-sm font-semibold text-primary-foreground">
                 {t('economy.addExpense')}
               </button>
@@ -211,9 +225,16 @@ export default function EconomyPage() {
 
       {/* Expense history */}
       <div>
-        <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('economy.expenseHistory')}</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">{t('economy.expenseHistory')}</h3>
+          {summary.expenses.length > 2 && (
+            <button onClick={() => setShowAllExpenses((v) => !v)} className="text-xs text-primary font-medium">
+              {showAllExpenses ? t('common.showLess') : t('common.seeAll')}
+            </button>
+          )}
+        </div>
         <div className="space-y-2">
-          {summary.expenses.map((e, i) => (
+          {(showAllExpenses ? summary.expenses : summary.expenses.slice(0, 2)).map((e, i) => (
             <motion.div key={e.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
               className="glass rounded-xl p-3 flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -226,6 +247,11 @@ export default function EconomyPage() {
                 <p className="text-[10px] text-muted-foreground">
                   {e.paidBy} • {formatDate(e.date)} • <span className="text-accent">{translateKey('common.expenseCategories', e.category, e.category)}</span> • {t('economy.splitCount', { count: e.participantNames.length })}
                 </p>
+                {e.deadlineDate && (
+                  <p className="text-[10px] text-destructive font-medium mt-0.5">
+                    {t('economy.deadlineBadge', { date: formatDate(e.deadlineDate) })}
+                  </p>
+                )}
               </div>
               <p className="text-sm font-bold">{formatCurrency(e.amount)}</p>
             </motion.div>

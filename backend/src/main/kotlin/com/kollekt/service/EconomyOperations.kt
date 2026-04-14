@@ -11,6 +11,7 @@ import com.kollekt.api.dto.SettleUpResponse
 import com.kollekt.domain.Expense
 import com.kollekt.domain.PantEntry
 import com.kollekt.domain.SettlementCheckpoint
+import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.ExpenseRepository
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.PantEntryRepository
@@ -25,6 +26,7 @@ class EconomyOperations(
     private val expenseRepository: ExpenseRepository,
     private val settlementCheckpointRepository: SettlementCheckpointRepository,
     private val pantEntryRepository: PantEntryRepository,
+    private val collectiveRepository: CollectiveRepository,
     private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val notificationService: NotificationService,
@@ -77,6 +79,7 @@ class EconomyOperations(
                     category = request.category,
                     date = request.date,
                     participantNames = participants,
+                    deadlineDate = request.deadlineDate,
                 ),
             )
 
@@ -112,11 +115,9 @@ class EconomyOperations(
         return calculateBalances(expenses, members)
     }
 
-    fun getPantSummary(
-        memberName: String,
-        goal: Int = 1000,
-    ): PantSummaryDto {
+    fun getPantSummary(memberName: String): PantSummaryDto {
         val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
+        val collective = collectiveRepository.findByJoinCode(collectiveCode)
         val entries =
             pantEntryRepository
                 .findAllByCollectiveCode(collectiveCode)
@@ -125,9 +126,21 @@ class EconomyOperations(
 
         return PantSummaryDto(
             currentAmount = entries.sumOf { it.amount },
-            goalAmount = goal,
+            goalAmount = collective?.pantGoal ?: 1000,
             entries = entries,
         )
+    }
+
+    @Transactional
+    fun updatePantGoal(
+        memberName: String,
+        goal: Int,
+    ) {
+        val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
+        val collective =
+            collectiveRepository.findByJoinCode(collectiveCode)
+                ?: throw IllegalStateException("Collective not found")
+        collectiveRepository.save(collective.copy(pantGoal = goal))
     }
 
     @Transactional
@@ -238,6 +251,7 @@ class EconomyOperations(
             category = category,
             date = date,
             participantNames = participantNames.sorted(),
+            deadlineDate = deadlineDate,
         )
 
     private fun PantEntry.toDto() = PantEntryDto(id, bottles, amount, addedBy, date)

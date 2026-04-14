@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Plus, Minus, Recycle, Target } from "lucide-react";
+import { ArrowLeft, Recycle, Target, Edit3, Check, X, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { connectCollectiveRealtime } from "../lib/realtime";
@@ -15,7 +15,12 @@ export default function PantTrackerPage() {
   const { currentUser } = useUser();
   const [pantSummary, setPantSummary] = useState<PantSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [customAmount, setCustomAmount] = useState("");
+  const [addAmount, setAddAmount] = useState("");
+  const [editingTotal, setEditingTotal] = useState(false);
+  const [editTotalValue, setEditTotalValue] = useState("");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [editGoalValue, setEditGoalValue] = useState("");
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const name = currentUser?.name ?? "";
 
@@ -42,20 +47,8 @@ export default function PantTrackerPage() {
     return disconnect;
   }, [name]);
 
-  const addBottles = async (count: number) => {
-    if (count === 0) return;
-    const amount = count * 1; // 1 kr per bottle standard
-    await api.post("/economy/pant", {
-      bottles: count,
-      amount,
-      addedBy: name,
-      date: new Date().toISOString().split("T")[0],
-    });
-    fetchPant();
-  };
-
-  const addCustomAmount = async () => {
-    const parsed = Math.round(Number(customAmount));
+  const handleAdd = async () => {
+    const parsed = Math.round(Number(addAmount));
     if (!Number.isFinite(parsed) || parsed === 0) return;
     await api.post("/economy/pant", {
       bottles: parsed,
@@ -63,8 +56,32 @@ export default function PantTrackerPage() {
       addedBy: name,
       date: new Date().toISOString().split("T")[0],
     });
-    setCustomAmount("");
+    setAddAmount("");
     fetchPant();
+  };
+
+  const handleEditTotal = async () => {
+    const newTotal = Math.round(Number(editTotalValue));
+    if (!Number.isFinite(newTotal)) return;
+    const diff = newTotal - earned;
+    if (diff !== 0) {
+      await api.post("/economy/pant", {
+        bottles: diff,
+        amount: diff,
+        addedBy: name,
+        date: new Date().toISOString().split("T")[0],
+      });
+      fetchPant();
+    }
+    setEditingTotal(false);
+  };
+
+  const handleEditGoal = async () => {
+    const newGoal = Math.round(Number(editGoalValue));
+    if (!Number.isFinite(newGoal) || newGoal <= 0) return;
+    await api.patch("/economy/pant/goal", { memberName: name, goal: newGoal });
+    fetchPant();
+    setEditingGoal(false);
   };
 
   if (loading || !pantSummary) {
@@ -110,54 +127,65 @@ export default function PantTrackerPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {t('pant.bottlesCollected')}
         </p>
-        <p className="font-display text-xl font-bold text-primary mt-2">
-          {formatCurrency(earned)}
-        </p>
-        <p className="text-xs text-muted-foreground">{t('pant.earnedSoFar')}</p>
-        <div className="flex items-center gap-2 mt-4 justify-center">
-          <button
-            onClick={() =>
-              setCustomAmount((v) =>
-                String(Math.max(0, (parseInt(v) || 0) - 1)),
-              )
-            }
-            className="h-9 w-9 rounded-xl glass flex items-center justify-center hover:bg-muted/40 transition-colors shrink-0"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
+
+        {editingTotal ? (
+          <div className="flex items-center justify-center gap-2 mt-3">
+            <input
+              type="number"
+              value={editTotalValue}
+              onChange={(e) => setEditTotalValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleEditTotal();
+                if (e.key === "Escape") setEditingTotal(false);
+              }}
+              className="w-28 bg-muted/50 rounded-lg px-3 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+              autoFocus
+            />
+            <button
+              onClick={() => void handleEditTotal()}
+              className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shrink-0"
+            >
+              <Check className="h-3.5 w-3.5 text-primary-foreground" />
+            </button>
+            <button
+              onClick={() => setEditingTotal(false)}
+              className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <p className="font-display text-xl font-bold text-primary">
+              {formatCurrency(earned)}
+            </p>
+            <button
+              onClick={() => { setEditTotalValue(String(earned)); setEditingTotal(true); }}
+              className="h-6 w-6 rounded-md glass flex items-center justify-center"
+            >
+              <Edit3 className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground mt-0.5">{t('pant.earnedSoFar')}</p>
+
+        <div className="flex items-center justify-center gap-2 mt-4">
           <input
             type="number"
-            value={customAmount}
-            onChange={(e) => setCustomAmount(e.target.value)}
+            value={addAmount}
+            onChange={(e) => setAddAmount(e.target.value)}
             placeholder={t('pant.customAmount')}
-            onKeyDown={(e) => e.key === "Enter" && addCustomAmount()}
-            className="w-24 bg-muted/50 rounded-lg px-3 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+            onKeyDown={(e) => e.key === "Enter" && void handleAdd()}
+            className="w-36 bg-muted/50 rounded-lg px-3 py-2 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
           />
           <button
-            onClick={() =>
-              setCustomAmount((v) => String((parseInt(v) || 0) + 1))
-            }
+            onClick={() => void handleAdd()}
             className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center shrink-0"
+            aria-label={t('pant.addAmount')}
           >
             <Plus className="h-4 w-4 text-primary-foreground" />
           </button>
-          <button
-            onClick={addCustomAmount}
-            className="px-3 py-2 rounded-xl glass text-xs font-medium hover:bg-muted/40 transition-colors"
-          >
-            {t('pant.addAmount')}
-          </button>
-        </div>
-        <div className="flex gap-2 mt-3 justify-center">
-          {[5, 10, 24].map((n) => (
-            <button
-              key={n}
-              onClick={() => addBottles(n)}
-              className="px-3 py-1 rounded-full glass text-xs font-medium hover:bg-muted/40 transition-colors"
-            >
-              +{n}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -166,10 +194,46 @@ export default function PantTrackerPage() {
         <div className="flex items-center gap-2 mb-3">
           <Target className="h-4 w-4 text-accent" />
           <p className="text-sm font-semibold flex-1">{t("pant.savingGoal")}</p>
+          {!editingGoal && (
+            <button
+              onClick={() => { setEditGoalValue(String(goal)); setEditingGoal(true); }}
+              className="h-6 w-6 rounded-md glass flex items-center justify-center"
+            >
+              <Edit3 className="h-3 w-3 text-muted-foreground" />
+            </button>
+          )}
         </div>
-        <p className="font-display font-bold text-lg">
-          {t("pant.goalTitle")} 🎉
-        </p>
+        {editingGoal ? (
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              type="number"
+              value={editGoalValue}
+              onChange={(e) => setEditGoalValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleEditGoal();
+                if (e.key === "Escape") setEditingGoal(false);
+              }}
+              className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5 text-sm text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+              autoFocus
+            />
+            <button
+              onClick={() => void handleEditGoal()}
+              className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shrink-0"
+            >
+              <Check className="h-3.5 w-3.5 text-primary-foreground" />
+            </button>
+            <button
+              onClick={() => setEditingGoal(false)}
+              className="h-8 w-8 rounded-lg glass flex items-center justify-center shrink-0"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <p className="font-display font-bold text-lg">
+            {t("pant.goalTitle")} 🎉
+          </p>
+        )}
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 mb-2">
           <span>{t("pant.saved", { amount: formatCurrency(earned) })}</span>
           <span>{t("pant.goal", { amount: formatCurrency(goal) })}</span>
@@ -190,11 +254,18 @@ export default function PantTrackerPage() {
       {/* History */}
       {pantSummary.entries.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2">
-            {t("pant.collectionHistory")}
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              {t("pant.collectionHistory")}
+            </h3>
+            {pantSummary.entries.length > 2 && (
+              <button onClick={() => setShowAllHistory((v) => !v)} className="text-xs text-primary font-medium">
+                {showAllHistory ? t('common.showLess') : t('common.seeAll')}
+              </button>
+            )}
+          </div>
           <div className="space-y-2">
-            {pantSummary.entries.map((entry, i) => (
+            {(showAllHistory ? pantSummary.entries : pantSummary.entries.slice(0, 2)).map((entry, i) => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, x: -10 }}

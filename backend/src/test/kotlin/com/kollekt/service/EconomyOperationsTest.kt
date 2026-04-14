@@ -60,6 +60,7 @@ class EconomyOperationsTest {
                 expenseRepository = expenseRepository,
                 settlementCheckpointRepository = settlementCheckpointRepository,
                 pantEntryRepository = pantEntryRepository,
+                collectiveRepository = collectiveRepository,
                 eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
                 notificationService = mock(),
