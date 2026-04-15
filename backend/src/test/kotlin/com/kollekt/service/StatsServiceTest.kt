@@ -42,6 +42,7 @@ class StatsServiceTest {
     private lateinit var valueOperations: ValueOperations<String, Any>
     private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var statsCacheService: StatsCacheService
+    private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var service: StatsService
 
     @BeforeEach
@@ -57,6 +58,7 @@ class StatsServiceTest {
         doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
         statsCacheService = StatsCacheService(redisTemplate)
+        realtimeUpdateService = mock()
         service =
             StatsService(
                 collectiveAccessService = collectiveAccessService,
@@ -67,6 +69,7 @@ class StatsServiceTest {
                 expenseRepository = expenseRepository,
                 redisTemplate = redisTemplate,
                 statsCacheService = statsCacheService,
+                realtimeUpdateService = realtimeUpdateService,
             )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com", xp = 250, level = 2))
         whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(

@@ -522,6 +522,7 @@ class ControllerEndpointContractTest {
                 listOf(
                     AchievementDto(
                         id = 7,
+                        key = "oppvaskhelt",
                         title = "Oppvaskhelt",
                         description = "Fullfor 10 oppgaver",
                         icon = "sparkles",
