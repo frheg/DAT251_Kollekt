@@ -44,7 +44,8 @@ class ShoppingOperations(
         eventPublisher.taskEvent("SHOPPING_ITEM_CREATED", saved.toDto())
 
         val others =
-            memberRepository.findAllByCollectiveCode(collectiveCode)
+            memberRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .filter { it.status == MemberStatus.ACTIVE && it.name != actorName }
                 .map { it.name }
         if (others.isNotEmpty()) {

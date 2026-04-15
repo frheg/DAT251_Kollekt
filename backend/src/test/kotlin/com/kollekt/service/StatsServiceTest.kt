@@ -2,8 +2,7 @@ package com.kollekt.service
 
 import com.kollekt.api.dto.LeaderboardPlayerDto
 import com.kollekt.api.dto.LeaderboardResponse
-import com.kollekt.api.dto.WeeklyStatsDto
-import com.kollekt.domain.Achievement
+import com.kollekt.api.dto.PeriodStatsDto
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.Collective
 import com.kollekt.domain.EventType
@@ -11,7 +10,6 @@ import com.kollekt.domain.Expense
 import com.kollekt.domain.Member
 import com.kollekt.domain.TaskCategory
 import com.kollekt.domain.TaskItem
-import com.kollekt.repository.AchievementRepository
 import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.EventRepository
 import com.kollekt.repository.ExpenseRepository
@@ -24,6 +22,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -40,11 +40,11 @@ class StatsServiceTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var eventRepository: EventRepository
     private lateinit var expenseRepository: ExpenseRepository
-    private lateinit var achievementRepository: AchievementRepository
     private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var valueOperations: ValueOperations<String, Any>
     private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var statsCacheService: StatsCacheService
+    private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var service: StatsService
 
     @BeforeEach
@@ -54,13 +54,13 @@ class StatsServiceTest {
         taskRepository = mock()
         eventRepository = mock()
         expenseRepository = mock()
-        achievementRepository = mock()
         redisTemplate = mock()
         valueOperations = mock()
         doReturn(valueOperations).whenever(redisTemplate).opsForValue()
         doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
         statsCacheService = StatsCacheService(redisTemplate)
+        realtimeUpdateService = mock()
         service =
             StatsService(
                 collectiveAccessService = collectiveAccessService,
@@ -69,9 +69,9 @@ class StatsServiceTest {
                 taskRepository = taskRepository,
                 eventRepository = eventRepository,
                 expenseRepository = expenseRepository,
-                achievementRepository = achievementRepository,
                 redisTemplate = redisTemplate,
                 statsCacheService = statsCacheService,
+                realtimeUpdateService = realtimeUpdateService,
             )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com", xp = 250, level = 2))
         whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(
@@ -84,7 +84,20 @@ class StatsServiceTest {
         val cached =
             LeaderboardResponse(
                 players = listOf(LeaderboardPlayerDto(1, "Kasper", 2, 250, 8, 4, listOf("TOP"))),
-                weeklyStats = WeeklyStatsDto(totalTasks = 8, totalXp = 250, avgPerPerson = 125, topContributor = "Kasper"),
+                periodStats =
+                    PeriodStatsDto(
+                        totalTasks = 8,
+                        totalXp = 250,
+                        avgPerPerson = 125,
+                        topContributor = "Kasper",
+                        bestStreak = 4,
+                        bestStreakHolder = "Kasper",
+                        totalPenaltyXp = 0,
+                        lateCompletions = 0,
+                        lateCompletionsHolder = "N/A",
+                        skippedCount = 0,
+                        skippedHolder = "N/A",
+                    ),
                 monthlyPrize = "Pizza",
             )
         whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
@@ -174,25 +187,36 @@ class StatsServiceTest {
     }
 
     @Test
-    fun `get achievements maps repository results`() {
-        whenever(achievementRepository.findAll()).thenReturn(
+    fun `get achievements computes from task data for enabled keys`() {
+        whenever(valueOperations.get("achievements:Kasper")).thenReturn(null)
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
-                Achievement(
+                task(
                     id = 1,
-                    title = "Oppvaskhelt",
-                    description = "Fullfor 10 oppgaver",
-                    icon = "sparkles",
-                    unlocked = true,
-                    progress = 10,
-                    total = 10,
+                    title = "Trash",
+                    assignee = "Kasper",
+                    completed = true,
+                    completedAt = LocalDateTime.now().minusDays(1),
+                    xp = 20,
                 ),
+                task(id = 2, title = "Dishes", assignee = "Kasper", completed = true, completedAt = LocalDateTime.now(), xp = 15),
             ),
         )
 
-        val result = service.getAchievements()
+        val result = service.getAchievements("Kasper")
 
-        assertEquals("Oppvaskhelt", result.single().title)
-        assertTrue(result.single().unlocked)
+        assertTrue(result.isNotEmpty())
+        val firstStep = result.find { it.title == "First Step" }
+        assertTrue(firstStep != null && firstStep.unlocked)
+    }
+
+    @Test
+    fun `get achievements catalog returns all definitions with enabled flags`() {
+        val result = service.getAchievementsCatalog("Kasper")
+
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.any { it.key == "TASK_1" && it.enabled })
+        assertTrue(result.any { it.key == "TASK_5" && !it.enabled })
     }
 
     @Test
@@ -202,9 +226,22 @@ class StatsServiceTest {
                 players =
                     listOf(
                         LeaderboardPlayerDto(1, "Emma", 3, 320, 10, 5, listOf("TOP")),
-                        LeaderboardPlayerDto(2, "Kasper", 2, 200, 6, 3, listOf("PRO")),
+                        LeaderboardPlayerDto(2, "Kasper", 2, 200, 6, 3, listOf()),
                     ),
-                weeklyStats = WeeklyStatsDto(totalTasks = 16, totalXp = 520, avgPerPerson = 260, topContributor = "Emma"),
+                periodStats =
+                    PeriodStatsDto(
+                        totalTasks = 16,
+                        totalXp = 520,
+                        avgPerPerson = 260,
+                        topContributor = "Emma",
+                        bestStreak = 5,
+                        bestStreakHolder = "Emma",
+                        totalPenaltyXp = 10,
+                        lateCompletions = 1,
+                        lateCompletionsHolder = "Kasper",
+                        skippedCount = 0,
+                        skippedHolder = "N/A",
+                    ),
                 monthlyPrize = null,
             )
         whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
@@ -213,6 +250,50 @@ class StatsServiceTest {
 
         assertTrue(result.text.isNotBlank())
         assertTrue(result.type in setOf("distribute", "drink", "everyone", "vote", "challenge"))
+    }
+
+    @Test
+    fun `getMemberStats returns stats for target member`() {
+        whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(null)
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com", id = 2, xp = 150, level = 1))
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                task(id = 1, title = "Trash", assignee = "Emma", completed = true, completedAt = LocalDateTime.now().minusDays(1), xp = 20),
+                task(id = 2, title = "Dishes", assignee = "Emma", completed = false, dueDate = LocalDate.now().minusDays(1), xp = 10),
+                task(
+                    id = 3,
+                    title = "Floors",
+                    assignee = "Kasper",
+                    completed = true,
+                    completedAt = LocalDateTime.now().minusDays(2),
+                    xp = 25,
+                ),
+            ),
+        )
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                member("Kasper", "kasper@example.com", xp = 250, level = 2),
+                member("Emma", "emma@example.com", id = 2, xp = 150, level = 1),
+            ),
+        )
+
+        val result = service.getMemberStats(viewerName = "Kasper", targetName = "Emma")
+
+        assertEquals("Emma", result.name)
+        assertEquals(150, result.xp)
+        assertEquals(1, result.tasksCompleted)
+        assertEquals(1, result.skippedTasks)
+    }
+
+    @Test
+    fun `updateAchievementConfig saves enabled keys and publishes realtime event`() {
+        val collective = Collective(id = 1, name = "Villa", joinCode = "ABC123", ownerMemberId = 1, monthlyPrize = null)
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective)
+
+        service.updateAchievementConfig("Kasper", setOf("clean_streak", "task_master"))
+
+        verify(collectiveRepository).save(collective.copy(enabledAchievementKeys = setOf("clean_streak", "task_master")))
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("ACHIEVEMENT_CONFIG_UPDATED"), isNull())
     }
 
     private fun member(

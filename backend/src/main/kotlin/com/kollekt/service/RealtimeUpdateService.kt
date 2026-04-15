@@ -31,8 +31,42 @@ class RealtimeUpdateService(
         }
     }
 
+    fun getOnlineCount(collectiveCode: String): Int =
+        sessionsByCollective[collectiveCode]
+            ?.filter { it.isOpen }
+            ?.mapNotNull { it.attributes["memberName"] as? String }
+            ?.distinct()
+            ?.count() ?: 0
+
+    fun sendTo(
+        session: WebSocketSession,
+        type: String,
+        payload: Any? = null,
+    ) {
+        val message =
+            objectMapper.writeValueAsString(
+                mapOf(
+                    "type" to type,
+                    "timestamp" to Instant.now().toString(),
+                    "payload" to payload,
+                ),
+            )
+        try {
+            session.sendMessage(TextMessage(message))
+        } catch (_: Exception) {
+            // ignore — session may have closed immediately
+        }
+    }
+
     fun publish(
         collectiveCode: String,
+        type: String,
+        payload: Any? = null,
+    ) = publishExcluding(collectiveCode, null, type, payload)
+
+    fun publishExcluding(
+        collectiveCode: String,
+        exclude: WebSocketSession?,
         type: String,
         payload: Any? = null,
     ) {
@@ -46,7 +80,7 @@ class RealtimeUpdateService(
                 ),
             )
         sessionsByCollective[collectiveCode]
-            ?.filter { it.isOpen }
+            ?.filter { it.isOpen && it !== exclude }
             ?.forEach { session ->
                 try {
                     session.sendMessage(TextMessage(message))

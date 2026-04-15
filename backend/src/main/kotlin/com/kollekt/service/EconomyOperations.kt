@@ -215,8 +215,7 @@ class EconomyOperations(
                 val netOwed = (bilateralDebt - alreadyPaidByPayer + alreadyPaidByCreditor).coerceAtLeast(0)
 
                 if (netOwed > 0) PayOptionDto(name = creditorName, amount = netOwed) else null
-            }
-            .sortedByDescending { it.amount }
+            }.sortedByDescending { it.amount }
             .toList()
     }
 

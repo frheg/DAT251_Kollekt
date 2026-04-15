@@ -45,10 +45,11 @@ export default function ChatPage() {
         if (event.type === 'CHAT_MESSAGE' || event.type === 'CHAT_REACTION' || event.type === 'CHAT_POLL_VOTE') {
           fetchMessages();
         }
-        if (event.type === 'MEMBER_ONLINE') setOnlineCount((c) => c + 1);
-        if (event.type === 'MEMBER_OFFLINE') setOnlineCount((c) => Math.max(0, c - 1));
+        if (event.type === 'MEMBER_ONLINE' || event.type === 'MEMBER_OFFLINE') {
+          const count = (event.payload as { count?: number })?.count;
+          if (count !== undefined) setOnlineCount(count);
+        }
       },
-      { onConnected: () => setOnlineCount(1) },
     );
     return disconnect;
   }, [name]);
