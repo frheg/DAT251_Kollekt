@@ -539,5 +539,442 @@
       "text": "Drikk antall sex-partnere",
       "kind": "challenge"
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "title": "Truth or Chug",
+      "shortTitle": "Chug",
+      "description": "Pick a number, take the challenge, or drink.",
+      "rules": [
+        "Say a number from 1 to 105.",
+        "Mark the number when it has been taken if you want to keep track.",
+        "If someone says the same number, they have to chug.",
+        "If you do not do the challenge, drink 5 sips and the challenge stays open for others.",
+        "If you do the challenge, everyone drinks 2 sips.",
+        "The trick is to remember the numbers that have been said so you avoid chugging."
+      ],
+      "prompts": [
+        {
+          "id": 1,
+          "text": "Have you slept with someone on your Snapchat list?"
+        },
+        {
+          "id": 2,
+          "text": "Who is the most timid in bed?"
+        },
+        {
+          "id": 3,
+          "text": "Who did you sleep with last?"
+        },
+        {
+          "id": 4,
+          "text": "Tell your biggest secret"
+        },
+        {
+          "id": 5,
+          "text": "Ask your grandmother who her favorite grandchild is."
+        },
+        {
+          "id": 6,
+          "text": "Who do you like best in the room?"
+        },
+        {
+          "id": 7,
+          "text": "Where are you on a scale where 1 is gay and 10 is straight?"
+        },
+        {
+          "id": 8,
+          "text": "Could you sleep with the host's dad?"
+        },
+        {
+          "id": 9,
+          "text": "Add five people from Quick Add and send them a Snap"
+        },
+        {
+          "id": 10,
+          "text": "If you have done 69, drink 6 sips"
+        },
+        {
+          "id": 11,
+          "text": "Give a shot to the host"
+        },
+        {
+          "id": 12,
+          "text": "Sing a chorus without music"
+        },
+        {
+          "id": 13,
+          "text": "Tell a joke"
+        },
+        {
+          "id": 14,
+          "text": "Post an Instagram story"
+        },
+        {
+          "id": 15,
+          "text": "Call a family member and say you have chlamydia"
+        },
+        {
+          "id": 16,
+          "text": "Read out your Instagram search list"
+        },
+        {
+          "id": 17,
+          "text": "What do you usually watch in porn?"
+        },
+        {
+          "id": 18,
+          "text": "Send nudes"
+        },
+        {
+          "id": 19,
+          "text": "Post \"I am driving tonight\" on your Snap story!"
+        },
+        {
+          "id": 20,
+          "text": "Say the top three people on your Snapchat best friends list"
+        },
+        {
+          "id": 21,
+          "text": "Send \"streak\" to someone you do not usually snap"
+        },
+        {
+          "id": 22,
+          "text": "Reply to the first Instagram story that appears"
+        },
+        {
+          "id": 23,
+          "text": "Post a picture on Facebook"
+        },
+        {
+          "id": 24,
+          "text": "Go live on Facebook"
+        },
+        {
+          "id": 25,
+          "text": "Tell your sex fetish"
+        },
+        {
+          "id": 26,
+          "text": "Tell your most awkward sex story"
+        },
+        {
+          "id": 27,
+          "text": "Point to the person with the biggest pussy"
+        },
+        {
+          "id": 28,
+          "text": "Post a TikTok on Instagram"
+        },
+        {
+          "id": 29,
+          "text": "Send a DM to a celebrity!"
+        },
+        {
+          "id": 30,
+          "text": "Tell your number of sexual partners"
+        },
+        {
+          "id": 31,
+          "text": "Guess the number of sexual partners of the person to your left and the person to your right"
+        },
+        {
+          "id": 32,
+          "text": "Who do you think about when you watch porn?"
+        },
+        {
+          "id": 33,
+          "text": "Who is the best person you have slept with?"
+        },
+        {
+          "id": 34,
+          "text": "Put yourself in the hot seat"
+        },
+        {
+          "id": 35,
+          "text": "Buy or mix a drink for a stranger or someone in the room"
+        },
+        {
+          "id": 36,
+          "text": "Swap outfits with the person to your right"
+        },
+        {
+          "id": 37,
+          "text": "Let someone snoop through your phone"
+        },
+        {
+          "id": 38,
+          "text": "Your choice?"
+        },
+        {
+          "id": 39,
+          "text": "Hot seat for you"
+        },
+        {
+          "id": 40,
+          "text": "Point to the person who cried most recently"
+        },
+        {
+          "id": 41,
+          "text": "Silent game, music too"
+        },
+        {
+          "id": 42,
+          "text": "Drink ten sips"
+        },
+        {
+          "id": 43,
+          "text": "Give away ten sips"
+        },
+        {
+          "id": 44,
+          "text": "Where do you want to have sex?"
+        },
+        {
+          "id": 45,
+          "text": "Weirdest place you have had sex"
+        },
+        {
+          "id": 46,
+          "text": "Who dies first?"
+        },
+        {
+          "id": 47,
+          "text": "Put your underwear on the table"
+        },
+        {
+          "id": 48,
+          "text": "Take off your pants"
+        },
+        {
+          "id": 49,
+          "text": "Have you had sex abroad?"
+        },
+        {
+          "id": 50,
+          "text": "Have you had anal?"
+        },
+        {
+          "id": 51,
+          "text": "Create a group with one person you want to have sex with and one you do not want to have sex with, and write: \"I want to have sex with one of you.\""
+        },
+        {
+          "id": 52,
+          "text": "Create a group with your worst and best hookup, write that, then leave the group"
+        },
+        {
+          "id": 53,
+          "text": "Tell about your first sexual experience"
+        },
+        {
+          "id": 54,
+          "text": "Show on someone else in the room how you would make a move before sex"
+        },
+        {
+          "id": 55,
+          "text": "Hot seat"
+        },
+        {
+          "id": 56,
+          "text": "What is your best trick for getting someone into bed?"
+        },
+        {
+          "id": 57,
+          "text": "Tell about your best Tinder date"
+        },
+        {
+          "id": 58,
+          "text": "Have you ever forgotten that you had sex?"
+        },
+        {
+          "id": 59,
+          "text": "Which of your friends' exes would you sleep with?"
+        },
+        {
+          "id": 60,
+          "text": "Vipps or send 50 kr to number 7 on your list"
+        },
+        {
+          "id": 61,
+          "text": "Take a shot"
+        },
+        {
+          "id": 62,
+          "text": "Hot seat"
+        },
+        {
+          "id": 63,
+          "text": "Which reality show could you be on and why?"
+        },
+        {
+          "id": 64,
+          "text": "Who needs to get laid tonight?!"
+        },
+        {
+          "id": 65,
+          "text": "Name a place where you have had sex; everyone who has had sex in the same place drinks"
+        },
+        {
+          "id": 66,
+          "text": "Have you had anal in the bed of someone here?"
+        },
+        {
+          "id": 67,
+          "text": "Favorite sex position"
+        },
+        {
+          "id": 68,
+          "text": "Have you ever been caught having sex? Explain"
+        },
+        {
+          "id": 69,
+          "text": "Have you slept with more than 10 people total?"
+        },
+        {
+          "id": 70,
+          "text": "When did you last cry?"
+        },
+        {
+          "id": 71,
+          "text": "Send a Snap to everyone you have slept with"
+        },
+        {
+          "id": 72,
+          "text": "Send a group Snap to everyone whose name starts with M"
+        },
+        {
+          "id": 73,
+          "text": "Send a family Snap"
+        },
+        {
+          "id": 74,
+          "text": "How long is your dry spell?"
+        },
+        {
+          "id": 75,
+          "text": "Go on VSCO and repost an old picture of someone else"
+        },
+        {
+          "id": 76,
+          "text": "Who is the worst person you have had sex with?"
+        },
+        {
+          "id": 77,
+          "text": "Point to who has to chug"
+        },
+        {
+          "id": 78,
+          "text": "You must speak English for the rest of the game."
+        },
+        {
+          "id": 79,
+          "text": "Tell your sex fantasy"
+        },
+        {
+          "id": 80,
+          "text": "Could you be on Ex on the Beach?"
+        },
+        {
+          "id": 81,
+          "text": "Who needs therapy?"
+        },
+        {
+          "id": 82,
+          "text": "Have you had Skype sex or phone sex?"
+        },
+        {
+          "id": 83,
+          "text": "Read out your Safari search list"
+        },
+        {
+          "id": 84,
+          "text": "Send a selfie to the person you last slept with and write \"rate me\""
+        },
+        {
+          "id": 85,
+          "text": "Show your boobs"
+        },
+        {
+          "id": 86,
+          "text": "Give us your best orgasm sound"
+        },
+        {
+          "id": 87,
+          "text": "Who do you like least in the room?"
+        },
+        {
+          "id": 88,
+          "text": "Tell about your addiction"
+        },
+        {
+          "id": 89,
+          "text": "Have you had sex in the bed of someone in this room?"
+        },
+        {
+          "id": 90,
+          "text": "Choose someone to take a shot with"
+        },
+        {
+          "id": 91,
+          "text": "What is the worst thing you have experienced?"
+        },
+        {
+          "id": 92,
+          "text": "Flash your boobs"
+        },
+        {
+          "id": 93,
+          "text": "Back to back"
+        },
+        {
+          "id": 94,
+          "text": "Tell your wildest sex story"
+        },
+        {
+          "id": 95,
+          "text": "Kiss the prettiest person in the room"
+        },
+        {
+          "id": 96,
+          "text": "Who is the biggest slut?"
+        },
+        {
+          "id": 97,
+          "text": "Have you farted during sex, not queefing?"
+        },
+        {
+          "id": 98,
+          "text": "Have you ever heard your parents having sex?"
+        },
+        {
+          "id": 99,
+          "text": "Who is funniest? The clown drinks 5 sips"
+        },
+        {
+          "id": 100,
+          "text": "Create a group with all the sexual partners you have had"
+        },
+        {
+          "id": 101,
+          "text": "Throw your phone out the window"
+        },
+        {
+          "id": 102,
+          "text": "Tell about a hot moment you will never forget"
+        },
+        {
+          "id": 103,
+          "text": "Have you peed yourself during sex before?"
+        },
+        {
+          "id": 104,
+          "text": "Let the group send any message to anyone on your phone"
+        },
+        {
+          "id": 105,
+          "text": "Drink the number of sexual partners you have had"
+        }
+      ]
+    }
+  }
 }

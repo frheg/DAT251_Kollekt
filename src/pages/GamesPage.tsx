@@ -17,8 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import {
-  drinkingGames,
-  getDrinkingGame,
+  getDrinkingGames,
   type DrinkingGameId,
   type DrinkingPromptKind,
 } from '../lib/drinkingGames';
@@ -47,7 +46,7 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 export default function GamesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { currentUser } = useUser();
   const [selectedGameId, setSelectedGameId] = useState<DrinkingGameId>('hundred-questions');
   const [phase, setPhase] = useState<'rules' | 'playing'>('rules');
@@ -60,13 +59,20 @@ export default function GamesPage() {
   const [randomOrder, setRandomOrder] = useState(false);
 
   const name = currentUser?.name ?? '';
-  const selectedGame = useMemo(() => getDrinkingGame(selectedGameId), [selectedGameId]);
+  const localizedGames = useMemo(
+    () => getDrinkingGames(i18n.resolvedLanguage ?? i18n.language),
+    [i18n.language, i18n.resolvedLanguage],
+  );
+  const selectedGame = useMemo(
+    () => localizedGames.find((game) => game.id === selectedGameId) ?? localizedGames[0],
+    [localizedGames, selectedGameId],
+  );
   const promptById = useMemo(
     () => new Map(selectedGame.prompts.map((prompt) => [prompt.id, prompt])),
     [selectedGame],
   );
   const activePrompt = activePromptId ? promptById.get(activePromptId) ?? null : null;
-  const selectedGameIndex = drinkingGames.findIndex((game) => game.id === selectedGame.id);
+  const selectedGameIndex = localizedGames.findIndex((game) => game.id === selectedGame.id);
 
   useEffect(() => {
     if (!name) return;
@@ -166,7 +172,7 @@ export default function GamesPage() {
 
   const renderGameSelector = () => (
     <div className="grid grid-cols-2 gap-3">
-      {drinkingGames.map((game, index) => {
+      {localizedGames.map((game, index) => {
         const isSelected = game.id === selectedGame.id;
         const Icon = game.mode === 'ordered-deck' ? ListChecks : Hash;
 
@@ -200,7 +206,7 @@ export default function GamesPage() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
-            {t('games.selectedGame', { current: selectedGameIndex + 1, total: drinkingGames.length })}
+            {t('games.selectedGame', { current: selectedGameIndex + 1, total: localizedGames.length })}
           </p>
           <h3 className="font-display text-2xl font-bold mt-1">{selectedGame.title}</h3>
           <p className="text-sm text-muted-foreground mt-1">{selectedGame.description}</p>

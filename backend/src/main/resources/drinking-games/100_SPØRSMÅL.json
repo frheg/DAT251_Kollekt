@@ -511,5 +511,419 @@
       "text": "SKÅL 100!!",
       "kind": "toast"
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "title": "100 Questions",
+      "shortTitle": "100",
+      "description": "A structured question-card game for the whole room.",
+      "rules": [
+        "Read the question out loud.",
+        "Everyone points to or names the person who fits best.",
+        "The chosen person drinks. On toast cards, everyone cheers."
+      ],
+      "prompts": [
+        {
+          "id": 1,
+          "text": "Surprisingly has not been in handcuffs yet"
+        },
+        {
+          "id": 2,
+          "text": "Sends the most nudes?"
+        },
+        {
+          "id": 3,
+          "text": "Can drink the most alcohol without getting wasted?"
+        },
+        {
+          "id": 4,
+          "text": "Has hooked up with the most people in the room?"
+        },
+        {
+          "id": 5,
+          "text": "Is the biggest party animal?"
+        },
+        {
+          "id": 6,
+          "text": "Has been or could be unfaithful."
+        },
+        {
+          "id": 7,
+          "text": "Will be the best mom or dad."
+        },
+        {
+          "id": 8,
+          "text": "Has the best hygiene?"
+        },
+        {
+          "id": 9,
+          "text": "Has driven without a license?"
+        },
+        {
+          "id": 10,
+          "text": "Has had a threesome?"
+        },
+        {
+          "id": 11,
+          "text": "Cheers 10!"
+        },
+        {
+          "id": 12,
+          "text": "Most indecisive"
+        },
+        {
+          "id": 13,
+          "text": "Has masturbated in public?"
+        },
+        {
+          "id": 14,
+          "text": "Spends the most money on nights out?"
+        },
+        {
+          "id": 15,
+          "text": "Who would you want to be on a deserted island with?"
+        },
+        {
+          "id": 16,
+          "text": "Breaks the most hearts?"
+        },
+        {
+          "id": 17,
+          "text": "Has the nicest boobs?"
+        },
+        {
+          "id": 18,
+          "text": "Thinks they are the funniest."
+        },
+        {
+          "id": 19,
+          "text": "Has the best music taste"
+        },
+        {
+          "id": 20,
+          "text": "Who in this room could the person to your right hook up with?"
+        },
+        {
+          "id": 21,
+          "text": "Gets the worst hangovers?"
+        },
+        {
+          "id": 22,
+          "text": "Is the most spoiled."
+        },
+        {
+          "id": 23,
+          "text": "Would do best on Farmen"
+        },
+        {
+          "id": 24,
+          "text": "Lights up the room"
+        },
+        {
+          "id": 25,
+          "text": "Masturbates the most"
+        },
+        {
+          "id": 26,
+          "text": "Who would you have the most beautiful children with?"
+        },
+        {
+          "id": 27,
+          "text": "Is best at school"
+        },
+        {
+          "id": 28,
+          "text": "Who would you not want controlling your social media for a day?"
+        },
+        {
+          "id": 29,
+          "text": "Has the nicest butt"
+        },
+        {
+          "id": 30,
+          "text": "Is the best friend"
+        },
+        {
+          "id": 31,
+          "text": "Has the prettiest eyes"
+        },
+        {
+          "id": 32,
+          "text": "Who did you think was the biggest bitch the first time you met?"
+        },
+        {
+          "id": 33,
+          "text": "Is the unluckiest"
+        },
+        {
+          "id": 34,
+          "text": "Has taken the most virginities"
+        },
+        {
+          "id": 35,
+          "text": "Will throw up tonight"
+        },
+        {
+          "id": 36,
+          "text": "Will be the best partner"
+        },
+        {
+          "id": 37,
+          "text": "Has gone the longest without sex"
+        },
+        {
+          "id": 38,
+          "text": "Most likely to be hungover on a weekday"
+        },
+        {
+          "id": 39,
+          "text": "Funniest"
+        },
+        {
+          "id": 40,
+          "text": "Cheers 40!"
+        },
+        {
+          "id": 41,
+          "text": "Has had the most wet dreams"
+        },
+        {
+          "id": 42,
+          "text": "Is the smartest"
+        },
+        {
+          "id": 43,
+          "text": "Mother-in-law or father-in-law's dream?"
+        },
+        {
+          "id": 44,
+          "text": "Is up for anything"
+        },
+        {
+          "id": 45,
+          "text": "Worst at using contraception"
+        },
+        {
+          "id": 46,
+          "text": "Dances best"
+        },
+        {
+          "id": 47,
+          "text": "Most responsible"
+        },
+        {
+          "id": 48,
+          "text": "Least responsible"
+        },
+        {
+          "id": 49,
+          "text": "Smells best"
+        },
+        {
+          "id": 50,
+          "text": "Is the horniest"
+        },
+        {
+          "id": 51,
+          "text": "Is the best flirt"
+        },
+        {
+          "id": 52,
+          "text": "Highest IQ?"
+        },
+        {
+          "id": 53,
+          "text": "Has the dirtiest message log"
+        },
+        {
+          "id": 54,
+          "text": "Would be the best prime minister"
+        },
+        {
+          "id": 55,
+          "text": "Has the best GPA"
+        },
+        {
+          "id": 56,
+          "text": "Center of the party"
+        },
+        {
+          "id": 57,
+          "text": "Best at kissing"
+        },
+        {
+          "id": 58,
+          "text": "Biggest drama queen"
+        },
+        {
+          "id": 59,
+          "text": "Has completed Netflix"
+        },
+        {
+          "id": 60,
+          "text": "Cheers 60!"
+        },
+        {
+          "id": 61,
+          "text": "Would survive The Hunger Games?"
+        },
+        {
+          "id": 62,
+          "text": "Who will drink the most tonight?"
+        },
+        {
+          "id": 63,
+          "text": "Will become a millionaire first?"
+        },
+        {
+          "id": 64,
+          "text": "Is the teacher's favorite"
+        },
+        {
+          "id": 65,
+          "text": "Is most liked by new people"
+        },
+        {
+          "id": 66,
+          "text": "Has the most worn-out knees"
+        },
+        {
+          "id": 67,
+          "text": "Is best in bed"
+        },
+        {
+          "id": 68,
+          "text": "Is the wildest"
+        },
+        {
+          "id": 69,
+          "text": "Is shaved and ready for anything"
+        },
+        {
+          "id": 70,
+          "text": "Cheers 70!"
+        },
+        {
+          "id": 71,
+          "text": "Takes the longest showers"
+        },
+        {
+          "id": 72,
+          "text": "Will be the most successful"
+        },
+        {
+          "id": 73,
+          "text": "Who is not sleeping at home tonight?"
+        },
+        {
+          "id": 74,
+          "text": "Is best with children"
+        },
+        {
+          "id": 75,
+          "text": "Has the biggest celebrity factor?"
+        },
+        {
+          "id": 76,
+          "text": "Is going to heaven"
+        },
+        {
+          "id": 77,
+          "text": "Has the best chance with you"
+        },
+        {
+          "id": 78,
+          "text": "Has the most Tinder matches"
+        },
+        {
+          "id": 79,
+          "text": "Laughs at the worst time"
+        },
+        {
+          "id": 80,
+          "text": "Cheers 80!"
+        },
+        {
+          "id": 81,
+          "text": "Who would you want as your beer pong partner?"
+        },
+        {
+          "id": 82,
+          "text": "Gets recognized at the liquor store"
+        },
+        {
+          "id": 83,
+          "text": "Gets recognized at the sex shop"
+        },
+        {
+          "id": 84,
+          "text": "Who do you trust the most?"
+        },
+        {
+          "id": 85,
+          "text": "Would do the most for the least money"
+        },
+        {
+          "id": 86,
+          "text": "Hooks up the most"
+        },
+        {
+          "id": 87,
+          "text": "Makes the wildest sounds in bed?"
+        },
+        {
+          "id": 88,
+          "text": "Gets jealous fastest?"
+        },
+        {
+          "id": 89,
+          "text": "Most likely could be in an adult film"
+        },
+        {
+          "id": 90,
+          "text": "Most likely would have paid for it. CHEERS 90!"
+        },
+        {
+          "id": 91,
+          "text": "Gets the most nudes"
+        },
+        {
+          "id": 92,
+          "text": "Is the biggest stalker"
+        },
+        {
+          "id": 93,
+          "text": "Finishes fastest"
+        },
+        {
+          "id": 94,
+          "text": "Has sex on the first date"
+        },
+        {
+          "id": 95,
+          "text": "Has a crush on their teacher"
+        },
+        {
+          "id": 96,
+          "text": "Is the most arrogant"
+        },
+        {
+          "id": 97,
+          "text": "Gets bought the most drinks in town"
+        },
+        {
+          "id": 98,
+          "text": "Hits it and quits it"
+        },
+        {
+          "id": 99,
+          "text": "Should shotgun a drink with you?"
+        },
+        {
+          "id": 100,
+          "text": "CHEERS 100!"
+        }
+      ]
+    }
+  }
 }

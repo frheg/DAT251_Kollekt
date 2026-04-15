@@ -722,5 +722,587 @@
       "text": "Jeg har aldri blitt kastet ut av et utested",
       "kind": "never"
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "title": "Never Have I Ever",
+      "shortTitle": "Never",
+      "description": "Draw a statement. If you have done it, drink.",
+      "rules": [
+        "Draw one question at a time.",
+        "Read the statement out loud for everyone.",
+        "Everyone who has done what is on the card must drink."
+      ],
+      "prompts": [
+        {
+          "id": 1,
+          "text": "Never have I ever kissed more than 5 people in one night"
+        },
+        {
+          "id": 2,
+          "text": "Never have I ever stolen something"
+        },
+        {
+          "id": 3,
+          "text": "Never have I ever missed my flight"
+        },
+        {
+          "id": 4,
+          "text": "Never have I ever sent drunk messages to someone I should not have"
+        },
+        {
+          "id": 5,
+          "text": "Never have I ever lost a bet"
+        },
+        {
+          "id": 6,
+          "text": "Never have I ever gone skinny-dipping"
+        },
+        {
+          "id": 7,
+          "text": "Never have I ever been unfaithful"
+        },
+        {
+          "id": 8,
+          "text": "Never have I ever sung karaoke"
+        },
+        {
+          "id": 9,
+          "text": "Never have I ever broken a bone"
+        },
+        {
+          "id": 10,
+          "text": "Never have I ever been on a yacht"
+        },
+        {
+          "id": 11,
+          "text": "Never have I ever been on TV"
+        },
+        {
+          "id": 12,
+          "text": "Never have I ever been on a Tinder date"
+        },
+        {
+          "id": 13,
+          "text": "Never have I ever gotten a tattoo"
+        },
+        {
+          "id": 14,
+          "text": "Never have I ever lied to the police"
+        },
+        {
+          "id": 15,
+          "text": "Never have I ever used a fake ID"
+        },
+        {
+          "id": 16,
+          "text": "Never have I ever broken up with someone"
+        },
+        {
+          "id": 17,
+          "text": "Never have I ever used someone else's toothbrush"
+        },
+        {
+          "id": 18,
+          "text": "Never have I ever clogged someone else's toilet"
+        },
+        {
+          "id": 19,
+          "text": "Never have I ever fallen asleep in public"
+        },
+        {
+          "id": 20,
+          "text": "Never have I ever kissed someone in public"
+        },
+        {
+          "id": 21,
+          "text": "Never have I ever used someone for money"
+        },
+        {
+          "id": 22,
+          "text": "Never have I ever had a one-night stand"
+        },
+        {
+          "id": 23,
+          "text": "Never have I ever tricked someone"
+        },
+        {
+          "id": 24,
+          "text": "Never have I ever accidentally hit something while driving"
+        },
+        {
+          "id": 25,
+          "text": "Never have I ever laughed so hard I peed myself"
+        },
+        {
+          "id": 26,
+          "text": "Never have I ever gone through someone else's private messages"
+        },
+        {
+          "id": 27,
+          "text": "Never have I ever tried hash"
+        },
+        {
+          "id": 28,
+          "text": "Never have I ever gone several days without showering"
+        },
+        {
+          "id": 29,
+          "text": "Never have I ever had a walk of shame"
+        },
+        {
+          "id": 30,
+          "text": "Never have I ever gone on a solo trip abroad"
+        },
+        {
+          "id": 31,
+          "text": "Never have I ever run a marathon"
+        },
+        {
+          "id": 32,
+          "text": "Never have I ever lied to my parents about where I was"
+        },
+        {
+          "id": 33,
+          "text": "Never have I ever been to a Disney park"
+        },
+        {
+          "id": 34,
+          "text": "Never have I ever ghosted someone"
+        },
+        {
+          "id": 35,
+          "text": "Never have I ever lied about my age"
+        },
+        {
+          "id": 36,
+          "text": "Never have I ever believed in ghosts"
+        },
+        {
+          "id": 37,
+          "text": "Never have I ever faked being sick to skip school"
+        },
+        {
+          "id": 38,
+          "text": "Never have I ever deleted a post because it got too few likes or comments"
+        },
+        {
+          "id": 39,
+          "text": "Never have I ever thrown food or drinks at someone"
+        },
+        {
+          "id": 40,
+          "text": "Never have I ever worn someone else's underwear"
+        },
+        {
+          "id": 41,
+          "text": "Never have I ever watched an entire series in one day"
+        },
+        {
+          "id": 42,
+          "text": "Never have I ever been outside Europe"
+        },
+        {
+          "id": 43,
+          "text": "Never have I ever seen an A-list celebrity in real life"
+        },
+        {
+          "id": 44,
+          "text": "Never have I ever failed a test"
+        },
+        {
+          "id": 45,
+          "text": "Never have I ever donated money to charity"
+        },
+        {
+          "id": 46,
+          "text": "Never have I ever had sex outside the bedroom"
+        },
+        {
+          "id": 47,
+          "text": "Never have I ever been in love"
+        },
+        {
+          "id": 48,
+          "text": "Never have I ever cheated on a test"
+        },
+        {
+          "id": 49,
+          "text": "Never have I ever taken alcohol from my parents"
+        },
+        {
+          "id": 50,
+          "text": "Never have I ever taken food from the fridge that was not mine"
+        },
+        {
+          "id": 51,
+          "text": "Never have I ever peed in the pool"
+        },
+        {
+          "id": 52,
+          "text": "Never have I ever tried drugs"
+        },
+        {
+          "id": 53,
+          "text": "Never have I ever been hospitalized"
+        },
+        {
+          "id": 54,
+          "text": "Never have I ever been to Asia"
+        },
+        {
+          "id": 55,
+          "text": "Never have I ever made my friend break up with their partner"
+        },
+        {
+          "id": 56,
+          "text": "Never have I ever snitched on someone"
+        },
+        {
+          "id": 57,
+          "text": "Never have I ever donated an organ"
+        },
+        {
+          "id": 58,
+          "text": "Never have I ever lost an organ"
+        },
+        {
+          "id": 59,
+          "text": "Never have I ever said the wrong name during sex"
+        },
+        {
+          "id": 60,
+          "text": "Never have I ever thought a baby was downright ugly"
+        },
+        {
+          "id": 61,
+          "text": "Never have I ever had a wet dream"
+        },
+        {
+          "id": 62,
+          "text": "Never have I ever held a grudge for longer than a year"
+        },
+        {
+          "id": 63,
+          "text": "Never have I ever been on a diet"
+        },
+        {
+          "id": 64,
+          "text": "Never have I ever cut my own hair"
+        },
+        {
+          "id": 65,
+          "text": "Never have I ever accidentally said \"I love you\""
+        },
+        {
+          "id": 66,
+          "text": "Never have I ever fasted"
+        },
+        {
+          "id": 67,
+          "text": "Never have I ever used my looks to get advantages from something"
+        },
+        {
+          "id": 68,
+          "text": "Never have I ever sent nudes"
+        },
+        {
+          "id": 69,
+          "text": "Never have I ever received nudes"
+        },
+        {
+          "id": 70,
+          "text": "Never have I ever blocked someone"
+        },
+        {
+          "id": 71,
+          "text": "Never have I ever seen someone die"
+        },
+        {
+          "id": 72,
+          "text": "Never have I ever bled through my clothes"
+        },
+        {
+          "id": 73,
+          "text": "Never have I ever had to run for my life"
+        },
+        {
+          "id": 74,
+          "text": "Never have I ever done 69"
+        },
+        {
+          "id": 75,
+          "text": "Never have I ever had sex with different partners within 24 hours"
+        },
+        {
+          "id": 76,
+          "text": "Never have I ever started a trend"
+        },
+        {
+          "id": 77,
+          "text": "Never have I ever gone diving"
+        },
+        {
+          "id": 78,
+          "text": "Never have I ever done something sexual with someone of the same gender"
+        },
+        {
+          "id": 79,
+          "text": "Never have I ever kissed someone in the rain"
+        },
+        {
+          "id": 80,
+          "text": "Never have I ever thrown up in a car"
+        },
+        {
+          "id": 81,
+          "text": "Never have I ever intentionally given someone bad advice"
+        },
+        {
+          "id": 82,
+          "text": "Never have I ever crashed into someone"
+        },
+        {
+          "id": 83,
+          "text": "Never have I ever gone commando"
+        },
+        {
+          "id": 84,
+          "text": "Never have I ever dumpster dived"
+        },
+        {
+          "id": 85,
+          "text": "Never have I ever had surgery"
+        },
+        {
+          "id": 86,
+          "text": "Never have I ever flirted with someone who has a partner"
+        },
+        {
+          "id": 87,
+          "text": "Never have I ever flirted with someone 20+ years older"
+        },
+        {
+          "id": 88,
+          "text": "Never have I ever had braces"
+        },
+        {
+          "id": 89,
+          "text": "Never have I ever hitchhiked"
+        },
+        {
+          "id": 90,
+          "text": "Never have I ever picked up a hitchhiker"
+        },
+        {
+          "id": 91,
+          "text": "Never have I ever lied about my relationship status"
+        },
+        {
+          "id": 92,
+          "text": "Never have I ever catfished someone"
+        },
+        {
+          "id": 93,
+          "text": "Never have I ever sexted"
+        },
+        {
+          "id": 94,
+          "text": "Never have I ever walked in on someone having sex"
+        },
+        {
+          "id": 95,
+          "text": "Never have I ever been in the same room as people having sex"
+        },
+        {
+          "id": 96,
+          "text": "Never have I ever witnessed something criminal"
+        },
+        {
+          "id": 97,
+          "text": "Never have I ever ridden a horse"
+        },
+        {
+          "id": 98,
+          "text": "Never have I ever fainted"
+        },
+        {
+          "id": 99,
+          "text": "Never have I ever donated blood"
+        },
+        {
+          "id": 100,
+          "text": "Never have I ever been in a fight"
+        },
+        {
+          "id": 101,
+          "text": "Never have I ever stalked someone on social media"
+        },
+        {
+          "id": 102,
+          "text": "Never have I ever stalked someone on Snap Map"
+        },
+        {
+          "id": 103,
+          "text": "Never have I ever fired a gun"
+        },
+        {
+          "id": 104,
+          "text": "Never have I ever been fired"
+        },
+        {
+          "id": 105,
+          "text": "Never have I ever been part of a rumor that was not true"
+        },
+        {
+          "id": 106,
+          "text": "Never have I ever cried at a party"
+        },
+        {
+          "id": 107,
+          "text": "Never have I ever cried at work"
+        },
+        {
+          "id": 108,
+          "text": "Never have I ever gone to work hungover"
+        },
+        {
+          "id": 109,
+          "text": "Never have I ever faked an orgasm"
+        },
+        {
+          "id": 110,
+          "text": "Never have I ever been in a police car"
+        },
+        {
+          "id": 111,
+          "text": "Never have I ever been to a strip club"
+        },
+        {
+          "id": 112,
+          "text": "Never have I ever spent over 5k NOK on a night out"
+        },
+        {
+          "id": 113,
+          "text": "Never have I ever spent over 10k NOK on a night out"
+        },
+        {
+          "id": 114,
+          "text": "Never have I ever surfed"
+        },
+        {
+          "id": 115,
+          "text": "Never have I ever been to a nude beach"
+        },
+        {
+          "id": 116,
+          "text": "Never have I ever called the police"
+        },
+        {
+          "id": 117,
+          "text": "Never have I ever left a bad review online"
+        },
+        {
+          "id": 118,
+          "text": "Never have I ever been ghosted"
+        },
+        {
+          "id": 119,
+          "text": "Never have I ever done something sexual at a nightclub or bar"
+        },
+        {
+          "id": 120,
+          "text": "Never have I ever lost my voice"
+        },
+        {
+          "id": 121,
+          "text": "Never have I ever sung for a crowd"
+        },
+        {
+          "id": 122,
+          "text": "Never have I ever gotten a black eye"
+        },
+        {
+          "id": 123,
+          "text": "Never have I ever given someone a black eye"
+        },
+        {
+          "id": 124,
+          "text": "Never have I ever kissed a stranger"
+        },
+        {
+          "id": 125,
+          "text": "Never have I ever drunk alcohol over 60%"
+        },
+        {
+          "id": 126,
+          "text": "Never have I ever smoked regularly for a period"
+        },
+        {
+          "id": 127,
+          "text": "Never have I ever given someone a lap dance"
+        },
+        {
+          "id": 128,
+          "text": "Never have I ever used a dating app"
+        },
+        {
+          "id": 129,
+          "text": "Never have I ever used a dating website, like match.com"
+        },
+        {
+          "id": 130,
+          "text": "Never have I ever gotten a hickey"
+        },
+        {
+          "id": 131,
+          "text": "Never have I ever dated several people at the same time"
+        },
+        {
+          "id": 132,
+          "text": "Never have I ever fantasized about getting back with an ex"
+        },
+        {
+          "id": 133,
+          "text": "Never have I ever been in a relationship"
+        },
+        {
+          "id": 134,
+          "text": "Never have I ever googled myself"
+        },
+        {
+          "id": 135,
+          "text": "Never have I ever had sex on the first date"
+        },
+        {
+          "id": 136,
+          "text": "Never have I ever had sex with a coworker"
+        },
+        {
+          "id": 137,
+          "text": "Never have I ever had a threesome"
+        },
+        {
+          "id": 138,
+          "text": "Never have I ever role-played"
+        },
+        {
+          "id": 139,
+          "text": "Never have I ever sucked someone's toes"
+        },
+        {
+          "id": 140,
+          "text": "Never have I ever had sex with someone and kept it secret"
+        },
+        {
+          "id": 141,
+          "text": "Never have I ever had sex with a best friend"
+        },
+        {
+          "id": 142,
+          "text": "Never have I ever been thrown out of a nightclub or bar"
+        }
+      ]
+    }
+  }
 }
