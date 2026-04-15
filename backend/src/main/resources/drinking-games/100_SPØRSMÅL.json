@@ -1,0 +1,515 @@
+{
+  "id": "hundred-questions",
+  "title": "100 Spørsmål",
+  "shortTitle": "100",
+  "description": "Et strukturert spørsmålskortspill for hele rommet.",
+  "mode": "ordered-deck",
+  "sourceFile": "backend/src/main/resources/drinking-games/100_SPØRSMÅL.json",
+  "rules": [
+    "Les spørsmålet høyt.",
+    "Alle peker eller svarer på den personen som passer best.",
+    "Den som blir valgt drikker. Ved SKÅL-kort skåler alle."
+  ],
+  "prompts": [
+    {
+      "id": 1,
+      "text": "Utrolig nok ikke har vært i håndjern enda",
+      "kind": "vote"
+    },
+    {
+      "id": 2,
+      "text": "Sender mest nudes?",
+      "kind": "vote"
+    },
+    {
+      "id": 3,
+      "text": "Kan drikke mest alkohol uten å bli drita?",
+      "kind": "vote"
+    },
+    {
+      "id": 4,
+      "text": "Har hooket med flest i rommet?",
+      "kind": "vote"
+    },
+    {
+      "id": 5,
+      "text": "Er den største fyliken?",
+      "kind": "vote"
+    },
+    {
+      "id": 6,
+      "text": "Har vært/kunne vært utro.",
+      "kind": "vote"
+    },
+    {
+      "id": 7,
+      "text": "Blir den beste moren/faren.",
+      "kind": "vote"
+    },
+    {
+      "id": 8,
+      "text": "Har best hygiene?",
+      "kind": "vote"
+    },
+    {
+      "id": 9,
+      "text": "Kjørt uten lappen?",
+      "kind": "vote"
+    },
+    {
+      "id": 10,
+      "text": "Har hatt trekant?",
+      "kind": "vote"
+    },
+    {
+      "id": 11,
+      "text": "Skål 10!",
+      "kind": "toast"
+    },
+    {
+      "id": 12,
+      "text": "Mest ubesluttsom",
+      "kind": "vote"
+    },
+    {
+      "id": 13,
+      "text": "Har onanert offentlig?",
+      "kind": "vote"
+    },
+    {
+      "id": 14,
+      "text": "Bruker mest penger på byn?",
+      "kind": "vote"
+    },
+    {
+      "id": 15,
+      "text": "Hvem ville du vært på en øde øy med?",
+      "kind": "vote"
+    },
+    {
+      "id": 16,
+      "text": "Knuser flest hjerter?",
+      "kind": "vote"
+    },
+    {
+      "id": 17,
+      "text": "Har diggest tits?",
+      "kind": "vote"
+    },
+    {
+      "id": 18,
+      "text": "Tror selv hen er morsomst.",
+      "kind": "vote"
+    },
+    {
+      "id": 19,
+      "text": "Har best musikksmak",
+      "kind": "vote"
+    },
+    {
+      "id": 20,
+      "text": "Hvem her i rommet kunne personen til din høyre hooket med?",
+      "kind": "vote"
+    },
+    {
+      "id": 21,
+      "text": "Blir mest fyllesyk?",
+      "kind": "vote"
+    },
+    {
+      "id": 22,
+      "text": "Er mest bortskjemt.",
+      "kind": "vote"
+    },
+    {
+      "id": 23,
+      "text": "Hadde klart seg best på farmen",
+      "kind": "vote"
+    },
+    {
+      "id": 24,
+      "text": "Lyser opp rommet",
+      "kind": "vote"
+    },
+    {
+      "id": 25,
+      "text": "Runker mest",
+      "kind": "vote"
+    },
+    {
+      "id": 26,
+      "text": "Hvem du får vakrest barn med.",
+      "kind": "vote"
+    },
+    {
+      "id": 27,
+      "text": "Er flinkest på skolen",
+      "kind": "vote"
+    },
+    {
+      "id": 28,
+      "text": "Ville du ikke hatt til å styre dine sosiale medier for en dag",
+      "kind": "vote"
+    },
+    {
+      "id": 29,
+      "text": "Har finest rumpe",
+      "kind": "vote"
+    },
+    {
+      "id": 30,
+      "text": "Er den beste vennen",
+      "kind": "vote"
+    },
+    {
+      "id": 31,
+      "text": "Har de fineste øynene",
+      "kind": "vote"
+    },
+    {
+      "id": 32,
+      "text": "Trodde du var mest bitch første gang dere møttes",
+      "kind": "vote"
+    },
+    {
+      "id": 33,
+      "text": "Er mest uheldig",
+      "kind": "vote"
+    },
+    {
+      "id": 34,
+      "text": "Tatt flest jomfrudommer",
+      "kind": "vote"
+    },
+    {
+      "id": 35,
+      "text": "Spyr i kveld",
+      "kind": "vote"
+    },
+    {
+      "id": 36,
+      "text": "Blir den beste kjæresten",
+      "kind": "vote"
+    },
+    {
+      "id": 37,
+      "text": "Gått lengst uten å ha sex",
+      "kind": "vote"
+    },
+    {
+      "id": 38,
+      "text": "Mest sannsynlig å være hangover i en hverdag",
+      "kind": "vote"
+    },
+    {
+      "id": 39,
+      "text": "Morsomst",
+      "kind": "vote"
+    },
+    {
+      "id": 40,
+      "text": "Skål 40!",
+      "kind": "toast"
+    },
+    {
+      "id": 41,
+      "text": "Har hatt flest våte drømmer",
+      "kind": "vote"
+    },
+    {
+      "id": 42,
+      "text": "Er smartest",
+      "kind": "vote"
+    },
+    {
+      "id": 43,
+      "text": "Svigemors/Svigefars drøm?",
+      "kind": "vote"
+    },
+    {
+      "id": 44,
+      "text": "Er med på alt",
+      "kind": "vote"
+    },
+    {
+      "id": 45,
+      "text": "Minst flink til å bruke prevensjon",
+      "kind": "vote"
+    },
+    {
+      "id": 46,
+      "text": "Danser best",
+      "kind": "vote"
+    },
+    {
+      "id": 47,
+      "text": "Mest ansvarlig",
+      "kind": "vote"
+    },
+    {
+      "id": 48,
+      "text": "Minst ansvarlig",
+      "kind": "vote"
+    },
+    {
+      "id": 49,
+      "text": "Lukter best",
+      "kind": "vote"
+    },
+    {
+      "id": 50,
+      "text": "Er kåtest",
+      "kind": "vote"
+    },
+    {
+      "id": 51,
+      "text": "Er den beste sjekkeren",
+      "kind": "vote"
+    },
+    {
+      "id": 52,
+      "text": "Høyest IQ?",
+      "kind": "vote"
+    },
+    {
+      "id": 53,
+      "text": "Har den mest skitneste loggen",
+      "kind": "vote"
+    },
+    {
+      "id": 54,
+      "text": "Hadde blitt den beste statsministeren",
+      "kind": "vote"
+    },
+    {
+      "id": 55,
+      "text": "HAr det beste snittet",
+      "kind": "vote"
+    },
+    {
+      "id": 56,
+      "text": "Festens midtpunkt",
+      "kind": "vote"
+    },
+    {
+      "id": 57,
+      "text": "Best til å kysse",
+      "kind": "vote"
+    },
+    {
+      "id": 58,
+      "text": "Største dramaqueenen",
+      "kind": "vote"
+    },
+    {
+      "id": 59,
+      "text": "Rundet netflix",
+      "kind": "vote"
+    },
+    {
+      "id": 60,
+      "text": "Skål 60!",
+      "kind": "toast"
+    },
+    {
+      "id": 61,
+      "text": "Hadde overlevd hunger games?",
+      "kind": "vote"
+    },
+    {
+      "id": 62,
+      "text": "Hvem kommer til å drikke mest i kveld?",
+      "kind": "vote"
+    },
+    {
+      "id": 63,
+      "text": "Blir millionær først?",
+      "kind": "vote"
+    },
+    {
+      "id": 64,
+      "text": "Er lærerens favoritt",
+      "kind": "vote"
+    },
+    {
+      "id": 65,
+      "text": "Blir best likt av nye personer",
+      "kind": "vote"
+    },
+    {
+      "id": 66,
+      "text": "Har de mest slitte knærne",
+      "kind": "vote"
+    },
+    {
+      "id": 67,
+      "text": "Er best i sengen",
+      "kind": "vote"
+    },
+    {
+      "id": 68,
+      "text": "Er villeste",
+      "kind": "vote"
+    },
+    {
+      "id": 69,
+      "text": "Har shavet og er klar for alt",
+      "kind": "vote"
+    },
+    {
+      "id": 70,
+      "text": "Skål 70!",
+      "kind": "toast"
+    },
+    {
+      "id": 71,
+      "text": "Er lengst i dusjen",
+      "kind": "vote"
+    },
+    {
+      "id": 72,
+      "text": "Blir mest sukessfull",
+      "kind": "vote"
+    },
+    {
+      "id": 73,
+      "text": "Hvem sover ikke hjem i natt?",
+      "kind": "vote"
+    },
+    {
+      "id": 74,
+      "text": "Er flinkest med barn",
+      "kind": "vote"
+    },
+    {
+      "id": 75,
+      "text": "Har størst kjendisfaktor?",
+      "kind": "vote"
+    },
+    {
+      "id": 76,
+      "text": "Kommer til himmelen",
+      "kind": "vote"
+    },
+    {
+      "id": 77,
+      "text": "Har best sjans på deg",
+      "kind": "vote"
+    },
+    {
+      "id": 78,
+      "text": "Har flest tinder matches",
+      "kind": "vote"
+    },
+    {
+      "id": 79,
+      "text": "Ler på dårligst tidspunkt",
+      "kind": "vote"
+    },
+    {
+      "id": 80,
+      "text": "Skål 80!",
+      "kind": "toast"
+    },
+    {
+      "id": 81,
+      "text": "Hvem ville du hatt som beer pong partner",
+      "kind": "vote"
+    },
+    {
+      "id": 82,
+      "text": "Blir gjenkjent på polet",
+      "kind": "vote"
+    },
+    {
+      "id": 83,
+      "text": "Blir gjenkjent på kondomeriet",
+      "kind": "vote"
+    },
+    {
+      "id": 84,
+      "text": "Stoler du mest på",
+      "kind": "vote"
+    },
+    {
+      "id": 85,
+      "text": "Hadde gjort mest for minst penger",
+      "kind": "vote"
+    },
+    {
+      "id": 86,
+      "text": "Hooker mest",
+      "kind": "vote"
+    },
+    {
+      "id": 87,
+      "text": "Lager de sykeste lydene i senga?",
+      "kind": "vote"
+    },
+    {
+      "id": 88,
+      "text": "Blir raskest sjalu?",
+      "kind": "vote"
+    },
+    {
+      "id": 89,
+      "text": "Mest sannsynelig kunne spilt i en porno",
+      "kind": "vote"
+    },
+    {
+      "id": 90,
+      "text": "Mest sannsynelig hadde betalt for den. SKÅL 90!",
+      "kind": "toast"
+    },
+    {
+      "id": 91,
+      "text": "Får flest nudes",
+      "kind": "vote"
+    },
+    {
+      "id": 92,
+      "text": "Er den største stalkeren",
+      "kind": "vote"
+    },
+    {
+      "id": 93,
+      "text": "Kommer raskest",
+      "kind": "vote"
+    },
+    {
+      "id": 94,
+      "text": "Har sex på første date",
+      "kind": "vote"
+    },
+    {
+      "id": 95,
+      "text": "Er keen på læreren sin",
+      "kind": "vote"
+    },
+    {
+      "id": 96,
+      "text": "Er mest overlegen",
+      "kind": "vote"
+    },
+    {
+      "id": 97,
+      "text": "Blir spandert mest på byen",
+      "kind": "vote"
+    },
+    {
+      "id": 98,
+      "text": "Tømmer og rømmer",
+      "kind": "vote"
+    },
+    {
+      "id": 99,
+      "text": "Skal ta bonski med deg?",
+      "kind": "vote"
+    },
+    {
+      "id": 100,
+      "text": "SKÅL 100!!",
+      "kind": "toast"
+    }
+  ]
+}
