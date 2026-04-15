@@ -47,12 +47,23 @@ class ChatOperations(
         val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(actorName)
         val normalizedText = request.text.trim()
         require(normalizedText.isNotBlank()) { "Message text is required" }
+        val replyToMessageId =
+            request.replyToMessageId?.let { referencedMessageId ->
+                val referencedMessage =
+                    chatMessageRepository
+                        .findById(referencedMessageId)
+                        .orElseThrow { IllegalArgumentException("Referenced message not found") }
+                require(referencedMessage.collectiveCode == collectiveCode) { "Referenced message not found" }
+                require(!chatMessageRepository.existsByReplyToMessageId(referencedMessage.id)) { "Message already has a reply" }
+                referencedMessage.id
+            }
         val saved =
             chatMessageRepository.save(
                 ChatMessage(
                     sender = actorName,
                     collectiveCode = collectiveCode,
                     text = normalizedText,
+                    replyToMessageId = replyToMessageId,
                     timestamp = LocalDateTime.now(),
                 ),
             )
@@ -321,6 +332,7 @@ class ChatOperations(
             imageData = imageData,
             imageMimeType = imageMimeType,
             imageFileName = imageFileName,
+            replyToMessageId = replyToMessageId,
             timestamp = timestamp,
             reactions =
                 reactionMap()

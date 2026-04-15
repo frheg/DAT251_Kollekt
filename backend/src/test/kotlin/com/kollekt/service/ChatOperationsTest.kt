@@ -8,6 +8,7 @@ import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.MemberRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -76,6 +77,60 @@ class ChatOperationsTest {
         assertEquals("Finished", result.text)
         assertEquals(Base64.getEncoder().encodeToString("img".toByteArray()), result.imageData)
         verify(eventPublisher).chatEvent("MESSAGE_CREATED", result)
+    }
+
+    @Test
+    fun `create message allows replying to a reply`() {
+        whenever(chatMessageRepository.findById(7)).thenReturn(
+            Optional.of(
+                ChatMessage(
+                    id = 7,
+                    sender = "Emma",
+                    collectiveCode = "ABC123",
+                    text = "Reply",
+                    timestamp = LocalDateTime.now(),
+                    replyToMessageId = 3,
+                ),
+            ),
+        )
+        whenever(chatMessageRepository.existsByReplyToMessageId(7)).thenReturn(false)
+        whenever(chatMessageRepository.save(any<ChatMessage>())).thenAnswer {
+            (it.arguments[0] as ChatMessage).copy(id = 12)
+        }
+
+        val result =
+            operations.createMessage(
+                CreateMessageRequest(sender = "Ignored", text = "Nested reply", replyToMessageId = 7),
+                "Kasper",
+            )
+
+        assertEquals(7, result.replyToMessageId)
+    }
+
+    @Test
+    fun `create message rejects second direct reply to same message`() {
+        whenever(chatMessageRepository.findById(5)).thenReturn(
+            Optional.of(
+                ChatMessage(
+                    id = 5,
+                    sender = "Emma",
+                    collectiveCode = "ABC123",
+                    text = "Original",
+                    timestamp = LocalDateTime.now(),
+                ),
+            ),
+        )
+        whenever(chatMessageRepository.existsByReplyToMessageId(5)).thenReturn(true)
+
+        val error =
+            assertThrows(IllegalArgumentException::class.java) {
+                operations.createMessage(
+                    CreateMessageRequest(sender = "Ignored", text = "Another reply", replyToMessageId = 5),
+                    "Kasper",
+                )
+            }
+
+        assertEquals("Message already has a reply", error.message)
     }
 
     @Test
