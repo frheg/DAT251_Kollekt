@@ -255,6 +255,7 @@ export interface ChatMessage {
   imageData?: string | null;
   imageMimeType?: string | null;
   imageFileName?: string | null;
+  replyToMessageId?: number | null;
   timestamp: string;
   reactions: ChatReaction[];
   poll?: ChatPoll | null;
