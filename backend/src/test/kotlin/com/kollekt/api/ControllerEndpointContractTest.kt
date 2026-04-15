@@ -517,6 +517,20 @@ class ControllerEndpointContractTest {
     }
 
     @Test
+    fun `achievement config patch uses api achievements config endpoint`() {
+        mockMvc
+            .perform(
+                patch("/api/achievements/config")
+                    .param("memberName", "Kasper")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .content("""{"enabledKeys":["clean_streak","task_master"]}""")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
+
+        verify(statsService).updateAchievementConfig("Kasper", setOf("clean_streak", "task_master"))
+    }
+
+    @Test
     fun `member stats uses api members stats endpoint`() {
         whenever(statsService.getMemberStats("Kasper", "Emma"))
             .thenReturn(
