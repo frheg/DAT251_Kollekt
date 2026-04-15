@@ -90,6 +90,7 @@ class StatsService(
     private val expenseRepository: ExpenseRepository,
     private val redisTemplate: RedisTemplate<String, Any>,
     private val statsCacheService: StatsCacheService,
+    private val realtimeUpdateService: RealtimeUpdateService,
 ) {
     fun getLeaderboard(
         memberName: String,
@@ -233,6 +234,7 @@ class StatsService(
                 ?: throw IllegalArgumentException("Collective not found")
         collectiveRepository.save(collective.copy(enabledAchievementKeys = enabledKeys))
         statsCacheService.clearAchievementsCache()
+        realtimeUpdateService.publish(collectiveCode, "ACHIEVEMENT_CONFIG_UPDATED")
     }
 
     fun getMemberStats(

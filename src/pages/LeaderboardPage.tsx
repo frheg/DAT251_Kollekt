@@ -62,7 +62,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     if (!name) return;
     const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'EXPENSE_CREATED', 'BALANCES_SETTLED'].includes(event.type)) {
+      if (['TASK_UPDATED', 'TASK_CREATED', 'TASK_DELETED', 'EXPENSE_CREATED', 'BALANCES_SETTLED', 'ACHIEVEMENT_CONFIG_UPDATED'].includes(event.type)) {
         fetchData(period);
       }
     });
@@ -108,7 +108,6 @@ export default function LeaderboardPage() {
     setCatalog(updated);
     const enabledKeys = updated.filter((item) => item.enabled).map((item) => item.key);
     await api.patch(`/achievements/config?memberName=${encodeURIComponent(name)}`, { enabledKeys });
-    fetchData(period);
   };
 
   if (loading || !data) {
