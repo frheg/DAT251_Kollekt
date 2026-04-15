@@ -46,6 +46,20 @@ class TaskMaintenanceServiceTest {
     }
 
     @Test
+    fun `notify upcoming expense deadlines delegates to economy operations`() {
+        service.notifyUpcomingExpenseDeadlines()
+
+        verify(economyOperations).notifyUpcomingExpenseDeadlines()
+    }
+
+    @Test
+    fun `notify expired expense deadlines delegates to economy operations`() {
+        service.notifyExpiredExpenseDeadlines()
+
+        verify(economyOperations).notifyExpiredExpenseDeadlines()
+    }
+
+    @Test
     fun `scheduled weekly task rotation regenerates recurring tasks for each collective`() {
         whenever(collectiveRepository.findAll()).thenReturn(
             listOf(
