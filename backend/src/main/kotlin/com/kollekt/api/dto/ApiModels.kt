@@ -115,6 +115,7 @@ data class MessageDto(
     val imageData: String? = null,
     val imageMimeType: String? = null,
     val imageFileName: String? = null,
+    val replyToMessageId: Long? = null,
     val timestamp: LocalDateTime,
     val reactions: List<ReactionDto> = emptyList(),
     val poll: PollDto? = null,
@@ -143,6 +144,7 @@ data class VotePollRequest(
 data class CreateMessageRequest(
     val sender: String,
     val text: String,
+    val replyToMessageId: Long? = null,
 )
 
 data class UserDto(

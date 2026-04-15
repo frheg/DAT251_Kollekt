@@ -18,6 +18,7 @@ data class ChatMessage(
     @Column(nullable = true, columnDefinition = "TEXT") val imageData: String? = null,
     @Column(nullable = true, length = 120) val imageMimeType: String? = null,
     @Column(nullable = true, length = 255) val imageFileName: String? = null,
+    @Column(nullable = true) val replyToMessageId: Long? = null,
     @Column(nullable = false) val timestamp: LocalDateTime,
     @Column(nullable = false, columnDefinition = "TEXT") val reactions: String = "{}",
     @Column(nullable = true, columnDefinition = "TEXT") val poll: String? = null,

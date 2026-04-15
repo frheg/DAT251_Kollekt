@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Image as ImageIcon, BarChart3, X, Smile } from 'lucide-react';
+import { Send, Image as ImageIcon, BarChart3, X, Smile, Reply } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
@@ -19,12 +19,14 @@ export default function ChatPage() {
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [reactingId, setReactingId] = useState<number | null>(null);
+  const [replyingToId, setReplyingToId] = useState<number | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const name = currentUser?.name ?? '';
+  const messageById = new Map(messages.map((message) => [message.id, message]));
 
   const fetchMessages = async () => {
     if (!name) return;
@@ -61,8 +63,10 @@ export default function ChatPage() {
   const sendMessage = async () => {
     if (!input.trim()) return;
     const text = input;
+    const replyToMessageId = replyingToId;
     setInput('');
-    await api.post('/chat/messages', { sender: name, text });
+    setReplyingToId(null);
+    await api.post('/chat/messages', { sender: name, text, replyToMessageId });
     fetchMessages();
   };
 
@@ -126,37 +130,59 @@ export default function ChatPage() {
 
       {/* Message list */}
       <div className="flex-1 overflow-y-auto space-y-3 pb-2">
-        {messages.map((m, i) => {
-          const isSelf = m.sender === name;
+        {messages.map((message, i) => {
+          const isSelf = message.sender === name;
+          const replyTarget = message.replyToMessageId != null ? messageById.get(message.replyToMessageId) : undefined;
           return (
-            <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}
-              className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+            <motion.div
+              key={message.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i * 0.02, 0.3) }}
+              className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}
+            >
               <div className="max-w-[80%] space-y-1">
+                {replyTarget && (
+                  <div
+                    className={`mx-1 rounded-lg px-2.5 py-1.5 text-[10px] leading-tight border ${
+                      isSelf
+                        ? 'border-primary/25 bg-primary/10 text-foreground'
+                        : 'border-border/60 bg-muted/40 text-muted-foreground'
+                    }`}
+                  >
+                    <div className={`mb-1 flex items-center gap-1 ${isSelf ? 'text-primary/80' : 'text-muted-foreground'}`}>
+                      <Reply className="h-2.5 w-2.5" />
+                      <span>{t('chat.replyingTo', { name: replyTarget.sender })}</span>
+                    </div>
+                    <p className={`font-semibold ${isSelf ? 'text-foreground' : 'text-primary'}`}>{replyTarget.sender}</p>
+                    <p className="truncate">{replyTarget.text || t('chat.imageAlt')}</p>
+                  </div>
+                )}
                 <div
                   className={`rounded-2xl px-3.5 py-2.5 ${
                     isSelf ? 'gradient-primary text-primary-foreground rounded-br-md' : 'glass rounded-bl-md'
                   }`}
-                  onClick={() => setReactingId(reactingId === m.id ? null : m.id)}
+                  onClick={() => setReactingId(reactingId === message.id ? null : message.id)}
                 >
-                  {!isSelf && <p className="text-[10px] text-primary font-semibold mb-0.5">{m.sender}</p>}
-                  {m.text && <p className="text-sm">{m.text}</p>}
-                  {m.imageData && (
+                  {!isSelf && <p className="text-[10px] text-primary font-semibold mb-0.5">{message.sender}</p>}
+                  {message.text && <p className="text-sm">{message.text}</p>}
+                  {message.imageData && (
                     <img
-                      src={`data:${m.imageMimeType};base64,${m.imageData}`}
-                      alt={m.imageFileName ?? t('chat.imageAlt')}
+                      src={`data:${message.imageMimeType};base64,${message.imageData}`}
+                      alt={message.imageFileName ?? t('chat.imageAlt')}
                       className="rounded-lg mt-1 max-h-40 object-cover"
                     />
                   )}
-                  {m.poll && (
+                  {message.poll && (
                     <div className="space-y-2 mt-1">
-                      <p className="text-sm font-semibold">{m.poll.question}</p>
-                      {m.poll.options.map((opt) => {
-                        const total = m.poll!.options.reduce((s, o) => s + o.users.length, 0);
+                      <p className="text-sm font-semibold">{message.poll.question}</p>
+                      {message.poll.options.map((opt) => {
+                        const total = message.poll!.options.reduce((s, o) => s + o.users.length, 0);
                         const votes = opt.users.length;
                         const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
                         const voted = opt.users.includes(name);
                         return (
-                          <button key={opt.id} onClick={() => votePoll(m.id, opt.id)}
+                          <button key={opt.id} onClick={() => votePoll(message.id, opt.id)}
                             className={`w-full rounded-lg p-2 text-left text-xs font-medium relative overflow-hidden ${
                               voted ? 'bg-primary/30 border border-primary/40' : isSelf ? 'bg-background/20' : 'bg-muted/50'
                             }`}>
@@ -168,13 +194,20 @@ export default function ChatPage() {
                     </div>
                   )}
                   <p className={`text-[9px] mt-1 ${isSelf ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {formatTime(m.timestamp)}
+                    {formatTime(message.timestamp)}
                   </p>
                 </div>
 
-                <div className="px-1">
+                <div className={`px-1 flex gap-1 ${isSelf ? 'justify-end' : 'justify-start'}`}>
                   <button
-                    onClick={() => setReactingId(reactingId === m.id ? null : m.id)}
+                    onClick={() => setReplyingToId(message.id)}
+                    className="h-6 w-6 rounded-full glass flex items-center justify-center"
+                    aria-label={t('chat.replyToMessage')}
+                  >
+                    <Reply className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                  <button
+                    onClick={() => setReactingId(reactingId === message.id ? null : message.id)}
                     className="h-6 w-6 rounded-full glass flex items-center justify-center"
                     aria-label={t('chat.reactToMessage')}
                   >
@@ -182,13 +215,12 @@ export default function ChatPage() {
                   </button>
                 </div>
 
-                {/* Reactions */}
-                {m.reactions.length > 0 && (
-                  <div className="flex gap-1 px-1 flex-wrap">
-                    {m.reactions.map((r) => {
+                {message.reactions.length > 0 && (
+                  <div className={`px-1 flex gap-1 flex-wrap ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                    {message.reactions.map((r) => {
                       const reacted = r.users.includes(name);
                       return (
-                        <button key={r.emoji} onClick={() => toggleReaction(m.id, r.emoji)}
+                        <button key={r.emoji} onClick={() => toggleReaction(message.id, r.emoji)}
                           className={`text-xs px-1.5 py-0.5 rounded-full ${reacted ? 'bg-primary/20 border border-primary/30' : 'glass'}`}>
                           {r.emoji} {r.users.length}
                         </button>
@@ -197,13 +229,12 @@ export default function ChatPage() {
                   </div>
                 )}
 
-                {/* Reaction picker */}
                 <AnimatePresence>
-                  {reactingId === m.id && (
+                  {reactingId === message.id && (
                     <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                      className="flex gap-1 px-1">
+                      className={`px-1 flex gap-1 ${isSelf ? 'justify-end' : 'justify-start'}`}>
                       {REACTION_EMOJIS.map((emoji) => (
-                        <button key={emoji} onClick={() => toggleReaction(m.id, emoji)}
+                        <button key={emoji} onClick={() => toggleReaction(message.id, emoji)}
                           className="text-lg hover:scale-125 transition-transform">
                           {emoji}
                         </button>
@@ -248,6 +279,18 @@ export default function ChatPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {replyingToId != null && messageById.get(replyingToId) && (
+        <div className="glass rounded-lg px-3 py-2 mb-2 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold text-primary">{t('chat.replyingTo', { name: messageById.get(replyingToId)?.sender })}</p>
+            <p className="text-xs truncate text-muted-foreground">{messageById.get(replyingToId)?.text || t('chat.imageAlt')}</p>
+          </div>
+          <button onClick={() => setReplyingToId(null)} className="text-[10px] text-muted-foreground hover:text-foreground shrink-0">
+            {t('chat.cancelReply')}
+          </button>
+        </div>
+      )}
 
       {/* Input bar */}
       <div className="flex gap-2 pt-2 pb-1">

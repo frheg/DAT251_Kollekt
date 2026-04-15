@@ -277,6 +277,9 @@
     "sendPoll": "Send Poll",
     "messagePlaceholder": "Type a message...",
     "reactToMessage": "React to message",
+    "replyToMessage": "Reply to message",
+    "replyingTo": "Replying to {{name}}",
+    "cancelReply": "Cancel",
     "sendImage": "Send image",
     "togglePollForm": "Toggle poll form",
     "imageAlt": "Shared image"

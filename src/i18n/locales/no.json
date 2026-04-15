@@ -277,6 +277,9 @@
     "sendPoll": "Send avstemning",
     "messagePlaceholder": "Skriv en melding...",
     "reactToMessage": "Reager på melding",
+    "replyToMessage": "Svar på melding",
+    "replyingTo": "Svarer til {{name}}",
+    "cancelReply": "Avbryt",
     "sendImage": "Send bilde",
     "togglePollForm": "Vis eller skjul avstemning",
     "imageAlt": "Delt bilde"
