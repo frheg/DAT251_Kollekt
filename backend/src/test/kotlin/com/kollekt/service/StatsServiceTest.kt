@@ -26,6 +26,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.mockito.kotlin.eq
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.core.ValueOperations
 import java.time.LocalDate
@@ -248,6 +249,17 @@ class StatsServiceTest {
 
         assertTrue(result.text.isNotBlank())
         assertTrue(result.type in setOf("distribute", "drink", "everyone", "vote", "challenge"))
+    }
+
+    @Test
+    fun `updateAchievementConfig saves enabled keys and publishes realtime event`() {
+        val collective = Collective(id = 1, name = "Villa", joinCode = "ABC123", ownerMemberId = 1, monthlyPrize = null)
+        whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective)
+
+        service.updateAchievementConfig("Kasper", setOf("clean_streak", "task_master"))
+
+        verify(collectiveRepository).save(collective.copy(enabledAchievementKeys = setOf("clean_streak", "task_master")))
+        verify(realtimeUpdateService).publish(eq("ABC123"), eq("ACHIEVEMENT_CONFIG_UPDATED"))
     }
 
     private fun member(
