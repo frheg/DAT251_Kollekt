@@ -30,6 +30,20 @@ class EconomyController(
         @AuthenticationPrincipal jwt: Jwt,
     ): ExpenseDto = economyOperations.createExpense(request, jwt.subject)
 
+    @PatchMapping("/expenses/{id}")
+    fun updateExpense(
+        @PathVariable id: Long,
+        @RequestBody request: UpdateExpenseRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ExpenseDto = economyOperations.updateExpense(id, request, jwt.subject)
+
+    @DeleteMapping("/expenses/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteExpense(
+        @PathVariable id: Long,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) = economyOperations.deleteExpense(id, jwt.subject)
+
     @GetMapping("/balances")
     fun getBalances(
         @RequestParam memberName: String,
@@ -54,6 +68,29 @@ class EconomyController(
         @RequestBody request: CreatePantEntryRequest,
         @AuthenticationPrincipal jwt: Jwt,
     ): PantEntryDto = economyOperations.addPantEntry(request, jwt.subject)
+
+    @PatchMapping("/pant/{id}")
+    fun updatePantEntry(
+        @PathVariable id: Long,
+        @RequestBody request: UpdatePantEntryRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): PantEntryDto = economyOperations.updatePantEntry(id, request, jwt.subject)
+
+    @DeleteMapping("/pant/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deletePantEntry(
+        @PathVariable id: Long,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) = economyOperations.deletePantEntry(id, jwt.subject)
+
+    @GetMapping("/pay-options")
+    fun getPayOptions(
+        @RequestParam memberName: String,
+        @AuthenticationPrincipal jwt: Jwt,
+    ): List<PayOptionDto> {
+        requireTokenSubject(jwt, memberName)
+        return economyOperations.getPayOptions(memberName)
+    }
 
     @PatchMapping("/pant/goal")
     fun updatePantGoal(
@@ -81,4 +118,11 @@ class EconomyController(
         requireTokenSubject(jwt, request.memberName)
         return economyOperations.settleUp(jwt.subject)
     }
+
+    @PostMapping("/settle-with")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun settleWith(
+        @RequestBody request: SettleWithRequest,
+        @AuthenticationPrincipal jwt: Jwt,
+    ) = economyOperations.settleWith(jwt.subject, request.creditorName)
 }

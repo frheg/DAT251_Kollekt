@@ -173,10 +173,10 @@ class EventOperationsTest {
             actorName = "Kasper",
         )
 
-        verify(notificationService).createGroupNotification(
+        verify(notificationService).createParameterizedGroupNotification(
             userNames = listOf("Emma"),
-            message = "New event: 'Party' on 2026-06-01",
             type = "EVENT_ADDED",
+            params = mapOf("title" to "Party", "date" to "2026-06-01"),
         )
     }
 

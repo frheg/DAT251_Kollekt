@@ -10,6 +10,7 @@ class TaskMaintenanceService(
     private val collectiveRepository: CollectiveRepository,
     private val taskOperations: TaskOperations,
     private val shoppingOperations: ShoppingOperations,
+    private val economyOperations: EconomyOperations,
 ) {
     private val reminderDaysBeforeDue = 1L
 
@@ -25,6 +26,12 @@ class TaskMaintenanceService(
 
     @Scheduled(cron = "0 0 3 * * *")
     fun cleanupBoughtShoppingItems() = shoppingOperations.cleanupBoughtItems()
+
+    @Scheduled(cron = "0 0 8 * * *")
+    fun notifyUpcomingExpenseDeadlines() = economyOperations.notifyUpcomingExpenseDeadlines()
+
+    @Scheduled(cron = "0 0 9 * * *")
+    fun notifyExpiredExpenseDeadlines() = economyOperations.notifyExpiredExpenseDeadlines()
 
     @Scheduled(cron = "0 0 3 * * MON")
     fun scheduledWeeklyTaskRotation() {

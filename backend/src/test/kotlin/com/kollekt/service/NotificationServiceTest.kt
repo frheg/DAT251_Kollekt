@@ -40,7 +40,7 @@ class NotificationServiceTest {
         verify(notificationRepository).save(captor.capture())
         val saved = captor.firstValue
         assertEquals("Kasper", saved.userName)
-        assertEquals("You have been assigned a new task: Take out trash", saved.message)
+        assertEquals("{\"title\":\"Take out trash\"}", saved.message)
         assertEquals("TASK_ASSIGNED", saved.type)
         assertFalse(saved.read)
     }

@@ -48,10 +48,10 @@ class ShoppingOperations(
                 .filter { it.status == MemberStatus.ACTIVE && it.name != actorName }
                 .map { it.name }
         if (others.isNotEmpty()) {
-            notificationService.createGroupNotification(
+            notificationService.createParameterizedGroupNotification(
                 userNames = others,
-                message = "$actorName added '${request.item}' to the shopping list",
                 type = "SHOPPING_ITEM_ADDED",
+                params = mapOf("actorName" to actorName, "item" to request.item),
             )
         }
 

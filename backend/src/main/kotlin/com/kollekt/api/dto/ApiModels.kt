@@ -234,6 +234,12 @@ data class CreateExpenseRequest(
     val deadlineDate: LocalDate? = null,
 )
 
+data class UpdateExpenseRequest(
+    val description: String,
+    val amount: Int,
+    val category: String,
+)
+
 data class PantEntryDto(
     val id: Long,
     val bottles: Int,
@@ -247,6 +253,11 @@ data class CreatePantEntryRequest(
     val amount: Int,
     val addedBy: String,
     val date: LocalDate,
+)
+
+data class UpdatePantEntryRequest(
+    val bottles: Int,
+    val amount: Int,
 )
 
 data class UpdatePantGoalRequest(
@@ -348,6 +359,15 @@ data class EconomySummaryDto(
 
 data class SettleUpRequest(
     val memberName: String,
+)
+
+data class SettleWithRequest(
+    val creditorName: String,
+)
+
+data class PayOptionDto(
+    val name: String,
+    val amount: Int,
 )
 
 data class SettleUpResponse(
