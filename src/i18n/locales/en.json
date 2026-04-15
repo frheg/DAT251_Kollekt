@@ -344,7 +344,23 @@
       "avgXp": "Avg XP",
       "topContributor": "Top contributor"
     },
-    "achievements": "Achievements"
+    "achievements": "Achievements",
+    "manageAchievements": "Manage Achievements",
+    "manageAchievementsSubtitle": "Toggle which achievements are active for your household",
+    "achievementKeys": {
+      "TASK_1":    { "title": "First Step",      "description": "Complete your first task" },
+      "TASK_5":    { "title": "Getting Going",   "description": "Complete 5 tasks" },
+      "TASK_10":   { "title": "Ten Done",        "description": "Complete 10 tasks" },
+      "TASK_25":   { "title": "Household Hero",  "description": "Complete 25 tasks" },
+      "STREAK_3":  { "title": "On a Roll",       "description": "Complete tasks 3 days in a row" },
+      "STREAK_7":  { "title": "Week Warrior",    "description": "Complete tasks 7 days in a row" },
+      "EARLY_BIRD":{ "title": "Early Bird",      "description": "Complete 3 tasks before the due date" },
+      "NO_PENALTY":{ "title": "Clean Record",    "description": "Complete 5 tasks without any penalty" },
+      "CLEANING_5":{ "title": "Clean House",     "description": "Complete 5 cleaning tasks" },
+      "LEVEL_2":   { "title": "Level Up",        "description": "Reach level 2" },
+      "XP_100":    { "title": "Century",         "description": "Earn 100 XP" },
+      "XP_500":    { "title": "XP Grinder",      "description": "Earn 500 XP" }
+    }
   },
   "games": {
     "title": "Drinking Game",

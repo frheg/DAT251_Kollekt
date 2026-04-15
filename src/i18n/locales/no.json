@@ -344,7 +344,23 @@
       "avgXp": "Snitt-XP",
       "topContributor": "Topp bidragsyter"
     },
-    "achievements": "Prestasjoner"
+    "achievements": "Prestasjoner",
+    "manageAchievements": "Administrer prestasjoner",
+    "manageAchievementsSubtitle": "Slå av eller på prestasjoner for kollektivet",
+    "achievementKeys": {
+      "TASK_1":    { "title": "Første steg",       "description": "Fullfør din første oppgave" },
+      "TASK_5":    { "title": "Godt i gang",        "description": "Fullfør 5 oppgaver" },
+      "TASK_10":   { "title": "Ti fullført",        "description": "Fullfør 10 oppgaver" },
+      "TASK_25":   { "title": "Kollektivhelt",      "description": "Fullfør 25 oppgaver" },
+      "STREAK_3":  { "title": "På rekke",           "description": "Fullfør oppgaver 3 dager på rad" },
+      "STREAK_7":  { "title": "Ukekriger",          "description": "Fullfør oppgaver 7 dager på rad" },
+      "EARLY_BIRD":{ "title": "Tidligfugl",         "description": "Fullfør 3 oppgaver før fristen" },
+      "NO_PENALTY":{ "title": "Rent rulleblad",     "description": "Fullfør 5 oppgaver uten straff" },
+      "CLEANING_5":{ "title": "Rent hus",           "description": "Fullfør 5 ryddeoppgaver" },
+      "LEVEL_2":   { "title": "Nivå opp",           "description": "Nå nivå 2" },
+      "XP_100":    { "title": "Hundring",           "description": "Tjen 100 XP" },
+      "XP_500":    { "title": "XP-maskin",          "description": "Tjen 500 XP" }
+    }
   },
   "games": {
     "title": "Drikkelek",

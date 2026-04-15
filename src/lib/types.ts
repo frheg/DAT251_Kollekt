@@ -150,6 +150,7 @@ export interface MemberStats {
 
 export interface Achievement {
   id: number;
+  key: string;
   title: string;
   description: string;
   icon: string;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Flame, Star, Gift, X, Settings, Pencil } from 'lucide-react';
+import { TrendingUp, Flame, Star, Gift, X, Pencil, SlidersHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { connectCollectiveRealtime } from '../lib/realtime';
@@ -127,9 +127,6 @@ export default function LeaderboardPage() {
           <h2 className="font-display text-xl font-bold">{t('leaderboard.title')}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t('leaderboard.subtitle')}</p>
         </div>
-        <button onClick={handleOpenAchievementConfig} className="h-9 w-9 rounded-xl glass flex items-center justify-center">
-          <Settings className="h-4 w-4 text-primary" />
-        </button>
       </div>
 
       {/* Podium */}
@@ -260,28 +257,25 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* Monthly prize display */}
-      {data.monthlyPrize && (
-        <div className="glass rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">🏆 {t('leaderboard.monthlyPrize')}</p>
-          <p className="text-sm font-semibold mt-0.5">{data.monthlyPrize}</p>
-        </div>
-      )}
-
       {/* Achievements */}
       {achievements.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-            <Star className="h-3.5 w-3.5" /> {t('leaderboard.achievements')}
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1">
+              <Star className="h-3.5 w-3.5" /> {t('leaderboard.achievements')}
+            </h3>
+            <button onClick={handleOpenAchievementConfig} className="h-7 w-7 rounded-lg glass flex items-center justify-center">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
           <div className="space-y-2">
             {achievements.map((a, i) => (
               <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                 className={`glass rounded-xl p-3 ${a.unlocked ? 'glow-primary' : 'opacity-60'}`}>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{a.title}</p>
-                    <p className="text-[10px] text-muted-foreground">{a.description}</p>
+                    <p className="text-sm font-medium">{t(`leaderboard.achievementKeys.${a.key}.title`, { defaultValue: a.title })}</p>
+                    <p className="text-[10px] text-muted-foreground">{t(`leaderboard.achievementKeys.${a.key}.description`, { defaultValue: a.description })}</p>
                   </div>
                   {a.progress !== undefined && a.total !== undefined && (
                     <span className="text-xs font-medium text-muted-foreground shrink-0">{a.progress}/{a.total}</span>
@@ -310,7 +304,7 @@ export default function LeaderboardPage() {
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="absolute bottom-0 left-0 right-0 z-50 glass rounded-t-2xl p-5 pb-8">
+              className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 glass rounded-2xl p-5 pb-6" style={{ width: 'calc(100% - 2rem)', maxWidth: '32rem' }}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
@@ -338,7 +332,6 @@ export default function LeaderboardPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'XP', value: memberStats.xp.toString() },
-                    { label: 'Level', value: memberStats.level.toString() },
                     { label: 'Streak', value: `${memberStats.streak}d` },
                     { label: 'Tasks done', value: memberStats.tasksCompleted.toString() },
                     { label: 'Late', value: memberStats.lateCompletions.toString() },
@@ -369,35 +362,37 @@ export default function LeaderboardPage() {
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="absolute bottom-0 left-0 right-0 z-50 glass rounded-t-2xl p-5 pb-8 max-h-[70vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
+              className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 glass rounded-2xl flex flex-col" style={{ maxHeight: 'calc(100vh - 6rem)', width: 'calc(100% - 2rem)', maxWidth: '32rem' }}>
+              <div className="flex items-center justify-between p-5 pb-3 shrink-0">
                 <div>
-                  <p className="font-semibold">Manage Achievements</p>
-                  <p className="text-[10px] text-muted-foreground">Toggle which achievements are active for your household</p>
+                  <p className="font-semibold">{t('leaderboard.manageAchievements')}</p>
+                  <p className="text-[10px] text-muted-foreground">{t('leaderboard.manageAchievementsSubtitle')}</p>
                 </div>
                 <button onClick={() => setShowAchievementConfig(false)} className="h-8 w-8 rounded-xl glass flex items-center justify-center shrink-0">
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              {catalogLoading && (
-                <div className="space-y-2 animate-pulse">
-                  {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-muted/30 rounded-lg" />)}
-                </div>
-              )}
-              {!catalogLoading && catalog.map((item) => (
-                <button
-                  key={item.key}
-                  onClick={() => handleToggleAchievement(item.key, !item.enabled)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted/30 transition-colors">
-                  <div className="text-left">
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="text-[10px] text-muted-foreground">{item.description}</p>
+              <div className="overflow-y-auto px-5 pb-5">
+                {catalogLoading && (
+                  <div className="space-y-2 animate-pulse">
+                    {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-muted/30 rounded-lg" />)}
                   </div>
-                  <div className={`h-5 w-9 rounded-full transition-colors flex items-center px-0.5 shrink-0 ml-3 ${item.enabled ? 'bg-primary' : 'bg-muted'}`}>
-                    <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${item.enabled ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </div>
-                </button>
-              ))}
+                )}
+                {!catalogLoading && catalog.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => handleToggleAchievement(item.key, !item.enabled)}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-muted/30 transition-colors">
+                    <div className="text-left">
+                      <p className="text-sm font-medium">{t(`leaderboard.achievementKeys.${item.key}.title`, { defaultValue: item.title })}</p>
+                      <p className="text-[10px] text-muted-foreground">{t(`leaderboard.achievementKeys.${item.key}.description`, { defaultValue: item.description })}</p>
+                    </div>
+                    <div className={`h-5 w-9 rounded-full transition-colors flex items-center px-0.5 shrink-0 ml-3 ${item.enabled ? 'bg-primary' : 'bg-muted'}`}>
+                      <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${item.enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                  </button>
+                ))}
+              </div>
             </motion.div>
           </>
         )}

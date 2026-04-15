@@ -282,6 +282,7 @@ data class LeaderboardPlayerDto(
 
 data class AchievementDto(
     val id: Long,
+    val key: String,
     val title: String,
     val description: String,
     val icon: String,

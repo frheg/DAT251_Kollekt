@@ -77,7 +77,7 @@ private val ACHIEVEMENT_DEFINITIONS: List<AchievementDefinition> = listOf(
 )
 
 private val DEFAULT_ENABLED_KEYS: Set<String> = setOf(
-    "TASK_1", "TASK_10", "STREAK_3", "STREAK_7", "EARLY_BIRD", "NO_PENALTY", "CLEANING_5", "LEVEL_2",
+    "TASK_1", "TASK_10", "STREAK_3", "LEVEL_2",
 )
 
 @Service
@@ -190,6 +190,7 @@ class StatsService(
                     val progress = def.compute(memberTasks, member, streak)
                     AchievementDto(
                         id = index.toLong() + 1,
+                        key = def.key,
                         title = def.title,
                         description = def.description,
                         icon = def.icon,
