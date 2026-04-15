@@ -59,10 +59,11 @@ export default function DashboardPage() {
         if (event.type === 'TASK_UPDATED' || event.type === 'EXPENSE_CREATED' || event.type === 'EVENT_CREATED') {
           fetchDashboard();
         }
-        if (event.type === 'MEMBER_ONLINE') setOnlineCount((c) => c + 1);
-        if (event.type === 'MEMBER_OFFLINE') setOnlineCount((c) => Math.max(0, c - 1));
+        if (event.type === 'MEMBER_ONLINE' || event.type === 'MEMBER_OFFLINE') {
+          const count = (event.payload as { count?: number })?.count;
+          if (count !== undefined) setOnlineCount(count);
+        }
       },
-      { onConnected: () => setOnlineCount(1) },
     );
     return disconnect;
   }, [currentUser]);

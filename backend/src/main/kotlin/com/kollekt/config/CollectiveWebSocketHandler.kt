@@ -35,7 +35,13 @@ class CollectiveWebSocketHandler(
         }
 
         session.attributes["collectiveCode"] = collectiveCode
+        session.attributes["memberName"] = memberName
         realtimeUpdateService.register(collectiveCode, session)
+        val count = realtimeUpdateService.getOnlineCount(collectiveCode)
+        // Private bootstrap: tell the connecting session exactly how many are online right now
+        realtimeUpdateService.sendTo(session, "MEMBER_ONLINE", mapOf("count" to count))
+        // Broadcast to everyone else so their counts update
+        realtimeUpdateService.publishExcluding(collectiveCode, session, "MEMBER_ONLINE", mapOf("count" to count))
     }
 
     override fun afterConnectionClosed(
@@ -44,6 +50,8 @@ class CollectiveWebSocketHandler(
     ) {
         val collectiveCode = session.attributes["collectiveCode"] as? String ?: return
         realtimeUpdateService.unregister(collectiveCode, session)
+        val count = realtimeUpdateService.getOnlineCount(collectiveCode)
+        realtimeUpdateService.publish(collectiveCode, "MEMBER_OFFLINE", mapOf("count" to count))
     }
 
     override fun handleTextMessage(
