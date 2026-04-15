@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, Fragment, type ChangeEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,7 +26,7 @@ import type { Task, ShoppingItem, TaskCategory } from '../lib/types';
 
 const CATEGORIES: TaskCategory[] = ['CLEANING', 'VACUUMING', 'MOPPING', 'BATHROOM', 'KITCHEN', 'LAUNDRY', 'DISHES', 'TRASH', 'DUSTING', 'WINDOWS', 'OTHER'];
 const RECURRENCE_OPTIONS = ['NONE', 'DAILY', 'WEEKLY', 'MONTHLY'] as const;
-const TASK_FILTERS = ['ALL', 'MINE', 'TODAY', 'INCOMPLETE', 'DONE'] as const;
+const TASK_FILTERS = ['ALL', 'MINE', 'TODAY', 'DONE'] as const;
 
 type TaskFilter = (typeof TASK_FILTERS)[number];
 
@@ -155,7 +156,10 @@ function TasksMain() {
   const [shopping, setShopping] = useState<ShoppingItem[]>([]);
   const [members, setMembers] = useState<string[]>([]);
   const [filter, setFilter] = useState<TaskFilter>('ALL');
-  const [tab, setTab] = useState<'tasks' | 'shopping'>('tasks');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<'tasks' | 'shopping'>(
+    searchParams.get('tab') === 'shopping' ? 'shopping' : 'tasks',
+  );
   const [showAdd, setShowAdd] = useState(false);
   const [showShoppingAdd, setShowShoppingAdd] = useState(false);
   const [newShoppingName, setNewShoppingName] = useState('');
@@ -488,11 +492,10 @@ function TasksMain() {
   const filteredTasks = tasks
     .filter((task) => {
       const today = new Date().toISOString().split('T')[0];
-      if (filter === 'MINE') return task.assignee === name;
-      if (filter === 'TODAY') return task.dueDate === today;
       if (filter === 'DONE') return task.completed;
-      if (filter === 'INCOMPLETE') return !task.completed;
-      return true;
+      if (filter === 'MINE') return task.assignee === name && !task.completed;
+      if (filter === 'TODAY') return task.dueDate === today && !task.completed;
+      return !task.completed;
     })
     .sort((firstTask, secondTask) => {
       const dueDateOrder = firstTask.dueDate.localeCompare(secondTask.dueDate);

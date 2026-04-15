@@ -158,14 +158,14 @@ export default function DashboardPage() {
       <motion.div variants={item}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="font-semibold text-sm text-muted-foreground">{translate('dashboard.shoppingList')}</h3>
-          <button onClick={() => navigate('/tasks')} className="text-xs text-primary font-medium">{translate('common.seeAll')}</button>
+          <button onClick={() => navigate('/tasks?tab=shopping')} className="text-xs text-primary font-medium">{translate('common.seeAll')}</button>
         </div>
         <div className="space-y-2">
           {data.pendingShoppingItems.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-3">{translate('dashboard.noShoppingItems')}</p>
           )}
           {data.pendingShoppingItems.slice(0, 3).map((s) => (
-            <button key={s.id} onClick={() => navigate('/tasks')} className="glass rounded-xl p-3 flex items-center gap-3 w-full text-left">
+            <button key={s.id} onClick={() => navigate('/tasks?tab=shopping')} className="glass rounded-xl p-3 flex items-center gap-3 w-full text-left">
               <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               </div>
