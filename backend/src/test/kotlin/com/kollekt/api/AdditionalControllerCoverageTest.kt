@@ -19,7 +19,7 @@ import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.api.dto.TaskDto
 import com.kollekt.api.dto.UserDto
 import com.kollekt.api.dto.VotePollRequest
-import com.kollekt.api.dto.WeeklyStatsDto
+import com.kollekt.api.dto.PeriodStatsDto
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Notification
 import com.kollekt.domain.TaskCategory
@@ -283,12 +283,19 @@ class AdditionalControllerCoverageTest {
                                 badges = listOf("dishmaster"),
                             ),
                         ),
-                    weeklyStats =
-                        WeeklyStatsDto(
+                    periodStats =
+                        PeriodStatsDto(
                             totalTasks = 12,
                             totalXp = 180,
                             avgPerPerson = 60,
                             topContributor = "Kasper",
+                            bestStreak = 4,
+                            bestStreakHolder = "Kasper",
+                            totalPenaltyXp = 0,
+                            lateCompletions = 0,
+                            lateCompletionsHolder = "N/A",
+                            skippedCount = 0,
+                            skippedHolder = "N/A",
                         ),
                     monthlyPrize = "Pizza night",
                 ),

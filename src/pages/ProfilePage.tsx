@@ -29,6 +29,8 @@ import type {
   AppUser,
   MemberStatus,
   NotificationPreferences,
+  LeaderboardPlayer,
+  Achievement,
 } from "../lib/types";
 
 const STATUS_OPTIONS: { value: MemberStatus; emoji: string }[] = [
@@ -74,12 +76,23 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [friendName, setFriendName] = useState("");
   const [friendError, setFriendError] = useState("");
+  const [myStats, setMyStats] = useState<LeaderboardPlayer | null>(null);
+  const [achievementsUnlocked, setAchievementsUnlocked] = useState(0);
+  const [achievementsTotal, setAchievementsTotal] = useState(0);
 
   const name = currentUser?.name ?? "";
 
   useEffect(() => {
     if (!name) return;
     getNotificationPreferences(name).then(setNotifPrefs).catch(() => {});
+    Promise.all([
+      api.get<{ players: LeaderboardPlayer[] }>(`/leaderboard?memberName=${encodeURIComponent(name)}&period=OVERALL`),
+      api.get<Achievement[]>(`/achievements?memberName=${encodeURIComponent(name)}`),
+    ]).then(([lb, ach]) => {
+      setMyStats(lb.players.find((p) => p.name === name) ?? null);
+      setAchievementsUnlocked(ach.filter((a) => a.unlocked).length);
+      setAchievementsTotal(ach.length);
+    }).catch(() => {});
   }, [name]);
 
   const handleToggleNotifPref = async (type: string, enabled: boolean) => {
@@ -260,6 +273,37 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {myStats && (
+        <div className="glass rounded-2xl p-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-background/30 rounded-lg p-2.5 text-center">
+              <p className="font-display font-bold text-base">{myStats.xp}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">XP</p>
+            </div>
+            <div className="bg-background/30 rounded-lg p-2.5 text-center">
+              <p className="font-display font-bold text-base">#{myStats.rank}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">Rank</p>
+            </div>
+            <div className="bg-background/30 rounded-lg p-2.5 text-center">
+              <p className="font-display font-bold text-base">{myStats.level}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">Level</p>
+            </div>
+            <div className="bg-background/30 rounded-lg p-2.5 text-center">
+              <p className="font-display font-bold text-base">{myStats.tasksCompleted}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">Tasks done</p>
+            </div>
+            <div className="bg-background/30 rounded-lg p-2.5 text-center">
+              <p className="font-display font-bold text-base">{myStats.streak}d</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">Streak</p>
+            </div>
+            <div className="bg-background/30 rounded-lg p-2.5 text-center">
+              <p className="font-display font-bold text-base">{achievementsUnlocked}/{achievementsTotal}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">Achievements</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="glass rounded-2xl overflow-hidden">
         <button

@@ -517,7 +517,7 @@ class ControllerEndpointContractTest {
 
     @Test
     fun `stats achievements uses api achievements endpoint`() {
-        whenever(statsService.getAchievements())
+        whenever(statsService.getAchievements("Kasper"))
             .thenReturn(
                 listOf(
                     AchievementDto(
@@ -535,11 +535,12 @@ class ControllerEndpointContractTest {
         mockMvc
             .perform(
                 get("/api/achievements")
+                    .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Oppvaskhelt"))
 
-        verify(statsService).getAchievements()
+        verify(statsService).getAchievements("Kasper")
     }
 
     @Test

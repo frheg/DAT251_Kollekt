@@ -289,17 +289,49 @@ data class DashboardResponse(
     val recentExpenses: List<ExpenseDto>,
 )
 
-data class WeeklyStatsDto(
+data class PeriodStatsDto(
     val totalTasks: Int,
     val totalXp: Int,
     val avgPerPerson: Int,
     val topContributor: String,
+    val bestStreak: Int,
+    val bestStreakHolder: String,
+    val totalPenaltyXp: Int,
+    val lateCompletions: Int,
+    val lateCompletionsHolder: String,
+    val skippedCount: Int,
+    val skippedHolder: String,
 )
 
 data class LeaderboardResponse(
     val players: List<LeaderboardPlayerDto>,
-    val weeklyStats: WeeklyStatsDto,
+    val periodStats: PeriodStatsDto,
     val monthlyPrize: String? = null,
+)
+
+data class AchievementCatalogItemDto(
+    val key: String,
+    val title: String,
+    val description: String,
+    val icon: String,
+    val enabled: Boolean,
+)
+
+data class UpdateAchievementConfigRequest(
+    val enabledKeys: Set<String>,
+)
+
+data class MemberStatsDto(
+    val name: String,
+    val level: Int,
+    val xp: Int,
+    val rank: Int,
+    val streak: Int,
+    val tasksCompleted: Int,
+    val lateCompletions: Int,
+    val skippedTasks: Int,
+    val achievementsUnlocked: Int,
+    val achievementsTotal: Int,
 )
 
 data class PantSummaryDto(

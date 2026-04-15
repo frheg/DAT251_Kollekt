@@ -10,6 +10,7 @@ class StatsCacheService(
     fun clearTaskCaches() {
         clearDashboardCache()
         clearLeaderboardCache()
+        clearAchievementsCache()
     }
 
     fun clearDashboardCache() {
@@ -21,6 +22,13 @@ class StatsCacheService(
 
     fun clearLeaderboardCache() {
         val keys = redisTemplate.keys("leaderboard:*")
+        if (!keys.isNullOrEmpty()) {
+            redisTemplate.delete(keys)
+        }
+    }
+
+    fun clearAchievementsCache() {
+        val keys = redisTemplate.keys("achievements:*")
         if (!keys.isNullOrEmpty()) {
             redisTemplate.delete(keys)
         }
