@@ -253,6 +253,39 @@ class StatsServiceTest {
     }
 
     @Test
+    fun `getMemberStats returns stats for target member`() {
+        whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(null)
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com", id = 2, xp = 150, level = 1))
+        whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                task(id = 1, title = "Trash", assignee = "Emma", completed = true, completedAt = LocalDateTime.now().minusDays(1), xp = 20),
+                task(id = 2, title = "Dishes", assignee = "Emma", completed = false, dueDate = LocalDate.now().minusDays(1), xp = 10),
+                task(
+                    id = 3,
+                    title = "Floors",
+                    assignee = "Kasper",
+                    completed = true,
+                    completedAt = LocalDateTime.now().minusDays(2),
+                    xp = 25,
+                ),
+            ),
+        )
+        whenever(memberRepository.findAllByCollectiveCode("ABC123")).thenReturn(
+            listOf(
+                member("Kasper", "kasper@example.com", xp = 250, level = 2),
+                member("Emma", "emma@example.com", id = 2, xp = 150, level = 1),
+            ),
+        )
+
+        val result = service.getMemberStats(viewerName = "Kasper", targetName = "Emma")
+
+        assertEquals("Emma", result.name)
+        assertEquals(150, result.xp)
+        assertEquals(1, result.tasksCompleted)
+        assertEquals(1, result.skippedTasks)
+    }
+
+    @Test
     fun `updateAchievementConfig saves enabled keys and publishes realtime event`() {
         val collective = Collective(id = 1, name = "Villa", joinCode = "ABC123", ownerMemberId = 1, monthlyPrize = null)
         whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(collective)

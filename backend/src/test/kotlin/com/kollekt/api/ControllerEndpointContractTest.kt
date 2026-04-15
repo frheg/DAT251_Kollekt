@@ -12,6 +12,7 @@ import com.kollekt.api.dto.DrinkingQuestionDto
 import com.kollekt.api.dto.EconomySummaryDto
 import com.kollekt.api.dto.EventDto
 import com.kollekt.api.dto.ExpenseDto
+import com.kollekt.api.dto.MemberStatsDto
 import com.kollekt.api.dto.MessageDto
 import com.kollekt.api.dto.PantEntryDto
 import com.kollekt.api.dto.PantSummaryDto
@@ -513,6 +514,36 @@ class ControllerEndpointContractTest {
             .andExpect(jsonPath("$.type").value("challenge"))
 
         verify(statsService).getDrinkingQuestion("Kasper")
+    }
+
+    @Test
+    fun `member stats uses api members stats endpoint`() {
+        whenever(statsService.getMemberStats("Kasper", "Emma"))
+            .thenReturn(
+                MemberStatsDto(
+                    name = "Emma",
+                    level = 1,
+                    xp = 150,
+                    rank = 2,
+                    streak = 3,
+                    tasksCompleted = 5,
+                    lateCompletions = 1,
+                    skippedTasks = 0,
+                    achievementsUnlocked = 2,
+                    achievementsTotal = 10,
+                ),
+            )
+
+        mockMvc
+            .perform(
+                get("/api/members/stats")
+                    .param("viewerName", "Kasper")
+                    .param("targetName", "Emma")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.name").value("Emma"))
+
+        verify(statsService).getMemberStats("Kasper", "Emma")
     }
 
     @Test
