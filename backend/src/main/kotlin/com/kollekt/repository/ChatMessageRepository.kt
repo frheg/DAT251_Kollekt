@@ -5,6 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface ChatMessageRepository : JpaRepository<ChatMessage, Long> {
     fun findAllByCollectiveCode(collectiveCode: String): List<ChatMessage>
-
     fun existsByReplyToMessageId(replyToMessageId: Long): Boolean
 }
