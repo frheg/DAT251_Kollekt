@@ -117,23 +117,55 @@ class EconomyOperationsTest {
     }
 
     @Test
-    fun `notify upcoming expense deadlines executes without error`() {
+    fun `notify upcoming expense deadlines sends notification to debtors`() {
         val tomorrow = LocalDate.now().plusDays(1)
-        whenever(expenseRepository.findAllByDeadlineDate(tomorrow)).thenReturn(emptyList())
+        val expense =
+            Expense(
+                id = 1,
+                description = "Rent",
+                amount = 1000,
+                paidBy = "Kasper",
+                collectiveCode = "ABC123",
+                category = "Housing",
+                date = LocalDate.now(),
+                deadlineDate = tomorrow,
+                participantNames = setOf("Kasper", "Emma"),
+            )
+        whenever(expenseRepository.findAllByDeadlineDate(tomorrow)).thenReturn(listOf(expense))
 
         operations.notifyUpcomingExpenseDeadlines()
 
-        verify(notificationService, never()).createParameterizedNotification(any(), any(), any())
+        verify(notificationService).createParameterizedNotification(
+            eq("Emma"),
+            eq("EXPENSE_DEADLINE_SOON"),
+            any(),
+        )
     }
 
     @Test
-    fun `notify expired expense deadlines executes without error`() {
+    fun `notify expired expense deadlines sends notification to debtors`() {
         val today = LocalDate.now()
-        whenever(expenseRepository.findAllByDeadlineDate(today)).thenReturn(emptyList())
+        val expense =
+            Expense(
+                id = 2,
+                description = "Utilities",
+                amount = 500,
+                paidBy = "Kasper",
+                collectiveCode = "ABC123",
+                category = "Bills",
+                date = LocalDate.now(),
+                deadlineDate = today,
+                participantNames = setOf("Kasper", "Emma"),
+            )
+        whenever(expenseRepository.findAllByDeadlineDate(today)).thenReturn(listOf(expense))
 
         operations.notifyExpiredExpenseDeadlines()
 
-        verify(notificationService, never()).createParameterizedNotification(any(), any(), any())
+        verify(notificationService).createParameterizedNotification(
+            eq("Emma"),
+            eq("EXPENSE_OVERDUE"),
+            any(),
+        )
     }
 
     @Test
