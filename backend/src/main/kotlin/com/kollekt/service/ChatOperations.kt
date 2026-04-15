@@ -268,7 +268,8 @@ class ChatOperations(
         type: String,
     ) {
         val others =
-            memberRepository.findAllByCollectiveCode(collectiveCode)
+            memberRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .filter { it.status == MemberStatus.ACTIVE && it.name != sender }
                 .map { it.name }
         if (others.isEmpty()) return

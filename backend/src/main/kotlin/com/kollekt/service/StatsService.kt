@@ -37,48 +37,53 @@ private data class AchievementDefinition(
     val compute: (tasks: List<TaskItem>, member: Member, streak: Int) -> Int,
 )
 
-private val ACHIEVEMENT_DEFINITIONS: List<AchievementDefinition> = listOf(
-    AchievementDefinition("TASK_1", "First Step", "Complete your first task", "check", 1) { t, _, _ ->
-        t.count { it.completed }.coerceAtMost(1)
-    },
-    AchievementDefinition("TASK_5", "Getting Going", "Complete 5 tasks", "star", 5) { t, _, _ ->
-        t.count { it.completed }.coerceAtMost(5)
-    },
-    AchievementDefinition("TASK_10", "Ten Done", "Complete 10 tasks", "star-half", 10) { t, _, _ ->
-        t.count { it.completed }.coerceAtMost(10)
-    },
-    AchievementDefinition("TASK_25", "Household Hero", "Complete 25 tasks", "home", 25) { t, _, _ ->
-        t.count { it.completed }.coerceAtMost(25)
-    },
-    AchievementDefinition("STREAK_3", "On a Roll", "Complete tasks 3 days in a row", "flame", 3) { _, _, streak ->
-        streak.coerceAtMost(3)
-    },
-    AchievementDefinition("STREAK_7", "Week Warrior", "Complete tasks 7 days in a row", "zap", 7) { _, _, streak ->
-        streak.coerceAtMost(7)
-    },
-    AchievementDefinition("EARLY_BIRD", "Early Bird", "Complete 3 tasks before the due date", "sunrise", 3) { t, _, _ ->
-        t.count { it.completed && it.completedAt != null && it.completedAt.toLocalDate() < it.dueDate }.coerceAtMost(3)
-    },
-    AchievementDefinition("NO_PENALTY", "Clean Record", "Complete 5 tasks without any penalty", "shield", 5) { t, _, _ ->
-        t.count { it.completed && it.penaltyXp == 0 }.coerceAtMost(5)
-    },
-    AchievementDefinition("CLEANING_5", "Clean House", "Complete 5 cleaning tasks", "sparkles", 5) { t, _, _ ->
-        t.count { it.completed && it.category == com.kollekt.domain.TaskCategory.CLEANING }.coerceAtMost(5)
-    },
-    AchievementDefinition("LEVEL_2", "Level Up", "Reach level 2", "trending-up", 2) { _, m, _ ->
-        m.level.coerceAtMost(2)
-    },
-    AchievementDefinition("XP_100", "Century", "Earn 100 XP", "award", 100) { _, m, _ ->
-        m.xp.coerceAtMost(100)
-    },
-    AchievementDefinition("XP_500", "XP Grinder", "Earn 500 XP", "trophy", 500) { _, m, _ ->
-        m.xp.coerceAtMost(500)
-    },
-)
+private val ACHIEVEMENT_DEFINITIONS: List<AchievementDefinition> =
+    listOf(
+        AchievementDefinition("TASK_1", "First Step", "Complete your first task", "check", 1) { t, _, _ ->
+            t.count { it.completed }.coerceAtMost(1)
+        },
+        AchievementDefinition("TASK_5", "Getting Going", "Complete 5 tasks", "star", 5) { t, _, _ ->
+            t.count { it.completed }.coerceAtMost(5)
+        },
+        AchievementDefinition("TASK_10", "Ten Done", "Complete 10 tasks", "star-half", 10) { t, _, _ ->
+            t.count { it.completed }.coerceAtMost(10)
+        },
+        AchievementDefinition("TASK_25", "Household Hero", "Complete 25 tasks", "home", 25) { t, _, _ ->
+            t.count { it.completed }.coerceAtMost(25)
+        },
+        AchievementDefinition("STREAK_3", "On a Roll", "Complete tasks 3 days in a row", "flame", 3) { _, _, streak ->
+            streak.coerceAtMost(3)
+        },
+        AchievementDefinition("STREAK_7", "Week Warrior", "Complete tasks 7 days in a row", "zap", 7) { _, _, streak ->
+            streak.coerceAtMost(7)
+        },
+        AchievementDefinition("EARLY_BIRD", "Early Bird", "Complete 3 tasks before the due date", "sunrise", 3) { t, _, _ ->
+            t.count { it.completed && it.completedAt != null && it.completedAt.toLocalDate() < it.dueDate }.coerceAtMost(3)
+        },
+        AchievementDefinition("NO_PENALTY", "Clean Record", "Complete 5 tasks without any penalty", "shield", 5) { t, _, _ ->
+            t.count { it.completed && it.penaltyXp == 0 }.coerceAtMost(5)
+        },
+        AchievementDefinition("CLEANING_5", "Clean House", "Complete 5 cleaning tasks", "sparkles", 5) { t, _, _ ->
+            t.count { it.completed && it.category == com.kollekt.domain.TaskCategory.CLEANING }.coerceAtMost(5)
+        },
+        AchievementDefinition("LEVEL_2", "Level Up", "Reach level 2", "trending-up", 2) { _, m, _ ->
+            m.level.coerceAtMost(2)
+        },
+        AchievementDefinition("XP_100", "Century", "Earn 100 XP", "award", 100) { _, m, _ ->
+            m.xp.coerceAtMost(100)
+        },
+        AchievementDefinition("XP_500", "XP Grinder", "Earn 500 XP", "trophy", 500) { _, m, _ ->
+            m.xp.coerceAtMost(500)
+        },
+    )
 
-private val DEFAULT_ENABLED_KEYS: Set<String> = setOf(
-    "TASK_1", "TASK_10", "STREAK_3", "LEVEL_2",
-)
+private val DEFAULT_ENABLED_KEYS: Set<String> =
+    setOf(
+        "TASK_1",
+        "TASK_10",
+        "STREAK_3",
+        "LEVEL_2",
+    )
 
 @Service
 class StatsService(
@@ -108,10 +113,18 @@ class StatsService(
         val now = LocalDateTime.now()
         val completedTasks =
             when (period) {
-                LeaderboardPeriod.OVERALL -> allTasks.filter { it.completed }
-                LeaderboardPeriod.YEAR -> allTasks.filter { it.completed && it.completedAt?.year == now.year }
-                LeaderboardPeriod.MONTH -> allTasks.filter {
-                    it.completed && it.completedAt?.year == now.year && it.completedAt?.month == now.month
+                LeaderboardPeriod.OVERALL -> {
+                    allTasks.filter { it.completed }
+                }
+
+                LeaderboardPeriod.YEAR -> {
+                    allTasks.filter { it.completed && it.completedAt?.year == now.year }
+                }
+
+                LeaderboardPeriod.MONTH -> {
+                    allTasks.filter {
+                        it.completed && it.completedAt?.year == now.year && it.completedAt?.month == now.month
+                    }
                 }
             }
 

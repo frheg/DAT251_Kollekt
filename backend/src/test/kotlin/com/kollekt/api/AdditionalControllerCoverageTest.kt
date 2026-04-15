@@ -13,13 +13,13 @@ import com.kollekt.api.dto.LeaderboardPeriod
 import com.kollekt.api.dto.LeaderboardPlayerDto
 import com.kollekt.api.dto.LeaderboardResponse
 import com.kollekt.api.dto.MessageDto
+import com.kollekt.api.dto.PeriodStatsDto
 import com.kollekt.api.dto.RefreshTokenRequest
 import com.kollekt.api.dto.RemoveReactionRequest
 import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.api.dto.TaskDto
 import com.kollekt.api.dto.UserDto
 import com.kollekt.api.dto.VotePollRequest
-import com.kollekt.api.dto.PeriodStatsDto
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Notification
 import com.kollekt.domain.TaskCategory

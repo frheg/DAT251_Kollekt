@@ -186,7 +186,14 @@ class StatsServiceTest {
         whenever(valueOperations.get("achievements:Kasper")).thenReturn(null)
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
-                task(id = 1, title = "Trash", assignee = "Kasper", completed = true, completedAt = LocalDateTime.now().minusDays(1), xp = 20),
+                task(
+                    id = 1,
+                    title = "Trash",
+                    assignee = "Kasper",
+                    completed = true,
+                    completedAt = LocalDateTime.now().minusDays(1),
+                    xp = 20,
+                ),
                 task(id = 2, title = "Dishes", assignee = "Kasper", completed = true, completedAt = LocalDateTime.now(), xp = 15),
             ),
         )
