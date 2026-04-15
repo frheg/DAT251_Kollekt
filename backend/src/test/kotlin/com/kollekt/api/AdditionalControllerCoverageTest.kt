@@ -249,9 +249,12 @@ class AdditionalControllerCoverageTest {
                     currentUserXp = 320,
                     currentUserLevel = 2,
                     currentUserRank = 1,
+                    completedTasksCount = 0,
+                    currentUserBalance = 0,
                     upcomingTasks = emptyList(),
                     upcomingEvents = emptyList(),
                     recentExpenses = emptyList(),
+                    pendingShoppingItems = emptyList(),
                 ),
             )
 

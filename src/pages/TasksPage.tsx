@@ -492,7 +492,7 @@ function TasksMain() {
       if (filter === 'TODAY') return task.dueDate === today;
       if (filter === 'DONE') return task.completed;
       if (filter === 'INCOMPLETE') return !task.completed;
-      return true;
+      return !task.completed;
     })
     .sort((firstTask, secondTask) => {
       const dueDateOrder = firstTask.dueDate.localeCompare(secondTask.dueDate);
