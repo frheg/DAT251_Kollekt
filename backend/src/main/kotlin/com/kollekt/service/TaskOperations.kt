@@ -68,7 +68,7 @@ class TaskOperations(
         val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
         return taskRepository
             .findAllByCollectiveCode(collectiveCode)
-            .sortedBy { it.dueDate }
+            .sortedWith(compareBy<TaskItem> { it.dueDate }.thenBy { it.id })
             .map { it.toDto(taskFeedbackRepository.findAllByTaskId(it.id)) }
     }
 

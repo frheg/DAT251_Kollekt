@@ -183,6 +183,8 @@ function TasksMain() {
   const [buyDate, setBuyDate] = useState('');
   const [buyDeadline, setBuyDeadline] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pendingTaskIds, setPendingTaskIds] = useState<Set<number>>(new Set());
+  const pendingTaskIdsRef = useRef<Set<number>>(new Set());
 
   const name = currentUser?.name ?? '';
   const memberOptions = members.length > 0 ? members : [name];
@@ -239,12 +241,48 @@ function TasksMain() {
     setShowShoppingAdd(false);
   };
 
-  const toggleTask = async (taskId: number) => {
-    await api.patch(`/tasks/${taskId}/toggle?memberName=${encodeURIComponent(name)}`);
+  const updateTaskInPlace = (taskId: number, nextTask: Task) => {
+    setTasks((prev) => prev.map((task) => (task.id === taskId ? nextTask : task)));
+  };
+
+  const patchTaskInPlace = (taskId: number, patch: Partial<Task>) => {
     setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task,
-      ),
+      prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
+    );
+  };
+
+  const runTaskMutation = async (
+    task: Task,
+    optimisticPatch: Partial<Task>,
+    request: () => Promise<Task>,
+  ) => {
+    if (pendingTaskIdsRef.current.has(task.id)) return;
+
+    pendingTaskIdsRef.current.add(task.id);
+    setPendingTaskIds((prev) => new Set(prev).add(task.id));
+    patchTaskInPlace(task.id, optimisticPatch);
+
+    try {
+      const updatedTask = await request();
+      updateTaskInPlace(task.id, updatedTask);
+    } catch (error) {
+      updateTaskInPlace(task.id, task);
+      console.error(error);
+    } finally {
+      pendingTaskIdsRef.current.delete(task.id);
+      setPendingTaskIds((prev) => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+    }
+  };
+
+  const toggleTask = async (task: Task) => {
+    await runTaskMutation(
+      task,
+      { completed: !task.completed },
+      () => api.patch<Task>(`/tasks/${task.id}/toggle?memberName=${encodeURIComponent(name)}`),
     );
   };
 
@@ -255,33 +293,40 @@ function TasksMain() {
 
   const handlePrimaryToggle = async (task: Task) => {
     if (task.completed) {
-      await toggleTask(task.id);
+      await toggleTask(task);
       return;
     }
 
     if (isOverdueTask(task)) {
       if ((task.penaltyXp ?? 0) < 0) {
-        await completeMissedTask(task.id);
+        await completeMissedTask(task);
       } else {
-        await markLate(task.id);
+        await markLate(task);
       }
       return;
     }
 
-    await toggleTask(task.id);
+    await toggleTask(task);
   };
 
-  const markLate = async (taskId: number) => {
-    await api.post(`/tasks/${taskId}/regret?memberName=${encodeURIComponent(name)}`, {});
-    await fetchAll();
-  };
-
-  const completeMissedTask = async (taskId: number) => {
-    await api.post(
-      `/tasks/${taskId}/regret-missed?memberName=${encodeURIComponent(name)}`,
-      {},
+  const markLate = async (task: Task) => {
+    await runTaskMutation(
+      task,
+      { completed: true },
+      () => api.post<Task>(`/tasks/${task.id}/regret?memberName=${encodeURIComponent(name)}`, {}),
     );
-    await fetchAll();
+  };
+
+  const completeMissedTask = async (task: Task) => {
+    await runTaskMutation(
+      task,
+      { completed: true },
+      () =>
+        api.post<Task>(
+          `/tasks/${task.id}/regret-missed?memberName=${encodeURIComponent(name)}`,
+          {},
+        ),
+    );
   };
 
   const deleteTask = async (taskId: number) => {
@@ -440,14 +485,20 @@ function TasksMain() {
     setEditShopText('');
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const today = new Date().toISOString().split('T')[0];
-    if (filter === 'MINE') return task.assignee === name;
-    if (filter === 'TODAY') return task.dueDate === today;
-    if (filter === 'DONE') return task.completed;
-    if (filter === 'INCOMPLETE') return !task.completed;
-    return true;
-  });
+  const filteredTasks = tasks
+    .filter((task) => {
+      const today = new Date().toISOString().split('T')[0];
+      if (filter === 'MINE') return task.assignee === name;
+      if (filter === 'TODAY') return task.dueDate === today;
+      if (filter === 'DONE') return task.completed;
+      if (filter === 'INCOMPLETE') return !task.completed;
+      return true;
+    })
+    .sort((firstTask, secondTask) => {
+      const dueDateOrder = firstTask.dueDate.localeCompare(secondTask.dueDate);
+      if (dueDateOrder !== 0) return dueDateOrder;
+      return firstTask.id - secondTask.id;
+    });
 
   if (loading) {
     return (
@@ -583,6 +634,7 @@ function TasksMain() {
             {filteredTasks.map((task, index) => {
               const isOverdue = isOverdueTask(task);
               const isPenalized = (task.penaltyXp ?? 0) < 0;
+              const taskIsPending = pendingTaskIds.has(task.id);
 
               return (
                 <Fragment key={task.id}>
@@ -593,8 +645,9 @@ function TasksMain() {
                     className={`glass rounded-xl p-3.5 ${task.completed ? 'opacity-50' : ''}`}
                   >
                     <div
-                      className="flex items-center gap-3"
+                      className="flex items-center gap-3 cursor-pointer"
                       onClick={() => {
+                        if (taskIsPending) return;
                         void handlePrimaryToggle(task);
                       }}
                     >
@@ -656,9 +709,10 @@ function TasksMain() {
                       {!task.completed && isOverdue && !isPenalized && (
                         <button
                           onClick={() => {
-                            void markLate(task.id);
+                            void markLate(task);
                           }}
-                          className="h-7 px-2 rounded-lg glass text-[10px] font-medium text-secondary flex items-center gap-1"
+                          disabled={taskIsPending}
+                          className="h-7 px-2 rounded-lg glass text-[10px] font-medium text-secondary flex items-center gap-1 disabled:opacity-60"
                         >
                           <Clock className="h-3 w-3" />
                           {t('tasks.completeLate')}
@@ -667,9 +721,10 @@ function TasksMain() {
                       {!task.completed && isOverdue && isPenalized && (
                         <button
                           onClick={() => {
-                            void completeMissedTask(task.id);
+                            void completeMissedTask(task);
                           }}
-                          className="h-7 px-2 rounded-lg glass text-[10px] font-medium text-secondary flex items-center gap-1"
+                          disabled={taskIsPending}
+                          className="h-7 px-2 rounded-lg glass text-[10px] font-medium text-secondary flex items-center gap-1 disabled:opacity-60"
                         >
                           <Clock className="h-3 w-3" />
                           {t('tasks.regretMissed')}
