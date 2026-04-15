@@ -44,10 +44,10 @@ class TaskOperations(
                     "dueDate" to task.dueDate.toString(),
                 ),
             )
-            notificationService.createCustomNotification(
+            notificationService.createParameterizedNotification(
                 userName = task.assignee,
-                message = "Your task '${task.title}' is due in $reminderDaysBeforeDue day(s).",
                 type = "TASK_DEADLINE_SOON",
+                params = mapOf("title" to task.title, "days" to reminderDaysBeforeDue.toString()),
             )
         }
     }
@@ -148,10 +148,10 @@ class TaskOperations(
         )
 
         if (task.assignee != memberName) {
-            notificationService.createCustomNotification(
+            notificationService.createParameterizedNotification(
                 userName = task.assignee,
-                message = "${if (anonymous) "Someone" else memberName} left feedback on your task '${task.title}'.",
                 type = "TASK_FEEDBACK",
+                params = mapOf("author" to (if (anonymous) "Someone" else memberName), "title" to task.title),
             )
         }
 
@@ -329,10 +329,10 @@ class TaskOperations(
                 ),
             )
 
-        notificationService.createCustomNotification(
+        notificationService.createParameterizedNotification(
             userName = memberName,
-            message = "Du fullførte oppgaven '${task.title}' for sent. XP er redusert.",
             type = "TASK_COMPLETED_LATE",
+            params = mapOf("title" to task.title),
         )
 
         statsCacheService.clearTaskCaches()
@@ -370,10 +370,10 @@ class TaskOperations(
                             "lateApprovalAvailable" to true,
                         ),
                     )
-                    notificationService.createCustomNotification(
+                    notificationService.createParameterizedNotification(
                         userName = task.assignee,
-                        message = "Your task '${task.title}' is overdue! A penalty has been applied.",
                         type = "TASK_OVERDUE",
+                        params = mapOf("title" to task.title),
                     )
                     val activeMembers =
                         memberRepository
@@ -381,10 +381,10 @@ class TaskOperations(
                             .filter { it.status == MemberStatus.ACTIVE && it.name != task.assignee }
                             .map { it.name }
                     if (activeMembers.isNotEmpty()) {
-                        notificationService.createGroupNotification(
+                        notificationService.createParameterizedGroupNotification(
                             userNames = activeMembers,
-                            message = "Task '${task.title}' assigned to ${task.assignee} is overdue and not completed.",
                             type = "TASK_OVERDUE_GROUP",
+                            params = mapOf("title" to task.title, "assignee" to task.assignee),
                         )
                     }
                 } else if (task.penaltyXp != penalty) {

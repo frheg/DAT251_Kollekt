@@ -94,10 +94,10 @@ class TaskOperationsTest {
                 "dueDate" to dueSoon.dueDate.toString(),
             ),
         )
-        verify(notificationService).createCustomNotification(
+        verify(notificationService).createParameterizedNotification(
             userName = "Kasper",
-            message = "Your task 'Trash' is due in 1 day(s).",
             type = "TASK_DEADLINE_SOON",
+            params = mapOf("title" to "Trash", "days" to "1"),
         )
     }
 
@@ -249,15 +249,15 @@ class TaskOperationsTest {
                 assertEquals(-10, it.penaltyXp)
             },
         )
-        verify(notificationService).createCustomNotification(
+        verify(notificationService).createParameterizedNotification(
             userName = "Emma",
-            message = "Your task 'Trash' is overdue! A penalty has been applied.",
             type = "TASK_OVERDUE",
+            params = mapOf("title" to "Trash"),
         )
-        verify(notificationService).createGroupNotification(
+        verify(notificationService).createParameterizedGroupNotification(
             userNames = listOf("Kasper"),
-            message = "Task 'Trash' assigned to Emma is overdue and not completed.",
             type = "TASK_OVERDUE_GROUP",
+            params = mapOf("title" to "Trash", "assignee" to "Emma"),
         )
         verify(realtimeUpdateService).publish(eq("ABC123"), eq("TASK_PENALTY_APPLIED"), any())
     }
@@ -438,10 +438,10 @@ class TaskOperationsTest {
         assertEquals(14, result.id)
         assertEquals(1, result.feedbacks.size)
         assertEquals(null, result.feedbacks[0].author) // anonymous — author hidden
-        verify(notificationService).createCustomNotification(
+        verify(notificationService).createParameterizedNotification(
             userName = "Emma",
-            message = "Someone left feedback on your task 'Støvsuge'.",
             type = "TASK_FEEDBACK",
+            params = mapOf("author" to "Someone", "title" to "Støvsuge"),
         )
     }
 
@@ -571,10 +571,10 @@ class TaskOperationsTest {
                 assertEquals(110, it.xp)
             },
         )
-        verify(notificationService).createCustomNotification(
+        verify(notificationService).createParameterizedNotification(
             userName = "Kasper",
-            message = "Du fullførte oppgaven 'Bathroom' for sent. XP er redusert.",
             type = "TASK_COMPLETED_LATE",
+            params = mapOf("title" to "Bathroom"),
         )
         verify(eventPublisher).taskEvent("TASK_COMPLETED_LATE", result)
         verify(realtimeUpdateService).publish("ABC123", "TASK_COMPLETED_LATE", result)

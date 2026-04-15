@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, Recycle, Target, Edit3, Check, X, Plus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Recycle, Target, Edit3, Check, X, Plus, Pencil, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { connectCollectiveRealtime } from "../lib/realtime";
@@ -21,6 +21,9 @@ export default function PantTrackerPage() {
   const [editingGoal, setEditingGoal] = useState(false);
   const [editGoalValue, setEditGoalValue] = useState("");
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [editBottles, setEditBottles] = useState("");
+  const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
 
   const name = currentUser?.name ?? "";
 
@@ -40,7 +43,7 @@ export default function PantTrackerPage() {
   useEffect(() => {
     if (!name) return;
     const disconnect = connectCollectiveRealtime(name, (event) => {
-      if (event.type === "PANT_ADDED") {
+      if (["PANT_ADDED", "PANT_UPDATED", "PANT_DELETED"].includes(event.type)) {
         fetchPant();
       }
     });
@@ -74,6 +77,27 @@ export default function PantTrackerPage() {
       fetchPant();
     }
     setEditingTotal(false);
+  };
+
+  const startEditEntry = (id: number, bottles: number) => {
+    setEditingEntryId(id);
+    setEditBottles(String(bottles));
+    setDeletingEntryId(null);
+  };
+
+  const handleSaveEntry = async () => {
+    if (!editingEntryId) return;
+    const parsed = Math.round(Number(editBottles));
+    if (!Number.isFinite(parsed) || parsed === 0) return;
+    await api.patch(`/economy/pant/${editingEntryId}`, { bottles: parsed, amount: parsed });
+    setEditingEntryId(null);
+    fetchPant();
+  };
+
+  const handleDeleteEntry = async (id: number) => {
+    await api.delete(`/economy/pant/${id}`);
+    setDeletingEntryId(null);
+    fetchPant();
   };
 
   const handleEditGoal = async () => {
@@ -266,31 +290,81 @@ export default function PantTrackerPage() {
           </div>
           <div className="space-y-2">
             {(showAllHistory ? pantSummary.entries : pantSummary.entries.slice(0, 2)).map((entry, i) => (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="glass rounded-xl p-3 flex items-center gap-3"
-              >
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <Recycle className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">
-                    {t("pant.historyEntry", {
-                      name: entry.addedBy,
-                      count: entry.bottles,
-                    })}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {formatDate(entry.date)}
-                  </p>
-                </div>
-                <p className="text-sm font-bold text-primary">
-                  +{formatCurrency(entry.amount)}
-                </p>
-              </motion.div>
+              <div key={entry.id}>
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="glass rounded-xl p-3 flex items-center gap-3"
+                >
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <Recycle className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">
+                      {t("pant.historyEntry", {
+                        name: entry.addedBy,
+                        count: entry.bottles,
+                      })}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatDate(entry.date)}
+                    </p>
+                  </div>
+                  {entry.addedBy === name ? (
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <p className="text-sm font-bold text-primary">+{formatCurrency(entry.amount)}</p>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => startEditEntry(entry.id, entry.bottles)} className="text-muted-foreground hover:text-foreground transition-colors">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        {deletingEntryId === entry.id ? (
+                          <>
+                            <button onClick={() => void handleDeleteEntry(entry.id)} className="text-destructive hover:text-destructive/80 transition-colors">
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => setDeletingEntryId(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => { setDeletingEntryId(entry.id); setEditingEntryId(null); }} className="text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-bold text-primary shrink-0">+{formatCurrency(entry.amount)}</p>
+                  )}
+                </motion.div>
+                <AnimatePresence>
+                  {editingEntryId === entry.id && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                      <div className="glass rounded-xl p-3 mt-1 space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground">{t("pant.editEntry")}</p>
+                        <input
+                          type="number"
+                          value={editBottles}
+                          onChange={(e) => setEditBottles(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") void handleSaveEntry(); if (e.key === "Escape") setEditingEntryId(null); }}
+                          placeholder={t("pant.bottlesPlaceholder")}
+                          className="w-full bg-muted/50 rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [color-scheme:dark]"
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => void handleSaveEntry()} className="flex-1 gradient-primary rounded-lg py-2 text-sm font-semibold text-primary-foreground">
+                            {t("economy.saveChanges")}
+                          </button>
+                          <button onClick={() => setEditingEntryId(null)} className="flex-1 glass rounded-lg py-2 text-sm font-medium">
+                            {t("common.cancel")}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ))}
           </div>
         </div>

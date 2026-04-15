@@ -174,7 +174,14 @@ export default function AppHeader() {
                         >
                           <X className="h-2.5 w-2.5 text-muted-foreground" />
                         </button>
-                        <p className="text-foreground pr-4">{n.message}</p>
+                        <p className="text-foreground pr-4">{(() => {
+                          try {
+                            const params = JSON.parse(n.message);
+                            return t(`notifications.messages.${n.type}`, params);
+                          } catch {
+                            return n.message;
+                          }
+                        })()}</p>
                         <p className="text-muted-foreground text-[9px] mt-0.5">
                           {formatTime(n.timestamp)}
                         </p>

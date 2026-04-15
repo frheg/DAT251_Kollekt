@@ -273,7 +273,11 @@ class ChatOperations(
                 .map { it.name }
         if (others.isEmpty()) return
         val preview = if (text.length > 60) text.take(60) + "..." else text
-        notificationService.createGroupNotification(others, "$sender: \"$preview\"", type)
+        notificationService.createParameterizedGroupNotification(
+            userNames = others,
+            type = type,
+            params = mapOf("sender" to sender, "preview" to preview),
+        )
     }
 
     private data class PollPayload(

@@ -65,6 +65,11 @@ export interface Balance {
   amount: number;
 }
 
+export interface PayOption {
+  name: string;
+  amount: number;
+}
+
 export interface PantEntry {
   id: number;
   bottles: number;
@@ -197,6 +202,8 @@ export type NotificationType =
   | 'TASK_OVERDUE'
   | 'NEW_MESSAGE'
   | 'EXPENSE_OWED'
+  | 'EXPENSE_DEADLINE_SOON'
+  | 'EXPENSE_OVERDUE'
   | 'SHOPPING_ITEM_ADDED'
   | 'EVENT_ADDED'
   | string;

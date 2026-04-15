@@ -15,6 +15,7 @@
   "common": {
     "seeAll": "Se alle",
     "showLess": "Vis færre",
+    "cancel": "Avbryt",
     "back": "Tilbake",
     "next": "Neste",
     "today": "I dag",
@@ -284,6 +285,8 @@
     "othersOweYou": "Andre skylder deg penger",
     "allSettled": "Alt er gjort opp!",
     "payAmount": "Betal {{amount}}",
+    "payAmountTo": "Betal {{name}} {{amount}}",
+    "payPersonLabel": "Velg hvem du vil betale",
     "settleAll": "Gjør opp alt",
     "newExpense": "Ny utgift",
     "expenseTitlePlaceholder": "Hva gjaldt det?",
@@ -298,7 +301,9 @@
     "balances": "Saldoer",
     "settled": "Gjort opp",
     "expenseHistory": "Utgiftshistorikk",
-    "splitCount": "Delt på {{count}}"
+    "splitCount": "Delt på {{count}}",
+    "editExpense": "Rediger utgift",
+    "saveChanges": "Lagre endringer"
   },
   "pant": {
     "title": "Pantoversikt",
@@ -314,7 +319,9 @@
     "goalReached": "Målet er nådd!",
     "bottlesToGo": "{{count}} flasker igjen",
     "collectionHistory": "Pant-historikk",
-    "historyEntry": "{{name}} la til {{count}} flasker"
+    "historyEntry": "{{name}} la til {{count}} flasker",
+    "editEntry": "Rediger oppføring",
+    "bottlesPlaceholder": "Flasker"
   },
   "leaderboard": {
     "title": "Toppliste",
@@ -361,7 +368,21 @@
       "allCaughtUp": "Alt er lest",
       "markAllAsRead": "Marker alle som lest",
       "empty": "Ingen varsler",
-      "dismiss": "Fjern varsel"
+      "dismiss": "Fjern varsel",
+      "messages": {
+        "EXPENSE_OWED": "{{paidBy}} betalte for '{{description}}' — du skylder {{amount}} kr",
+        "EXPENSE_DEADLINE_SOON": "Betaling for '{{description}}' forfaller i morgen ({{date}})",
+        "EXPENSE_OVERDUE": "Betalingsfristen for '{{description}}' har utløpt ({{date}})",
+        "TASK_ASSIGNED": "Du har fått tildelt en ny oppgave: {{title}}",
+        "TASK_DEADLINE_SOON": "Oppgaven '{{title}}' forfaller om {{days}} dag(er).",
+        "TASK_OVERDUE": "Oppgaven '{{title}}' er forfalt! En straff har blitt ilagt.",
+        "TASK_OVERDUE_GROUP": "Oppgaven '{{title}}' tildelt {{assignee}} er forfalt og ikke fullført.",
+        "TASK_FEEDBACK": "{{author}} ga tilbakemelding på oppgaven din '{{title}}'.",
+        "TASK_COMPLETED_LATE": "Du fullførte '{{title}}' for sent. XP er redusert.",
+        "SHOPPING_ITEM_ADDED": "{{actorName}} la til '{{item}}' i handlelisten",
+        "EVENT_ADDED": "Ny hendelse: '{{title}}' den {{date}}",
+        "NEW_MESSAGE": "{{sender}}: \"{{preview}}\""
+      }
     },
     "notificationPreferences": {
       "title": "Varslingsinnstillinger",
@@ -372,6 +393,8 @@
         "TASK_OVERDUE": "Oppgavefristen er utløpt",
         "NEW_MESSAGE": "Ny chatmelding",
         "EXPENSE_OWED": "Utgift: du skylder penger",
+        "EXPENSE_DEADLINE_SOON": "Utgift: betaling forfaller i morgen",
+        "EXPENSE_OVERDUE": "Utgift: betalingsfristen er utløpt",
         "SHOPPING_ITEM_ADDED": "Vare lagt til i handlelisten",
         "EVENT_ADDED": "Ny kalenderhendelse"
       }
