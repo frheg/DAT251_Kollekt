@@ -164,9 +164,12 @@ export interface DashboardResponse {
   currentUserXp: number;
   currentUserLevel: number;
   currentUserRank: number;
+  completedTasksCount: number;
+  currentUserBalance: number;
   upcomingTasks: Task[];
   upcomingEvents: CalendarEvent[];
   recentExpenses: Expense[];
+  pendingShoppingItems: ShoppingItem[];
 }
 
 export interface DrinkingQuestion {

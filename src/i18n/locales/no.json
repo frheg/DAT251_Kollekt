@@ -198,7 +198,10 @@
     "recentExpenses": "Nylige utgifter",
     "noRecentExpenses": "Ingen nylige utgifter",
     "paidBy": "Betalt av {{name}}",
-    "xpValue": "+{{xp}} XP"
+    "xpValue": "+{{xp}} XP",
+    "shoppingList": "Handleliste",
+    "noShoppingItems": "Ingen ventende handlelistepunkter",
+    "addedBy": "Lagt til av {{name}}"
   },
   "tasks": {
     "title": "Oppgaver",

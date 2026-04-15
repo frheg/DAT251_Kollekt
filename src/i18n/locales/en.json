@@ -198,7 +198,10 @@
     "recentExpenses": "Recent Expenses",
     "noRecentExpenses": "No recent expenses",
     "paidBy": "Paid by {{name}}",
-    "xpValue": "+{{xp}} XP"
+    "xpValue": "+{{xp}} XP",
+    "shoppingList": "Shopping List",
+    "noShoppingItems": "No pending shopping items",
+    "addedBy": "Added by {{name}}"
   },
   "tasks": {
     "title": "Tasks",

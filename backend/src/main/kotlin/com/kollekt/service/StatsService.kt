@@ -11,6 +11,7 @@ import com.kollekt.api.dto.LeaderboardPlayerDto
 import com.kollekt.api.dto.LeaderboardResponse
 import com.kollekt.api.dto.MemberStatsDto
 import com.kollekt.api.dto.PeriodStatsDto
+import com.kollekt.api.dto.ShoppingItemDto
 import com.kollekt.api.dto.TaskDto
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.Expense
@@ -96,6 +97,8 @@ class StatsService(
     private val redisTemplate: RedisTemplate<String, Any>,
     private val statsCacheService: StatsCacheService,
     private val realtimeUpdateService: RealtimeUpdateService,
+    private val economyOperations: EconomyOperations,
+    private val shoppingItemRepository: com.kollekt.repository.ShoppingItemRepository,
 ) {
     fun getLeaderboard(
         memberName: String,
@@ -297,12 +300,21 @@ class StatsService(
             leaderboard.players.firstOrNull { it.name == user.name }?.rank
                 ?: leaderboard.players.size
 
+        val userBalance =
+            economyOperations.getBalances(memberName)
+                .firstOrNull { it.name == user.name }?.amount ?: 0
+
         val response =
             DashboardResponse(
                 currentUserName = user.name,
                 currentUserXp = user.xp,
                 currentUserLevel = user.level,
                 currentUserRank = rank,
+                currentUserBalance = userBalance,
+                completedTasksCount =
+                    taskRepository
+                        .findAllByCollectiveCode(collectiveCode)
+                        .count { it.completed && it.assignee == user.name },
                 upcomingTasks =
                     taskRepository
                         .findAllByCollectiveCode(collectiveCode)
@@ -323,6 +335,12 @@ class StatsService(
                         .sortedByDescending { it.date }
                         .take(3)
                         .map { it.toDto() },
+                pendingShoppingItems =
+                    shoppingItemRepository
+                        .findAllByCollectiveCode(collectiveCode)
+                        .filter { !it.completed }
+                        .take(3)
+                        .map { ShoppingItemDto(it.id, it.item, it.addedBy, it.completed) },
             )
 
         redisTemplate.opsForValue().set(key, response)

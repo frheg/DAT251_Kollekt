@@ -298,9 +298,12 @@ data class DashboardResponse(
     val currentUserXp: Int,
     val currentUserLevel: Int,
     val currentUserRank: Int,
+    val completedTasksCount: Int,
+    val currentUserBalance: Int,
     val upcomingTasks: List<TaskDto>,
     val upcomingEvents: List<EventDto>,
     val recentExpenses: List<ExpenseDto>,
+    val pendingShoppingItems: List<ShoppingItemDto>,
 )
 
 data class PeriodStatsDto(

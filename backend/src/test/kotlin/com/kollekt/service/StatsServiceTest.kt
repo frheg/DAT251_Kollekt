@@ -14,6 +14,7 @@ import com.kollekt.repository.CollectiveRepository
 import com.kollekt.repository.EventRepository
 import com.kollekt.repository.ExpenseRepository
 import com.kollekt.repository.MemberRepository
+import com.kollekt.repository.ShoppingItemRepository
 import com.kollekt.repository.TaskRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -45,6 +46,8 @@ class StatsServiceTest {
     private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var statsCacheService: StatsCacheService
     private lateinit var realtimeUpdateService: RealtimeUpdateService
+    private lateinit var economyOperations: EconomyOperations
+    private lateinit var shoppingItemRepository: ShoppingItemRepository
     private lateinit var service: StatsService
 
     @BeforeEach
@@ -61,6 +64,8 @@ class StatsServiceTest {
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
         statsCacheService = StatsCacheService(redisTemplate)
         realtimeUpdateService = mock()
+        economyOperations = mock()
+        shoppingItemRepository = mock()
         service =
             StatsService(
                 collectiveAccessService = collectiveAccessService,
@@ -72,6 +77,8 @@ class StatsServiceTest {
                 redisTemplate = redisTemplate,
                 statsCacheService = statsCacheService,
                 realtimeUpdateService = realtimeUpdateService,
+                economyOperations = economyOperations,
+                shoppingItemRepository = shoppingItemRepository,
             )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com", xp = 250, level = 2))
         whenever(collectiveRepository.findByJoinCode("ABC123")).thenReturn(

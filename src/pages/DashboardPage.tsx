@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckSquare, Calendar, Wallet, Zap } from 'lucide-react';
+import { CheckSquare, Calendar, Wallet, Zap, ShoppingCart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
@@ -108,8 +108,8 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: translate('dashboard.stats.tasksDone'), value: data.upcomingTasks.length.toString(), icon: CheckSquare },
-            { label: translate('dashboard.stats.balance'), value: formatCurrency(0), icon: Wallet },
+            { label: translate('dashboard.stats.tasksDone'), value: data.completedTasksCount.toString(), icon: CheckSquare },
+            { label: translate('dashboard.stats.balance'), value: formatCurrency(data.currentUserBalance), icon: Wallet },
             { label: translate('dashboard.stats.xpEarned'), value: data.currentUserXp.toString(), icon: Zap },
           ].map((s) => (
             <div key={s.label} className="bg-background/40 rounded-xl p-2.5 text-center">
@@ -149,6 +149,30 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-muted-foreground">{task.assignee} • {formatDate(task.dueDate)}</p>
               </div>
               <span className="text-[10px] font-medium text-primary">{translate('dashboard.xpValue', { xp: task.xp })}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Shopping list */}
+      <motion.div variants={item}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm text-muted-foreground">{translate('dashboard.shoppingList')}</h3>
+          <button onClick={() => navigate('/tasks')} className="text-xs text-primary font-medium">{translate('common.seeAll')}</button>
+        </div>
+        <div className="space-y-2">
+          {data.pendingShoppingItems.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-3">{translate('dashboard.noShoppingItems')}</p>
+          )}
+          {data.pendingShoppingItems.slice(0, 3).map((s) => (
+            <button key={s.id} onClick={() => navigate('/tasks')} className="glass rounded-xl p-3 flex items-center gap-3 w-full text-left">
+              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{s.item}</p>
+                <p className="text-[10px] text-muted-foreground">{translate('dashboard.addedBy', { name: s.addedBy })}</p>
+              </div>
             </button>
           ))}
         </div>
