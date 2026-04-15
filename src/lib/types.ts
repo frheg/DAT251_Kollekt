@@ -112,16 +112,45 @@ export interface PeriodStats {
   totalXp: number;
   avgPerPerson: number;
   topContributor: string;
+  bestStreak: number;
+  bestStreakHolder: string;
+  totalPenaltyXp: number;
+  lateCompletions: number;
+  lateCompletionsHolder: string;
+  skippedCount: number;
+  skippedHolder: string;
 }
 
 export interface LeaderboardResponse {
   players: LeaderboardPlayer[];
-  weeklyStats: PeriodStats;
+  periodStats: PeriodStats;
   monthlyPrize?: string;
+}
+
+export interface AchievementCatalogItem {
+  key: string;
+  title: string;
+  description: string;
+  icon: string;
+  enabled: boolean;
+}
+
+export interface MemberStats {
+  name: string;
+  level: number;
+  xp: number;
+  rank: number;
+  streak: number;
+  tasksCompleted: number;
+  lateCompletions: number;
+  skippedTasks: number;
+  achievementsUnlocked: number;
+  achievementsTotal: number;
 }
 
 export interface Achievement {
   id: number;
+  key: string;
   title: string;
   description: string;
   icon: string;

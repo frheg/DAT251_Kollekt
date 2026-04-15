@@ -149,6 +149,35 @@ class NotificationServiceTest {
     }
 
     @Test
+    fun `create parameterized notification stores json encoded params`() {
+        val captor = argumentCaptor<Notification>()
+
+        service.createParameterizedNotification("Kasper", "TASK_OVERDUE", mapOf("title" to "Take out trash"))
+
+        verify(notificationRepository).save(captor.capture())
+        val saved = captor.firstValue
+        assertEquals("Kasper", saved.userName)
+        assertEquals("TASK_OVERDUE", saved.type)
+        assertTrue(saved.message.contains("Take out trash"))
+        assertFalse(saved.read)
+    }
+
+    @Test
+    fun `create parameterized group notification stores one notification per user`() {
+        whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", null).copy(collectiveCode = "ABC123"))
+        whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", null).copy(collectiveCode = "ABC123"))
+        val captor = argumentCaptor<List<Notification>>()
+
+        service.createParameterizedGroupNotification(listOf("Emma", "Kasper"), "GROUP_TYPE", mapOf("key" to "value"))
+
+        verify(notificationRepository).saveAll(captor.capture())
+        val notifications = captor.firstValue
+        assertEquals(2, notifications.size)
+        assertTrue(notifications.all { it.type == "GROUP_TYPE" })
+        assertFalse(notifications.any { it.read })
+    }
+
+    @Test
     fun `delete notification delegates to repository`() {
         service.deleteNotification("Kasper", 5L)
 

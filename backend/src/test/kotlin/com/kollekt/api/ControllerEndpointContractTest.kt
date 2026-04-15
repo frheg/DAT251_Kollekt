@@ -12,11 +12,15 @@ import com.kollekt.api.dto.DrinkingQuestionDto
 import com.kollekt.api.dto.EconomySummaryDto
 import com.kollekt.api.dto.EventDto
 import com.kollekt.api.dto.ExpenseDto
+import com.kollekt.api.dto.MemberStatsDto
 import com.kollekt.api.dto.MessageDto
 import com.kollekt.api.dto.PantEntryDto
 import com.kollekt.api.dto.PantSummaryDto
+import com.kollekt.api.dto.PayOptionDto
 import com.kollekt.api.dto.SettleUpResponse
 import com.kollekt.api.dto.TaskDto
+import com.kollekt.api.dto.UpdateExpenseRequest
+import com.kollekt.api.dto.UpdatePantEntryRequest
 import com.kollekt.api.dto.UserDto
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Invitation
@@ -451,6 +455,106 @@ class ControllerEndpointContractTest {
     }
 
     @Test
+    fun `economy update expense uses patch expenses endpoint`() {
+        whenever(economyOperations.updateExpense(1L, UpdateExpenseRequest("Sushi", 300, "Food"), "Kasper"))
+            .thenReturn(
+                ExpenseDto(
+                    id = 1,
+                    description = "Sushi",
+                    amount = 300,
+                    paidBy = "Kasper",
+                    category = "Food",
+                    date = LocalDate.parse("2026-03-10"),
+                    participantNames = listOf("Kasper"),
+                ),
+            )
+
+        mockMvc
+            .perform(
+                patch("/api/economy/expenses/1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"description":"Sushi","amount":300,"category":"Food"}"""),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.description").value("Sushi"))
+
+        verify(economyOperations).updateExpense(1L, UpdateExpenseRequest("Sushi", 300, "Food"), "Kasper")
+    }
+
+    @Test
+    fun `economy delete expense uses delete expenses endpoint`() {
+        mockMvc
+            .perform(
+                delete("/api/economy/expenses/1")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isNoContent)
+
+        verify(economyOperations).deleteExpense(1L, "Kasper")
+    }
+
+    @Test
+    fun `economy update pant uses patch pant endpoint`() {
+        whenever(economyOperations.updatePantEntry(3L, UpdatePantEntryRequest(20, 60), "Kasper"))
+            .thenReturn(PantEntryDto(id = 3, bottles = 20, amount = 60, addedBy = "Kasper", date = LocalDate.parse("2026-03-10")))
+
+        mockMvc
+            .perform(
+                patch("/api/economy/pant/3")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"bottles":20,"amount":60}"""),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.bottles").value(20))
+
+        verify(economyOperations).updatePantEntry(3L, UpdatePantEntryRequest(20, 60), "Kasper")
+    }
+
+    @Test
+    fun `economy delete pant uses delete pant endpoint`() {
+        mockMvc
+            .perform(
+                delete("/api/economy/pant/3")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isNoContent)
+
+        verify(economyOperations).deletePantEntry(3L, "Kasper")
+    }
+
+    @Test
+    fun `economy pay options uses get pay-options endpoint`() {
+        whenever(economyOperations.getPayOptions("Kasper"))
+            .thenReturn(listOf(PayOptionDto(name = "Vipps", amount = 150)))
+
+        mockMvc
+            .perform(
+                get("/api/economy/pay-options")
+                    .param("memberName", "Kasper")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].name").value("Vipps"))
+
+        verify(economyOperations).getPayOptions("Kasper")
+    }
+
+    @Test
+    fun `economy settle with uses post settle-with endpoint`() {
+        mockMvc
+            .perform(
+                post("/api/economy/settle-with")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"creditorName":"Emma"}"""),
+            ).andExpect(status().isNoContent)
+
+        verify(economyOperations).settleWith("Kasper", "Emma")
+    }
+
+    @Test
     fun `economy summary uses api economy summary endpoint`() {
         whenever(economyOperations.getEconomySummary("Kasper"))
             .thenReturn(
@@ -516,12 +620,57 @@ class ControllerEndpointContractTest {
     }
 
     @Test
+    fun `achievement config patch uses api achievements config endpoint`() {
+        mockMvc
+            .perform(
+                patch("/api/achievements/config")
+                    .param("memberName", "Kasper")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .content("""{"enabledKeys":["clean_streak","task_master"]}""")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
+
+        verify(statsService).updateAchievementConfig("Kasper", setOf("clean_streak", "task_master"))
+    }
+
+    @Test
+    fun `member stats uses api members stats endpoint`() {
+        whenever(statsService.getMemberStats("Kasper", "Emma"))
+            .thenReturn(
+                MemberStatsDto(
+                    name = "Emma",
+                    level = 1,
+                    xp = 150,
+                    rank = 2,
+                    streak = 3,
+                    tasksCompleted = 5,
+                    lateCompletions = 1,
+                    skippedTasks = 0,
+                    achievementsUnlocked = 2,
+                    achievementsTotal = 10,
+                ),
+            )
+
+        mockMvc
+            .perform(
+                get("/api/members/stats")
+                    .param("viewerName", "Kasper")
+                    .param("targetName", "Emma")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.name").value("Emma"))
+
+        verify(statsService).getMemberStats("Kasper", "Emma")
+    }
+
+    @Test
     fun `stats achievements uses api achievements endpoint`() {
-        whenever(statsService.getAchievements())
+        whenever(statsService.getAchievements("Kasper"))
             .thenReturn(
                 listOf(
                     AchievementDto(
                         id = 7,
+                        key = "oppvaskhelt",
                         title = "Oppvaskhelt",
                         description = "Fullfor 10 oppgaver",
                         icon = "sparkles",
@@ -535,11 +684,12 @@ class ControllerEndpointContractTest {
         mockMvc
             .perform(
                 get("/api/achievements")
+                    .param("memberName", "Kasper")
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Oppvaskhelt"))
 
-        verify(statsService).getAchievements()
+        verify(statsService).getAchievements("Kasper")
     }
 
     @Test

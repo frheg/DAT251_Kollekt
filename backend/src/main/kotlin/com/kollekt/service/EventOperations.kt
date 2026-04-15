@@ -63,7 +63,8 @@ class EventOperations(
         eventPublisher.chatEvent("EVENT_CREATED", saved.toDto())
 
         val others =
-            memberRepository.findAllByCollectiveCode(collectiveCode)
+            memberRepository
+                .findAllByCollectiveCode(collectiveCode)
                 .filter { it.status == MemberStatus.ACTIVE && it.name != actorName }
                 .map { it.name }
         if (others.isNotEmpty()) {
