@@ -1,4 +1,11 @@
-import { useEffect, useState, useRef, Fragment, type ChangeEvent } from 'react';
+import {
+  useEffect,
+  useState,
+  useRef,
+  Fragment,
+  type ChangeEvent,
+  type SetStateAction,
+} from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -189,17 +196,106 @@ function TasksMain() {
   const [loading, setLoading] = useState(true);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<number>>(new Set());
   const pendingTaskIdsRef = useRef<Set<number>>(new Set());
+  const tasksRef = useRef<Task[]>([]);
+  const fetchRequestIdRef = useRef(0);
+  const taskOverridesRef = useRef<Map<number, Task>>(new Map());
 
   const name = currentUser?.name ?? '';
   const memberOptions = members.length > 0 ? members : [name];
 
+  const setTasksState = (updater: SetStateAction<Task[]>) => {
+    setTasks((prev) => {
+      const next =
+        typeof updater === 'function'
+          ? (updater as (previous: Task[]) => Task[])(prev)
+          : updater;
+      tasksRef.current = next;
+      return next;
+    });
+  };
+
+  const taskMatchesOverride = (serverTask: Task, localTask: Task) =>
+    serverTask.completed === localTask.completed &&
+    serverTask.penaltyXp === localTask.penaltyXp &&
+    serverTask.xp === localTask.xp &&
+    serverTask.title === localTask.title &&
+    serverTask.assignee === localTask.assignee &&
+    serverTask.dueDate === localTask.dueDate &&
+    serverTask.category === localTask.category &&
+    serverTask.recurrenceRule === localTask.recurrenceRule;
+
+  const setTaskOverride = (task: Task) => {
+    taskOverridesRef.current.set(task.id, task);
+  };
+
+  const clearTaskOverride = (taskId: number) => {
+    taskOverridesRef.current.delete(taskId);
+  };
+
+  const mergeFetchedTasks = (nextTasks: Task[]) => {
+    const localTasksById = new Map(tasksRef.current.map((task) => [task.id, task]));
+
+    return nextTasks.map((task) => {
+      if (pendingTaskIdsRef.current.has(task.id)) {
+        return localTasksById.get(task.id) ?? task;
+      }
+
+      const overriddenTask = taskOverridesRef.current.get(task.id);
+      if (!overriddenTask) return task;
+
+      if (taskMatchesOverride(task, overriddenTask)) {
+        clearTaskOverride(task.id);
+        return task;
+      }
+
+      return overriddenTask;
+    });
+  };
+
+  const sortTasks = (nextTasks: Task[]) =>
+    [...nextTasks].sort((firstTask, secondTask) => {
+      const dueDateOrder = firstTask.dueDate.localeCompare(secondTask.dueDate);
+      if (dueDateOrder !== 0) return dueDateOrder;
+      return firstTask.id - secondTask.id;
+    });
+
+  const upsertTask = (nextTask: Task) => {
+    setTasksState((prev) => {
+      const existingIndex = prev.findIndex((task) => task.id === nextTask.id);
+      if (existingIndex === -1) return sortTasks([...prev, nextTask]);
+
+      const next = [...prev];
+      next[existingIndex] = nextTask;
+      return sortTasks(next);
+    });
+  };
+
+  const extractTaskFromRealtimeEvent = (event: { type: string; payload?: unknown }): Task | null => {
+    if (event.type === 'TASK_UPDATED') {
+      const payload = event.payload as
+        | { task?: Task; updatedBy?: string }
+        | Task
+        | undefined;
+
+      if (payload && typeof payload === 'object' && 'task' in payload && payload.task) {
+        return payload.task;
+      }
+
+      return (payload as Task | undefined) ?? null;
+    }
+
+    return (event.payload as Task | undefined) ?? null;
+  };
+
   const fetchAll = async () => {
     if (!name) return;
+    const requestId = ++fetchRequestIdRef.current;
     const [taskRes, shopRes] = await Promise.all([
       api.get<Task[]>(`/tasks?memberName=${encodeURIComponent(name)}`),
       api.get<ShoppingItem[]>(`/tasks/shopping?memberName=${encodeURIComponent(name)}`),
     ]);
-    setTasks(taskRes);
+    if (requestId !== fetchRequestIdRef.current) return;
+    setTasksState(mergeFetchedTasks(taskRes));
     setShopping(shopRes);
     setLoading(false);
   };
@@ -215,11 +311,29 @@ function TasksMain() {
   useEffect(() => {
     if (!name) return;
     const disconnect = connectCollectiveRealtime(name, (event) => {
+      if (event.type === 'TASK_UPDATED') {
+        const payload = event.payload as
+          | { updatedBy?: string; task?: Task }
+          | undefined;
+        if (payload?.updatedBy === name) return;
+      }
+
+      if (event.type === 'TASK_UPDATED' || event.type === 'TASK_CREATED') {
+        const nextTask = extractTaskFromRealtimeEvent(event);
+        if (nextTask) upsertTask(nextTask);
+        return;
+      }
+
+      if (event.type === 'TASK_DELETED') {
+        const payload = event.payload as { id?: number } | undefined;
+        if (payload?.id !== undefined) {
+          setTasksState((prev) => prev.filter((task) => task.id !== payload.id));
+        }
+        return;
+      }
+
       if (
         [
-          'TASK_UPDATED',
-          'TASK_CREATED',
-          'TASK_DELETED',
           'SHOPPING_UPDATED',
           'SHOPPING_ITEM_CREATED',
           'SHOPPING_ITEM_TOGGLED',
@@ -246,11 +360,11 @@ function TasksMain() {
   };
 
   const updateTaskInPlace = (taskId: number, nextTask: Task) => {
-    setTasks((prev) => prev.map((task) => (task.id === taskId ? nextTask : task)));
+    setTasksState((prev) => prev.map((task) => (task.id === taskId ? nextTask : task)));
   };
 
   const patchTaskInPlace = (taskId: number, patch: Partial<Task>) => {
-    setTasks((prev) =>
+    setTasksState((prev) =>
       prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
     );
   };
@@ -268,8 +382,10 @@ function TasksMain() {
 
     try {
       const updatedTask = await request();
+      setTaskOverride(updatedTask);
       updateTaskInPlace(task.id, updatedTask);
     } catch (error) {
+      clearTaskOverride(task.id);
       updateTaskInPlace(task.id, task);
       console.error(error);
     } finally {
@@ -335,7 +451,7 @@ function TasksMain() {
 
   const deleteTask = async (taskId: number) => {
     await api.delete(`/tasks/${taskId}?memberName=${encodeURIComponent(name)}`);
-    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+    setTasksState((prev) => prev.filter((task) => task.id !== taskId));
   };
 
   const startEdit = (task: Task) => {
@@ -373,12 +489,12 @@ function TasksMain() {
 
     if (editingId) {
       await api.patch(`/tasks/${editingId}?memberName=${encodeURIComponent(name)}`, body);
-      setTasks((prev) =>
+      setTasksState((prev) =>
         prev.map((task) => (task.id === editingId ? { ...task, ...body } : task)),
       );
     } else {
       const created = await api.post<Task>('/tasks', body);
-      setTasks((prev) => [...prev, created]);
+      setTasksState((prev) => [...prev, created]);
     }
 
     resetForm();
