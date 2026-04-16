@@ -210,11 +210,11 @@
       "shopping": "Handleliste"
     },
     "filters": {
-      "ALL": "Alle",
+      "ALL": "Oppgaver",
       "MINE": "Mine",
       "TODAY": "I dag",
       "INCOMPLETE": "Ikke ferdig",
-      "DONE": "Ferdig"
+      "DONE": "Fullført"
     },
     "newTask": "Ny oppgave",
     "editTask": "Rediger oppgave",

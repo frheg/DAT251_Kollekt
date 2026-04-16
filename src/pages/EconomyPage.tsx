@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ArrowDownLeft, Plus, Check, Recycle, ChevronRight, X, Users, Wallet, Pencil, Trash2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Plus, Check, Recycle, ChevronRight, X, Users, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
@@ -152,11 +152,7 @@ export default function EconomyPage() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5 pt-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" />
-          <h2 className="font-display text-xl font-bold">{t('economy.title')}</h2>
-        </div>
+      <div className="flex items-center justify-end">
         <button onClick={() => setShowAdd(true)} className="h-9 w-9 rounded-xl gradient-primary flex items-center justify-center">
           <Plus className="h-5 w-5 text-primary-foreground" />
         </button>
