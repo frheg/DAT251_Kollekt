@@ -28,9 +28,9 @@
     "create": "Create",
     "send": "Send",
     "add": "Add",
-    "all": "All",
+    "all": "Tasks",
     "mine": "Mine",
-    "done": "Done",
+    "done": "Completed",
     "incomplete": "Incomplete",
     "undo": "Undo",
     "bought": "Bought",
@@ -210,11 +210,11 @@
       "shopping": "Shopping List"
     },
     "filters": {
-      "ALL": "All",
+      "ALL": "Tasks",
       "MINE": "Mine",
       "TODAY": "Today",
       "INCOMPLETE": "Incomplete",
-      "DONE": "Done"
+      "DONE": "Completed"
     },
     "newTask": "New Task",
     "editTask": "Edit Task",

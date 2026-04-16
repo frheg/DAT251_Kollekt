@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { User, LogOut, Bell, Mail, ArrowRightLeft, Key, X } from "lucide-react";
+import { User, LogOut, Bell, Mail, ArrowRightLeft, Key, X, CheckSquare, Calendar, MessageCircle, Wallet, Trophy, Gamepad2, Recycle, UserCircle, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useUser } from "../context/UserContext";
@@ -19,6 +19,17 @@ const pageTitleKeys: Record<string, string> = {
   "/leaderboard": "header.pageTitles.leaderboard",
   "/games": "header.pageTitles.games",
   "/profile": "header.pageTitles.profile",
+};
+
+const pageIcons: Record<string, LucideIcon> = {
+  "/tasks": CheckSquare,
+  "/calendar": Calendar,
+  "/chat": MessageCircle,
+  "/economy": Wallet,
+  "/economy/pant": Recycle,
+  "/leaderboard": Trophy,
+  "/games": Gamepad2,
+  "/profile": UserCircle,
 };
 
 export default function AppHeader() {
@@ -41,6 +52,7 @@ export default function AppHeader() {
   const titleKey = pageTitleKeys[location.pathname] ?? "app.name";
   const title = t(titleKey);
   const isHomePage = location.pathname === "/";
+  const PageIcon = pageIcons[location.pathname] ?? null;
 
   // Close menu on outside click
   useEffect(() => {
@@ -101,7 +113,12 @@ export default function AppHeader() {
               <span className="text-gradient">Kollekt</span>
             </span>
           ) : (
-            title
+            <span className="inline-flex items-center gap-2">
+              {PageIcon && (
+                <PageIcon className="h-5 w-5 text-primary shrink-0 drop-shadow-[0_0_6px_hsl(var(--primary)/0.7)]" />
+              )}
+              {title}
+            </span>
           )}
         </h1>
 
