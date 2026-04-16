@@ -368,6 +368,100 @@
       "XP_500":    { "title": "XP-maskin",          "description": "Tjen 500 XP" }
     }
   },
+  "kollektGame": {
+    "title": "Kollekt-modus",
+    "loading": "Laster kollektivdata…",
+    "entryCard": {
+      "badge": "NY",
+      "description": "Runder generert fra dine ekte stats — streaker, oppgaver og rangeringer."
+    },
+    "entryRules": {
+      "playersValue": "2+ spillere",
+      "flowValue": "Oppsett og live-runder",
+      "rule1": "Start med å velge hvem som skal være med i sesjonen. Du kan ta med kollektivmedlemmer og legge til gjester før spillet begynner.",
+      "rule2": "Velg en modus, og spill deretter gjennom statistikkbaserte runder bygget fra gruppens ekte Kollekt-data, som streaker, oppgaver og rangeringer.",
+      "rule3": "Hvis dere bytter språk underveis i spillet, beholder den aktive runden samme prompt og bare teksten byttes."
+    },
+    "phases": {
+      "loading": "Laster data…",
+      "setup": "Velg hvem som spiller",
+      "config": "Sett reglene",
+      "playing": "Runde {{round}} — drevet av statistikken din",
+      "summary": "Teller opp skadene"
+    },
+    "setup": {
+      "selectPlayers": "Velg spillere",
+      "activePlayers": "{{count}} aktive",
+      "noMembers": "Ingen kollektivmedlemmer funnet — legg til gjester nedenfor for å spille.",
+      "addGuests": "Legg til gjester",
+      "levelShort": "Nivå",
+      "guestPlaceholder": "Gjestenavn…",
+      "addGuestAria": "Legg til gjest",
+      "removeGuestAria": "Fjern {{name}}",
+      "configureGame": "Konfigurer spill",
+      "minPlayersHint": "Velg minst 2 spillere for å fortsette.",
+      "you": "DEG",
+      "guest": "gjest"
+    },
+    "config": {
+      "gameMode": "Spillmodus",
+      "playersInSession": "Spillere i sesjonen",
+      "rounds": "Runder",
+      "players": "Spillere",
+      "statWeight": "Stat-vekt",
+      "startGame": "Start spill",
+      "backAria": "Tilbake til spillervalg",
+      "rounds_suffix": " runder",
+      "drinks_multiplier": " · ×{{m}} drikker"
+    },
+    "presets": {
+      "default":  { "label": "Standard",   "description": "15 runder, balansert blanding av kaos og stats." },
+      "quick":    { "label": "Rask",        "description": "8 runder — kom inn, bli glad, kom ut." },
+      "hardcore": { "label": "Hardcore",    "description": "20 runder, doble drikker, ingen nåde." },
+      "casual":   { "label": "Avslappet",   "description": "12 runder, lette slurker, stats betyr lite." }
+    },
+    "playing": {
+      "roundOf": "Runde {{current}} av {{total}}",
+      "done": "Ferdig — Neste runde",
+      "skipAria": "Hopp over ({{penalty}} slurk straff)",
+      "skipTitle": "Hopp over (+{{penalty}} slurk straff)",
+      "skipCost": "Å hoppe over koster {{count}} slurk(er)",
+      "liveSips": "Slurkteller"
+    },
+    "roundTypes": {
+      "STAT_COMPARISON": "Stat-kamp",
+      "CHALLENGE": "Utfordring",
+      "HOT_SEAT": "Hetesedet",
+      "TRIVIA_TWIST": "Trivia",
+      "RANDOM_EVENT": "Jokerkort"
+    },
+    "drinking": {
+      "distributes": "{{name}} deler ut {{count}} slurk(er)",
+      "drinksTarget": "{{names}} drikker {{count}} slurk(er)",
+      "sips": "{{count}} slurk(er)"
+    },
+    "summary": {
+      "title": "Spillet er over",
+      "stats": "{{rounds}} runder spilt · {{skipped}} hoppet over",
+      "sipTally": "Slurkoversikt",
+      "performance": "Prestasjonspoengsummer",
+      "performanceHint": "(basert på kollektivets stats)",
+      "tiers": {
+        "elite": "Elite",
+        "solid": "Solid",
+        "average": "Middels",
+        "struggling": "Sliter",
+        "rookie": "Nybegynner"
+      },
+      "newGame": "Nytt spill",
+      "backToGames": "Tilbake til spill"
+    },
+    "errors": {
+      "loadFailed": "Kunne ikke laste kollektivdata. Sørg for at du er med i et kollektiv.",
+      "guestNameEmpty": "Skriv inn et navn",
+      "duplicateName": "En spiller med det navnet finnes allerede"
+    }
+  },
   "games": {
     "title": "Drikkeleker",
     "subtitle": "Velg en lek, les reglene og spill gjennom kortene.",

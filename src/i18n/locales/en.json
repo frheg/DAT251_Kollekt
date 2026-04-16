@@ -368,6 +368,100 @@
       "XP_500":    { "title": "XP Grinder",      "description": "Earn 500 XP" }
     }
   },
+  "kollektGame": {
+    "title": "Kollekt Mode",
+    "loading": "Loading collective data…",
+    "entryCard": {
+      "badge": "NEW",
+      "description": "Rounds generated from your real stats — streaks, tasks & ranks."
+    },
+    "entryRules": {
+      "playersValue": "2+ players",
+      "flowValue": "Setup and live rounds",
+      "rule1": "Start by choosing who joins the session. You can include collective members and add guests before the game begins.",
+      "rule2": "Pick a mode, then play through stat-based rounds built from the group's real Kollekt data, like streaks, tasks and ranks.",
+      "rule3": "If you switch language during the game, the active round keeps the same prompt and only the text changes."
+    },
+    "phases": {
+      "loading": "Loading data…",
+      "setup": "Choose who's playing",
+      "config": "Set the rules",
+      "playing": "Round {{round}} — powered by your stats",
+      "summary": "Tallying the damage"
+    },
+    "setup": {
+      "selectPlayers": "Select Players",
+      "activePlayers": "{{count}} active",
+      "noMembers": "No collective members found — add guests below to play.",
+      "addGuests": "Add Guests",
+      "levelShort": "Lv",
+      "guestPlaceholder": "Guest name…",
+      "addGuestAria": "Add guest",
+      "removeGuestAria": "Remove {{name}}",
+      "configureGame": "Configure Game",
+      "minPlayersHint": "Select at least 2 players to continue.",
+      "you": "YOU",
+      "guest": "guest"
+    },
+    "config": {
+      "gameMode": "Game Mode",
+      "playersInSession": "Players in Session",
+      "rounds": "Rounds",
+      "players": "Players",
+      "statWeight": "Stat Weight",
+      "startGame": "Start Game",
+      "backAria": "Back to player setup",
+      "rounds_suffix": " rounds",
+      "drinks_multiplier": " · ×{{m}} drinks"
+    },
+    "presets": {
+      "default": { "label": "Standard", "description": "15 rounds, balanced mix of chaos and stats." },
+      "quick":   { "label": "Quick",    "description": "8 rounds — get in, get merry, get out." },
+      "hardcore":{ "label": "Hardcore", "description": "20 rounds, double drinks, no mercy." },
+      "casual":  { "label": "Casual",   "description": "12 rounds, light sips, stats barely matter." }
+    },
+    "playing": {
+      "roundOf": "Round {{current}} of {{total}}",
+      "done": "Done — Next Round",
+      "skipAria": "Skip ({{penalty}} sip penalty)",
+      "skipTitle": "Skip (+{{penalty}} sip penalty)",
+      "skipCost": "Skipping costs {{count}} sip(s)",
+      "liveSips": "Live Sip Count"
+    },
+    "roundTypes": {
+      "STAT_COMPARISON": "Stat Battle",
+      "CHALLENGE": "Challenge",
+      "HOT_SEAT": "Hot Seat",
+      "TRIVIA_TWIST": "Trivia",
+      "RANDOM_EVENT": "Wild Card"
+    },
+    "drinking": {
+      "distributes": "{{name}} distributes {{count}} sip(s)",
+      "drinksTarget": "{{names}} drink(s) {{count}} sip(s)",
+      "sips": "{{count}} sip(s)"
+    },
+    "summary": {
+      "title": "Game Over",
+      "stats": "{{rounds}} rounds played · {{skipped}} skipped",
+      "sipTally": "Sip Tally",
+      "performance": "Performance Scores",
+      "performanceHint": "(based on collective stats)",
+      "tiers": {
+        "elite": "Elite",
+        "solid": "Solid",
+        "average": "Average",
+        "struggling": "Struggling",
+        "rookie": "Rookie"
+      },
+      "newGame": "New Game",
+      "backToGames": "Back to Games"
+    },
+    "errors": {
+      "loadFailed": "Could not load collective data. Make sure you are part of a household.",
+      "guestNameEmpty": "Enter a name",
+      "duplicateName": "A player with that name already exists"
+    }
+  },
   "games": {
     "title": "Drinking Games",
     "subtitle": "Choose a game, read the rules, and play through the cards.",
