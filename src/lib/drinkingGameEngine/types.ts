@@ -123,6 +123,4 @@ export interface SessionPlayerSummary {
   performanceScore: number;
   /** Rank within this session (1 = strongest player) */
   sessionRank: number;
-  /** Running sip tally updated by the UI as rounds are resolved */
-  drinksReceived: number;
 }

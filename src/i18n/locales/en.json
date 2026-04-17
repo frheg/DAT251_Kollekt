@@ -425,8 +425,7 @@
       "done": "Done — Next Round",
       "skipAria": "Skip ({{penalty}} sip penalty)",
       "skipTitle": "Skip (+{{penalty}} sip penalty)",
-      "skipCost": "Skipping costs {{count}} sip(s)",
-      "liveSips": "Live Sip Count"
+      "skipCost": "Skipping costs {{count}} sip(s)"
     },
     "roundTypes": {
       "STAT_COMPARISON": "Stat Battle",
@@ -443,7 +442,6 @@
     "summary": {
       "title": "Game Over",
       "stats": "{{rounds}} rounds played · {{skipped}} skipped",
-      "sipTally": "Sip Tally",
       "performance": "Performance Scores",
       "performanceHint": "(based on collective stats)",
       "tiers": {

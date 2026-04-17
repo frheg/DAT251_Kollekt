@@ -38,9 +38,6 @@ export function computePerformanceScore(
 /**
  * Produce a sorted list of SessionPlayerSummary for every active player.
  * Players are ranked 1…N within the session (1 = highest performance score).
- *
- * Call this once at game start; the UI holds the `drinksReceived` counter
- * and updates it independently as rounds are resolved.
  */
 export function buildSessionSummaries(players: Player[]): SessionPlayerSummary[] {
   const maxStats = {
@@ -55,7 +52,6 @@ export function buildSessionSummaries(players: Player[]): SessionPlayerSummary[]
     isGuest: p.isGuest,
     performanceScore: computePerformanceScore(p.stats, maxStats),
     sessionRank: 0, // filled in below
-    drinksReceived: 0,
   }));
 
   // Rank by score descending; equal scores share the same rank

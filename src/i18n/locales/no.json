@@ -425,8 +425,7 @@
       "done": "Ferdig — Neste runde",
       "skipAria": "Hopp over ({{penalty}} slurk straff)",
       "skipTitle": "Hopp over (+{{penalty}} slurk straff)",
-      "skipCost": "Å hoppe over koster {{count}} slurk(er)",
-      "liveSips": "Slurkteller"
+      "skipCost": "Å hoppe over koster {{count}} slurk(er)"
     },
     "roundTypes": {
       "STAT_COMPARISON": "Stat-kamp",
@@ -443,7 +442,6 @@
     "summary": {
       "title": "Spillet er over",
       "stats": "{{rounds}} runder spilt · {{skipped}} hoppet over",
-      "sipTally": "Slurkoversikt",
       "performance": "Prestasjonspoengsummer",
       "performanceHint": "(basert på kollektivets stats)",
       "tiers": {
