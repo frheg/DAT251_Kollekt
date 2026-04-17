@@ -282,7 +282,8 @@
     "cancelReply": "Avbryt",
     "sendImage": "Send bilde",
     "togglePollForm": "Vis eller skjul avstemning",
-    "imageAlt": "Delt bilde"
+    "imageAlt": "Delt bilde",
+    "closeImage": "Lukk bilde"
   },
   "economy": {
     "title": "Økonomi",

@@ -4,7 +4,7 @@ import { Send, Image as ImageIcon, BarChart3, X, Smile, Reply } from 'lucide-rea
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
-import { formatTime } from '../i18n/helpers';
+import { formatDateTime, formatTime } from '../i18n/helpers';
 import { connectCollectiveRealtime } from '../lib/realtime';
 import type { ChatMessage } from '../lib/types';
 
@@ -20,6 +20,7 @@ export default function ChatPage() {
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [reactingId, setReactingId] = useState<number | null>(null);
   const [replyingToId, setReplyingToId] = useState<number | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -27,6 +28,15 @@ export default function ChatPage() {
 
   const name = currentUser?.name ?? '';
   const messageById = new Map(messages.map((message) => [message.id, message]));
+  const formatMessageTimestamp = (value: string) => {
+    const messageDate = new Date(value);
+    const now = new Date();
+    const isToday =
+      messageDate.getFullYear() === now.getFullYear() &&
+      messageDate.getMonth() === now.getMonth() &&
+      messageDate.getDate() === now.getDate();
+    return isToday ? formatTime(value) : formatDateTime(value);
+  };
 
   const fetchMessages = async () => {
     if (!name) return;
@@ -119,7 +129,7 @@ export default function ChatPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-[calc(100vh-8.5rem)]">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative flex flex-col h-[calc(100vh-8.5rem)]">
       {/* Online indicator */}
       <div className="flex items-center gap-2 pt-4 pb-2">
         <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
@@ -170,7 +180,14 @@ export default function ChatPage() {
                     <img
                       src={`data:${message.imageMimeType};base64,${message.imageData}`}
                       alt={message.imageFileName ?? t('chat.imageAlt')}
-                      className="rounded-lg mt-1 max-h-40 object-cover"
+                      className="rounded-lg mt-1 max-h-40 object-cover cursor-zoom-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({
+                          src: `data:${message.imageMimeType};base64,${message.imageData}`,
+                          alt: message.imageFileName ?? t('chat.imageAlt'),
+                        });
+                      }}
                     />
                   )}
                   {message.poll && (
@@ -194,7 +211,7 @@ export default function ChatPage() {
                     </div>
                   )}
                   <p className={`text-[9px] mt-1 ${isSelf ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {formatTime(message.timestamp)}
+                    {formatMessageTimestamp(message.timestamp)}
                   </p>
                 </div>
 
@@ -313,6 +330,32 @@ export default function ChatPage() {
           <Send className="h-4 w-4 text-primary-foreground" />
         </button>
       </div>
+
+      <AnimatePresence>
+        {expandedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center p-0"
+            onClick={() => setExpandedImage(null)}
+          >
+            <button
+              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
+              onClick={() => setExpandedImage(null)}
+              aria-label={t('chat.closeImage')}
+            >
+              <X className="h-5 w-5 text-white" />
+            </button>
+            <img
+              src={expandedImage.src}
+              alt={expandedImage.alt}
+              className="h-full w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
