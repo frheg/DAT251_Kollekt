@@ -282,7 +282,8 @@
     "cancelReply": "Cancel",
     "sendImage": "Send image",
     "togglePollForm": "Toggle poll form",
-    "imageAlt": "Shared image"
+    "imageAlt": "Shared image",
+    "closeImage": "Close image"
   },
   "economy": {
     "title": "Economy",
