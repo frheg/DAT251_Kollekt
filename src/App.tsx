@@ -11,6 +11,7 @@ import EconomyPage from './pages/EconomyPage';
 import PantTrackerPage from './pages/PantTrackerPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import GamesPage from './pages/GamesPage';
+import CollektGamePage from './pages/CollektGamePage';
 import ProfilePage from './pages/ProfilePage';
 
 // Guard for auth-only pages that don't need a collective (create-household)
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="/economy/pant" element={<PantTrackerPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/games" element={<GamesPage />} />
+        <Route path="/games/kollekt" element={<CollektGamePage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

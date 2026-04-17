@@ -10,10 +10,12 @@ import {
   Play,
   RotateCcw,
   Shuffle,
+  Sparkles,
   Users,
   Zap,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import {
@@ -21,6 +23,8 @@ import {
   type DrinkingGameId,
   type DrinkingPromptKind,
 } from '../lib/drinkingGames';
+
+type GameSelection = DrinkingGameId | 'kollekt';
 
 const promptStyles: Record<DrinkingPromptKind, string> = {
   vote: 'from-primary/35 to-primary/10 border-primary/30 text-primary',
@@ -48,7 +52,8 @@ function shuffled<T>(items: T[]): T[] {
 export default function GamesPage() {
   const { t, i18n } = useTranslation();
   const { currentUser } = useUser();
-  const [selectedGameId, setSelectedGameId] = useState<DrinkingGameId>('hundred-questions');
+  const navigate = useNavigate();
+  const [selectedGameKey, setSelectedGameKey] = useState<GameSelection>('hundred-questions');
   const [phase, setPhase] = useState<'rules' | 'playing'>('rules');
   const [members, setMembers] = useState<string[]>([]);
   const [deck, setDeck] = useState<number[]>([]);
@@ -63,16 +68,24 @@ export default function GamesPage() {
     () => getDrinkingGames(i18n.resolvedLanguage ?? i18n.language),
     [i18n.language, i18n.resolvedLanguage],
   );
+  const isKollektSelected = selectedGameKey === 'kollekt';
   const selectedGame = useMemo(
-    () => localizedGames.find((game) => game.id === selectedGameId) ?? localizedGames[0],
-    [localizedGames, selectedGameId],
+    () => (
+      isKollektSelected
+        ? null
+        : localizedGames.find((game) => game.id === selectedGameKey) ?? localizedGames[0]
+    ),
+    [isKollektSelected, localizedGames, selectedGameKey],
   );
   const promptById = useMemo(
-    () => new Map(selectedGame.prompts.map((prompt) => [prompt.id, prompt])),
+    () => new Map((selectedGame?.prompts ?? []).map((prompt) => [prompt.id, prompt])),
     [selectedGame],
   );
-  const activePrompt = activePromptId ? promptById.get(activePromptId) ?? null : null;
-  const selectedGameIndex = localizedGames.findIndex((game) => game.id === selectedGame.id);
+  const activePrompt = selectedGame && activePromptId ? promptById.get(activePromptId) ?? null : null;
+  const selectedGameIndex = isKollektSelected
+    ? localizedGames.length
+    : localizedGames.findIndex((game) => game.id === selectedGame?.id);
+  const totalGames = localizedGames.length + 1;
 
   useEffect(() => {
     if (!name) return;
@@ -89,14 +102,16 @@ export default function GamesPage() {
     setDuplicateNumber(null);
   };
 
-  const chooseGame = (gameId: DrinkingGameId) => {
-    setSelectedGameId(gameId);
+  const chooseGame = (gameId: GameSelection) => {
+    setSelectedGameKey(gameId);
     setPhase('rules');
     setRandomOrder(false);
     clearProgress();
   };
 
   const startGame = () => {
+    if (!selectedGame) return;
+
     const promptIds = selectedGame.prompts.map((prompt) => prompt.id);
     const nextDeck = selectedGame.allowRandomOrder && randomOrder
       ? shuffled(promptIds)
@@ -173,7 +188,7 @@ export default function GamesPage() {
   const renderGameSelector = () => (
     <div className="grid grid-cols-2 gap-3">
       {localizedGames.map((game, index) => {
-        const isSelected = game.id === selectedGame.id;
+        const isSelected = game.id === selectedGame?.id;
         const Icon = game.mode === 'ordered-deck' ? ListChecks : Hash;
 
         return (
@@ -195,35 +210,120 @@ export default function GamesPage() {
           </button>
         );
       })}
+
+      <button
+        onClick={() => chooseGame('kollekt')}
+        className={`glass rounded-2xl p-4 text-left min-h-[132px] border border-primary/20 ${
+          isKollektSelected ? 'glow-primary border-primary/40' : ''
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+            isKollektSelected
+              ? 'gradient-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground'
+          }`}>
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <span className="text-[10px] font-bold text-muted-foreground">
+            {String(totalGames).padStart(2, '0')}
+          </span>
+        </div>
+        <p className="font-display font-bold mt-4 leading-tight">{t('kollektGame.title')}</p>
+        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+          {t('kollektGame.entryCard.description')}
+        </p>
+      </button>
     </div>
+  );
+
+  const renderKollektRules = () => (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="h-12 w-12 rounded-2xl gradient-primary text-primary-foreground flex items-center justify-center shrink-0">
+          <Sparkles className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
+            {t('games.selectedGame', { current: selectedGameIndex + 1, total: totalGames })}
+          </p>
+          <h3 className="font-display text-2xl font-bold mt-1">{t('kollektGame.title')}</h3>
+          <p className="text-sm text-muted-foreground mt-1">{t('kollektGame.entryCard.description')}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-background/40 p-3">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+            {t('games.players')}
+          </p>
+          <p className="font-display text-xl font-bold mt-1">{t('kollektGame.entryRules.playersValue')}</p>
+        </div>
+        <div className="rounded-xl bg-background/40 p-3">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+            {t('games.flow')}
+          </p>
+          <p className="font-display text-sm font-bold mt-2">{t('kollektGame.entryRules.flowValue')}</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-background/40 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <CheckCircle2 className="h-4 w-4 text-primary" />
+          <p className="text-sm font-semibold">{t('games.rules')}</p>
+        </div>
+        <ol className="space-y-2">
+          {[
+            t('kollektGame.entryRules.rule1'),
+            t('kollektGame.entryRules.rule2'),
+            t('kollektGame.entryRules.rule3'),
+          ].map((rule, index) => (
+            <li key={rule} className="flex gap-2 text-sm text-muted-foreground">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                {index + 1}
+              </span>
+              <span>{rule}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <button
+        onClick={() => navigate('/games/kollekt')}
+        className="w-full gradient-primary rounded-2xl py-4 font-display font-bold text-primary-foreground flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+      >
+        <Play className="h-5 w-5" />
+        {t('games.startGame')}
+      </button>
+    </motion.div>
   );
 
   const renderRules = () => (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 space-y-5">
       <div className="flex items-start gap-3">
         <div className="h-12 w-12 rounded-2xl gradient-primary text-primary-foreground flex items-center justify-center shrink-0">
-          {selectedGame.mode === 'ordered-deck' ? <ListChecks className="h-6 w-6" /> : <Hash className="h-6 w-6" />}
+          {selectedGame?.mode === 'ordered-deck' ? <ListChecks className="h-6 w-6" /> : <Hash className="h-6 w-6" />}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
-            {t('games.selectedGame', { current: selectedGameIndex + 1, total: localizedGames.length })}
+            {t('games.selectedGame', { current: selectedGameIndex + 1, total: totalGames })}
           </p>
-          <h3 className="font-display text-2xl font-bold mt-1">{selectedGame.title}</h3>
-          <p className="text-sm text-muted-foreground mt-1">{selectedGame.description}</p>
+          <h3 className="font-display text-2xl font-bold mt-1">{selectedGame?.title}</h3>
+          <p className="text-sm text-muted-foreground mt-1">{selectedGame?.description}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-background/40 p-3">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{t('games.prompts')}</p>
-          <p className="font-display text-xl font-bold mt-1">{selectedGame.prompts.length}</p>
+          <p className="font-display text-xl font-bold mt-1">{selectedGame?.prompts.length}</p>
         </div>
         <div className="rounded-xl bg-background/40 p-3">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{t('games.flow')}</p>
           <p className="font-display text-sm font-bold mt-2">
-            {selectedGame.allowRandomOrder
+            {selectedGame?.allowRandomOrder
               ? t('games.flexibleFlow')
-              : selectedGame.mode === 'ordered-deck'
+              : selectedGame?.mode === 'ordered-deck'
                 ? t('games.orderedFlow')
                 : t('games.numberFlow')}
           </p>
@@ -236,7 +336,7 @@ export default function GamesPage() {
           <p className="text-sm font-semibold">{t('games.rules')}</p>
         </div>
         <ol className="space-y-2">
-          {selectedGame.rules.map((rule, index) => (
+          {selectedGame?.rules.map((rule, index) => (
             <li key={rule} className="flex gap-2 text-sm text-muted-foreground">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
                 {index + 1}
@@ -247,7 +347,7 @@ export default function GamesPage() {
         </ol>
       </div>
 
-      {selectedGame.allowRandomOrder && (
+      {selectedGame?.allowRandomOrder && (
         <div className="rounded-xl bg-background/40 p-3">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-2">{t('games.playOrder')}</p>
           <div className="grid grid-cols-2 gap-2">
@@ -330,6 +430,8 @@ export default function GamesPage() {
   };
 
   const renderOrderedGame = () => {
+    if (!selectedGame) return null;
+
     const total = selectedGame.prompts.length;
     const currentNumber = activePrompt ? deckIndex + 1 : total;
     const progress = total > 0 ? Math.min((currentNumber / total) * 100, 100) : 0;
@@ -370,6 +472,8 @@ export default function GamesPage() {
   };
 
   const renderNumberBoardGame = () => {
+    if (!selectedGame) return null;
+
     const usedCount = usedPromptIds.length;
 
     return (
@@ -456,8 +560,8 @@ export default function GamesPage() {
       )}
 
       {phase === 'rules'
-        ? renderRules()
-        : selectedGame.mode === 'ordered-deck'
+        ? (isKollektSelected ? renderKollektRules() : renderRules())
+        : selectedGame?.mode === 'ordered-deck'
           ? renderOrderedGame()
           : renderNumberBoardGame()}
     </motion.div>
