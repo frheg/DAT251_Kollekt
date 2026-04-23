@@ -38,6 +38,8 @@ jobs:
   backend-build:
     name: Backend - format, build & test
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     defaults:
       run:
         working-directory: backend
