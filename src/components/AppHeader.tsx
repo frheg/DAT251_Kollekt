@@ -193,7 +193,7 @@ export default function AppHeader() {
                         </button>
                         <p className="text-foreground pr-4">{(() => {
                           try {
-                            const params = JSON.parse(n.message);
+                            const params = JSON.parse(n.message) as Record<string, string>;
                             return t(`notifications.messages.${n.type}`, params);
                           } catch {
                             return n.message;
