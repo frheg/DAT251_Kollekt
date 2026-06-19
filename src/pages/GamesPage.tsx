@@ -20,9 +20,10 @@ import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import {
   getDrinkingGames,
+  type DrinkingGameDefinition,
   type DrinkingGameId,
   type DrinkingPromptKind,
-} from '../lib/drinkingGames';
+} from '../lib/gamesApi';
 
 type GameSelection = DrinkingGameId | 'kollekt';
 
@@ -64,10 +65,16 @@ export default function GamesPage() {
   const [randomOrder, setRandomOrder] = useState(false);
 
   const name = currentUser?.name ?? '';
-  const localizedGames = useMemo(
-    () => getDrinkingGames(i18n.resolvedLanguage ?? i18n.language),
-    [i18n.language, i18n.resolvedLanguage],
-  );
+  const [localizedGames, setLocalizedGames] = useState<DrinkingGameDefinition[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDrinkingGames(i18n.resolvedLanguage ?? i18n.language)
+      .then((games) => { if (!cancelled) setLocalizedGames(games); })
+      .catch(() => { if (!cancelled) setLocalizedGames([]); });
+    return () => { cancelled = true; };
+  }, [i18n.language, i18n.resolvedLanguage]);
+
   const isKollektSelected = selectedGameKey === 'kollekt';
   const selectedGame = useMemo(
     () => (

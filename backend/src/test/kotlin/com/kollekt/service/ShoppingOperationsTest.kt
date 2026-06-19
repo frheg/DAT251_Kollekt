@@ -23,7 +23,6 @@ class ShoppingOperationsTest {
     private lateinit var shoppingItemRepository: ShoppingItemRepository
     private lateinit var memberRepository: MemberRepository
     private lateinit var collectiveRepository: CollectiveRepository
-    private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var notificationService: NotificationService
     private lateinit var collectiveAccessService: CollectiveAccessService
     private lateinit var operations: ShoppingOperations
@@ -33,14 +32,12 @@ class ShoppingOperationsTest {
         shoppingItemRepository = mock()
         memberRepository = mock()
         collectiveRepository = mock()
-        eventPublisher = mock()
         notificationService = mock()
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
         operations =
             ShoppingOperations(
                 shoppingItemRepository,
                 memberRepository,
-                eventPublisher,
                 notificationService,
                 collectiveAccessService,
                 mock(),
@@ -75,7 +72,6 @@ class ShoppingOperationsTest {
 
         assertEquals("Bread", result.item)
         assertEquals("Kasper", result.addedBy)
-        verify(eventPublisher).taskEvent("SHOPPING_ITEM_CREATED", result)
     }
 
     @Test
@@ -88,7 +84,6 @@ class ShoppingOperationsTest {
         val result = operations.toggleShoppingItem(9, "Kasper")
 
         assertTrue(result.completed)
-        verify(eventPublisher).taskEvent("SHOPPING_ITEM_TOGGLED", result)
     }
 
     @Test
@@ -108,7 +103,6 @@ class ShoppingOperationsTest {
         val result = operations.toggleShoppingItem(9, "Kasper")
 
         assertFalse(result.completed)
-        verify(eventPublisher).taskEvent("SHOPPING_ITEM_TOGGLED", result)
     }
 
     @Test
@@ -120,7 +114,6 @@ class ShoppingOperationsTest {
         operations.deleteShoppingItem(5, "Kasper")
 
         verify(shoppingItemRepository).deleteById(5)
-        verify(eventPublisher).taskEvent("SHOPPING_ITEM_DELETED", mapOf("id" to 5L))
     }
 
     @Test
@@ -133,7 +126,6 @@ class ShoppingOperationsTest {
         val result = operations.updateShoppingItem(3, UpdateShoppingItemRequest(item = "New item"), "Kasper")
 
         assertEquals("New item", result.item)
-        verify(eventPublisher).taskEvent("SHOPPING_ITEM_UPDATED", result)
     }
 
     @Test

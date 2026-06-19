@@ -25,7 +25,6 @@ class ChatOperationsTest {
     private lateinit var chatMessageRepository: ChatMessageRepository
     private lateinit var memberRepository: MemberRepository
     private lateinit var collectiveRepository: CollectiveRepository
-    private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var notificationService: NotificationService
     private lateinit var collectiveAccessService: CollectiveAccessService
@@ -36,7 +35,6 @@ class ChatOperationsTest {
         chatMessageRepository = mock()
         memberRepository = mock()
         collectiveRepository = mock()
-        eventPublisher = mock()
         realtimeUpdateService = mock()
         notificationService = mock()
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
@@ -44,7 +42,6 @@ class ChatOperationsTest {
             ChatOperations(
                 chatMessageRepository,
                 memberRepository,
-                eventPublisher,
                 realtimeUpdateService,
                 notificationService,
                 collectiveAccessService,
@@ -61,7 +58,6 @@ class ChatOperationsTest {
         val result = operations.createMessage(CreateMessageRequest(sender = "Ignored", text = "  Hei kollektiv  "), "Kasper")
 
         assertEquals("Hei kollektiv", result.text)
-        verify(eventPublisher).chatEvent("MESSAGE_CREATED", result)
         verify(realtimeUpdateService).publish("ABC123", "MESSAGE_CREATED", result)
     }
 
@@ -76,7 +72,6 @@ class ChatOperationsTest {
 
         assertEquals("Finished", result.text)
         assertEquals(Base64.getEncoder().encodeToString("img".toByteArray()), result.imageData)
-        verify(eventPublisher).chatEvent("MESSAGE_CREATED", result)
     }
 
     @Test

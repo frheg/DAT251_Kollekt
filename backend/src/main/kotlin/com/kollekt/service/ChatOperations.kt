@@ -22,7 +22,6 @@ import java.util.Base64
 class ChatOperations(
     private val chatMessageRepository: ChatMessageRepository,
     private val memberRepository: MemberRepository,
-    private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
@@ -69,7 +68,6 @@ class ChatOperations(
             )
 
         val dto = saved.toDto()
-        eventPublisher.chatEvent("MESSAGE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
         notifyOtherMembers(collectiveCode, actorName, normalizedText, "NEW_MESSAGE")
         return dto
@@ -108,7 +106,6 @@ class ChatOperations(
             )
 
         val dto = saved.toDto()
-        eventPublisher.chatEvent("MESSAGE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
         val previewText = if (normalizedCaption.isNotBlank()) normalizedCaption else "[Image]"
         notifyOtherMembers(collectiveCode, actorName, previewText, "NEW_MESSAGE")
@@ -227,7 +224,6 @@ class ChatOperations(
             )
 
         val dto = saved.toDto()
-        eventPublisher.chatEvent("MESSAGE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "MESSAGE_CREATED", dto)
         notifyOtherMembers(collectiveCode, actorName, "📊 $question", "NEW_MESSAGE")
         return dto

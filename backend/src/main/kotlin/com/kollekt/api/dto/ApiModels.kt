@@ -383,12 +383,6 @@ data class SettleUpResponse(
     val settledAt: LocalDateTime,
 )
 
-data class DrinkingQuestionDto(
-    val text: String,
-    val type: String,
-    val targetedPlayer: String?,
-)
-
 data class MonthlyPrizeRequest(
     val prize: String?,
 )

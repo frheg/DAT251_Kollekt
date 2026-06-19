@@ -1,8 +1,5 @@
 package com.kollekt.service
 
-import com.kollekt.api.dto.LeaderboardPlayerDto
-import com.kollekt.api.dto.LeaderboardResponse
-import com.kollekt.api.dto.PeriodStatsDto
 import com.kollekt.domain.CalendarEvent
 import com.kollekt.domain.Collective
 import com.kollekt.domain.EventType
@@ -17,20 +14,14 @@ import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.ShoppingItemRepository
 import com.kollekt.repository.TaskRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.RedisTemplate
-import org.springframework.data.redis.core.ValueOperations
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -41,10 +32,7 @@ class StatsServiceTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var eventRepository: EventRepository
     private lateinit var expenseRepository: ExpenseRepository
-    private lateinit var redisTemplate: RedisTemplate<String, Any>
-    private lateinit var valueOperations: ValueOperations<String, Any>
     private lateinit var collectiveAccessService: CollectiveAccessService
-    private lateinit var statsCacheService: StatsCacheService
     private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var economyOperations: EconomyOperations
     private lateinit var shoppingItemRepository: ShoppingItemRepository
@@ -57,12 +45,7 @@ class StatsServiceTest {
         taskRepository = mock()
         eventRepository = mock()
         expenseRepository = mock()
-        redisTemplate = mock()
-        valueOperations = mock()
-        doReturn(valueOperations).whenever(redisTemplate).opsForValue()
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        statsCacheService = StatsCacheService(redisTemplate)
         realtimeUpdateService = mock()
         economyOperations = mock()
         shoppingItemRepository = mock()
@@ -74,8 +57,6 @@ class StatsServiceTest {
                 taskRepository = taskRepository,
                 eventRepository = eventRepository,
                 expenseRepository = expenseRepository,
-                redisTemplate = redisTemplate,
-                statsCacheService = statsCacheService,
                 realtimeUpdateService = realtimeUpdateService,
                 economyOperations = economyOperations,
                 shoppingItemRepository = shoppingItemRepository,
@@ -87,38 +68,7 @@ class StatsServiceTest {
     }
 
     @Test
-    fun `get leaderboard returns collective scoped cached value`() {
-        val cached =
-            LeaderboardResponse(
-                players = listOf(LeaderboardPlayerDto(1, "Kasper", 2, 250, 8, 4, listOf("TOP"))),
-                periodStats =
-                    PeriodStatsDto(
-                        totalTasks = 8,
-                        totalXp = 250,
-                        avgPerPerson = 125,
-                        topContributor = "Kasper",
-                        bestStreak = 4,
-                        bestStreakHolder = "Kasper",
-                        totalPenaltyXp = 0,
-                        lateCompletions = 0,
-                        lateCompletionsHolder = "N/A",
-                        skippedCount = 0,
-                        skippedHolder = "N/A",
-                    ),
-                monthlyPrize = "Pizza",
-            )
-        whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
-
-        val result = service.getLeaderboard("Kasper")
-
-        assertSame(cached, result)
-        verify(taskRepository, never()).findAllByCollectiveCode("ABC123")
-    }
-
-    @Test
     fun `get dashboard aggregates collective scoped data`() {
-        whenever(valueOperations.get("dashboard:Kasper")).thenReturn(null)
-        whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(null)
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
                 task(
@@ -176,13 +126,10 @@ class StatsServiceTest {
         assertEquals(listOf("Dishes", "Floors"), result.upcomingTasks.map { it.title })
         assertEquals(listOf("Movie night"), result.upcomingEvents.map { it.title })
         assertEquals(listOf("Pizza"), result.recentExpenses.map { it.description })
-        verify(valueOperations).set(org.mockito.kotlin.eq("dashboard:Kasper"), any())
     }
 
     @Test
-    fun `set monthly prize updates collective and clears leaderboard cache`() {
-        doReturn(setOf("leaderboard:ABC123:OVERALL")).whenever(redisTemplate).keys("leaderboard:*")
-
+    fun `set monthly prize updates collective`() {
         service.setMonthlyPrize("Kasper", "Movie night")
 
         verify(collectiveRepository).save(
@@ -190,12 +137,10 @@ class StatsServiceTest {
                 assertEquals("Movie night", it.monthlyPrize)
             },
         )
-        verify(redisTemplate).delete(setOf("leaderboard:ABC123:OVERALL"))
     }
 
     @Test
     fun `get achievements computes from task data for enabled keys`() {
-        whenever(valueOperations.get("achievements:Kasper")).thenReturn(null)
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(
                 task(
@@ -227,41 +172,7 @@ class StatsServiceTest {
     }
 
     @Test
-    fun `get drinking question builds a question from leaderboard context`() {
-        val cached =
-            LeaderboardResponse(
-                players =
-                    listOf(
-                        LeaderboardPlayerDto(1, "Emma", 3, 320, 10, 5, listOf("TOP")),
-                        LeaderboardPlayerDto(2, "Kasper", 2, 200, 6, 3, listOf()),
-                    ),
-                periodStats =
-                    PeriodStatsDto(
-                        totalTasks = 16,
-                        totalXp = 520,
-                        avgPerPerson = 260,
-                        topContributor = "Emma",
-                        bestStreak = 5,
-                        bestStreakHolder = "Emma",
-                        totalPenaltyXp = 10,
-                        lateCompletions = 1,
-                        lateCompletionsHolder = "Kasper",
-                        skippedCount = 0,
-                        skippedHolder = "N/A",
-                    ),
-                monthlyPrize = null,
-            )
-        whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(cached)
-
-        val result = service.getDrinkingQuestion("Kasper")
-
-        assertTrue(result.text.isNotBlank())
-        assertTrue(result.type in setOf("distribute", "drink", "everyone", "vote", "challenge"))
-    }
-
-    @Test
     fun `getMemberStats returns stats for target member`() {
-        whenever(valueOperations.get("leaderboard:ABC123:OVERALL")).thenReturn(null)
         whenever(memberRepository.findByName("Emma")).thenReturn(member("Emma", "emma@example.com", id = 2, xp = 150, level = 1))
         whenever(taskRepository.findAllByCollectiveCode("ABC123")).thenReturn(
             listOf(

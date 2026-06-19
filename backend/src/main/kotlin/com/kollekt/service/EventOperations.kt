@@ -14,10 +14,8 @@ import org.springframework.transaction.annotation.Transactional
 class EventOperations(
     private val memberRepository: MemberRepository,
     private val eventRepository: EventRepository,
-    private val eventPublisher: IntegrationEventPublisher,
     private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
-    private val statsCacheService: StatsCacheService,
     private val googleCalendarService: GoogleCalendarService,
 ) {
     fun getEvents(memberName: String): List<EventDto> {
@@ -59,9 +57,6 @@ class EventOperations(
             }
         }
 
-        statsCacheService.clearDashboardCache()
-        eventPublisher.chatEvent("EVENT_CREATED", saved.toDto())
-
         val others =
             memberRepository
                 .findAllByCollectiveCode(collectiveCode)
@@ -99,8 +94,6 @@ class EventOperations(
         }
 
         eventRepository.delete(event)
-        statsCacheService.clearDashboardCache()
-        eventPublisher.chatEvent("EVENT_DELETED", mapOf("id" to eventId))
     }
 
     @Transactional
@@ -128,8 +121,6 @@ class EventOperations(
                 ),
             )
 
-        statsCacheService.clearDashboardCache()
-        eventPublisher.chatEvent("EVENT_UPDATED", updated.toDto())
         return updated.toDto()
     }
 

@@ -17,7 +17,6 @@ import java.time.LocalDateTime
 class ShoppingOperations(
     private val shoppingItemRepository: ShoppingItemRepository,
     private val memberRepository: MemberRepository,
-    private val eventPublisher: IntegrationEventPublisher,
     private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
     private val economyOperations: EconomyOperations,
@@ -41,7 +40,6 @@ class ShoppingOperations(
                     collectiveCode = collectiveCode,
                 ),
             )
-        eventPublisher.taskEvent("SHOPPING_ITEM_CREATED", saved.toDto())
 
         val others =
             memberRepository
@@ -77,7 +75,6 @@ class ShoppingOperations(
                     completedAt = if (nowCompleted) LocalDateTime.now() else null,
                 ),
             )
-        eventPublisher.taskEvent("SHOPPING_ITEM_TOGGLED", updated.toDto())
         return updated.toDto()
     }
 
@@ -92,7 +89,6 @@ class ShoppingOperations(
                 ?: throw IllegalArgumentException("Shopping item $itemId not found")
 
         shoppingItemRepository.deleteById(item.id)
-        eventPublisher.taskEvent("SHOPPING_ITEM_DELETED", mapOf("id" to itemId))
     }
 
     @Transactional
@@ -107,7 +103,6 @@ class ShoppingOperations(
                 ?: throw IllegalArgumentException("Shopping item $itemId not found")
 
         val updated = shoppingItemRepository.save(item.copy(item = request.item))
-        eventPublisher.taskEvent("SHOPPING_ITEM_UPDATED", updated.toDto())
         return updated.toDto()
     }
 
@@ -146,7 +141,6 @@ class ShoppingOperations(
             memberName,
         )
 
-        eventPublisher.taskEvent("SHOPPING_ITEM_BOUGHT", updated.toDto())
         return updated.toDto()
     }
 

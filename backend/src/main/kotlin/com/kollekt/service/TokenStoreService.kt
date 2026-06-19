@@ -1,45 +1,79 @@
 package com.kollekt.service
 
-import org.springframework.data.redis.core.StringRedisTemplate
+import com.kollekt.domain.TokenEntry
+import com.kollekt.repository.TokenEntryRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
+import java.time.Instant
 
 @Service
 class TokenStoreService(
-    private val redisTemplate: StringRedisTemplate,
+    private val tokenEntryRepository: TokenEntryRepository,
 ) {
+    @Transactional
     fun storeRefreshToken(
         jti: String,
         subject: String,
         ttl: Duration,
     ) {
-        redisTemplate.opsForValue().set(refreshKey(jti), subject, ttl)
+        purgeExpired()
+        tokenEntryRepository.save(
+            TokenEntry(
+                jti = jti,
+                subject = subject,
+                tokenType = REFRESH,
+                expiresAt = Instant.now().plus(ttl),
+            ),
+        )
     }
 
     fun isRefreshTokenActive(
         jti: String,
         subject: String,
-    ): Boolean {
-        val stored = redisTemplate.opsForValue().get(refreshKey(jti))
-        return stored == subject
-    }
+    ): Boolean =
+        tokenEntryRepository.existsByJtiAndSubjectAndTokenTypeAndExpiresAtAfter(
+            jti,
+            subject,
+            REFRESH,
+            Instant.now(),
+        )
 
+    @Transactional
     fun revokeRefreshToken(jti: String) {
-        redisTemplate.delete(refreshKey(jti))
+        tokenEntryRepository.deleteByJtiAndTokenType(jti, REFRESH)
     }
 
+    @Transactional
     fun revokeAccessToken(
         jti: String,
         ttl: Duration,
     ) {
-        if (!ttl.isNegative && !ttl.isZero) {
-            redisTemplate.opsForValue().set(revokedAccessKey(jti), "1", ttl)
-        }
+        if (ttl.isNegative || ttl.isZero) return
+        purgeExpired()
+        tokenEntryRepository.save(
+            TokenEntry(
+                jti = jti,
+                subject = "",
+                tokenType = REVOKED_ACCESS,
+                expiresAt = Instant.now().plus(ttl),
+            ),
+        )
     }
 
-    fun isAccessTokenRevoked(jti: String): Boolean = redisTemplate.hasKey(revokedAccessKey(jti)) == true
+    fun isAccessTokenRevoked(jti: String): Boolean =
+        tokenEntryRepository.existsByJtiAndTokenTypeAndExpiresAtAfter(
+            jti,
+            REVOKED_ACCESS,
+            Instant.now(),
+        )
 
-    private fun refreshKey(jti: String): String = "auth:refresh:$jti"
+    private fun purgeExpired() {
+        tokenEntryRepository.deleteByExpiresAtBefore(Instant.now())
+    }
 
-    private fun revokedAccessKey(jti: String): String = "auth:revoked-access:$jti"
+    private companion object {
+        const val REFRESH = "REFRESH"
+        const val REVOKED_ACCESS = "REVOKED_ACCESS"
+    }
 }

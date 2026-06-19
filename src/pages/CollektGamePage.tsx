@@ -30,24 +30,22 @@ import {
   canStartGame,
   createGuestPlayer,
   fromLeaderboardPlayer,
-  GAME_PRESETS,
   generateRound,
   getActivePlayers,
-  performanceTier,
+  getKollektMeta,
   removePlayer,
-  resolveRound,
-  skipRound,
   togglePlayerActive,
-} from '../lib/drinkingGameEngine';
+} from '../lib/gamesApi';
 import type {
   GameConfig,
   GameLang,
   GamePreset,
+  GamePresetEntry,
   Player,
   Round,
   RoundType,
   SessionPlayerSummary,
-} from '../lib/drinkingGameEngine';
+} from '../lib/gamesApi';
 import type { LeaderboardResponse, MemberStats } from '../lib/types';
 
 // ─── Round type display meta ──────────────────────────────────────────────────
@@ -105,7 +103,9 @@ export default function CollektGamePage() {
   // time so switching language always shows the current translation.
   const [loadErrorKey, setLoadErrorKey] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [presets, setPresets] = useState<Record<GamePreset, GamePresetEntry> | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<GamePreset>('default');
+  const [sessionPreset, setSessionPreset] = useState<GamePreset>('default');
   const [guestName, setGuestName] = useState('');
   const [guestNameErrorKey, setGuestNameErrorKey] = useState<string | null>(null);
 
@@ -121,8 +121,9 @@ export default function CollektGamePage() {
   const [skippedCount, setSkippedCount] = useState(0);
 
   // Mutable ref — persists across renders, mutations don't cause re-renders.
-  // Tracks which event templates have been used to avoid repetition.
-  const usedIdsRef = useRef(new Set<string>());
+  // Tracks which event templates have been used to avoid repetition. The games
+  // service round-trips this list, so it is kept as a plain array.
+  const usedIdsRef = useRef<string[]>([]);
 
   // ── Summary state ──────────────────────────────────────────────────────────
   const [summaries, setSummaries] = useState<SessionPlayerSummary[]>([]);
@@ -173,6 +174,15 @@ export default function CollektGamePage() {
     load();
   }, [name]); // ← `t` deliberately omitted — see comment above
 
+  // Load game presets (rounds/drink multiplier/stat weight) from the games service.
+  useEffect(() => {
+    let cancelled = false;
+    getKollektMeta()
+      .then((meta) => { if (!cancelled) setPresets(meta.presets); })
+      .catch(() => { if (!cancelled) setPresets(null); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Active rounds keep stable copy for both languages, so switching language
   // only changes rendered text and never re-rolls the prompt.
 
@@ -204,29 +214,38 @@ export default function CollektGamePage() {
 
   // ─── Game flow ─────────────────────────────────────────────────────────────
 
-  const handleStartGame = useCallback(() => {
-    const config = GAME_PRESETS[selectedPreset].config;
+  const handleStartGame = useCallback(async () => {
+    if (!presets) return;
+    const config = presets[selectedPreset].config;
     const active = getActivePlayers(players);
 
     // Reset the used-template tracker for this new game
-    usedIdsRef.current = new Set<string>();
+    usedIdsRef.current = [];
 
     // Generate round 1 immediately using the current language
-    const firstRound = generateRound(1, active, config, usedIdsRef.current, gameLang);
+    const { round: firstRound, usedIds } = await generateRound({
+      roundNumber: 1,
+      players: active,
+      preset: selectedPreset,
+      usedIds: usedIdsRef.current,
+      lang: gameLang,
+    });
     if (!firstRound) return;
+    usedIdsRef.current = usedIds;
 
     setSessionConfig(config);
+    setSessionPreset(selectedPreset);
     setSessionPlayers(active);
     setMaxRounds(config.maxRounds);
     setCurrentRound(firstRound);
     setRoundIndex(0);
     setSkippedCount(0);
-    setSummaries(buildSessionSummaries(active));
+    setSummaries(await buildSessionSummaries(active));
     setPhase('playing');
-  }, [players, selectedPreset, gameLang]);
+  }, [players, selectedPreset, gameLang, presets]);
 
   const advanceGame = useCallback(
-    (skipped: boolean) => {
+    async (skipped: boolean) => {
       if (!currentRound || !sessionConfig) return;
 
       if (skipped) setSkippedCount((c) => c + 1);
@@ -242,17 +261,18 @@ export default function CollektGamePage() {
       }
 
       // Generate next round on demand using the CURRENT gameLang
-      const next = generateRound(
-        nextIndex + 1,
-        sessionPlayers,
-        sessionConfig,
-        usedIdsRef.current,
-        gameLang,
-      );
+      const { round: next, usedIds } = await generateRound({
+        roundNumber: nextIndex + 1,
+        players: sessionPlayers,
+        preset: sessionPreset,
+        usedIds: usedIdsRef.current,
+        lang: gameLang,
+      });
+      usedIdsRef.current = usedIds;
       setCurrentRound(next);
       setRoundIndex(nextIndex);
     },
-    [currentRound, sessionConfig, sessionPlayers, roundIndex, maxRounds, gameLang],
+    [currentRound, sessionConfig, sessionPlayers, roundIndex, maxRounds, gameLang, sessionPreset],
   );
 
   const handleResolve = useCallback(() => advanceGame(false), [advanceGame]);
@@ -266,7 +286,7 @@ export default function CollektGamePage() {
     setSessionConfig(null);
     setSessionPlayers([]);
     setSummaries([]);
-    usedIdsRef.current = new Set<string>();
+    usedIdsRef.current = [];
     setPhase('setup');
   }, []);
 
@@ -397,7 +417,9 @@ export default function CollektGamePage() {
     );
   };
 
-  const renderConfig = () => (
+  const renderConfig = () => {
+    if (!presets) return renderLoadingScreen();
+    return (
     <motion.div
       key="config"
       initial={{ opacity: 0, y: 10 }}
@@ -408,8 +430,8 @@ export default function CollektGamePage() {
       <div className="glass rounded-2xl p-5 space-y-4">
         <p className="text-sm font-semibold">{t('kollektGame.config.gameMode')}</p>
         <div className="grid grid-cols-2 gap-2">
-          {(Object.keys(GAME_PRESETS) as GamePreset[]).map((key) => {
-            const config = GAME_PRESETS[key].config;
+          {(Object.keys(presets) as GamePreset[]).map((key) => {
+            const config = presets[key].config;
             const selected = selectedPreset === key;
             return (
               <button
@@ -459,9 +481,9 @@ export default function CollektGamePage() {
         </div>
         <div className="grid grid-cols-3 gap-2 mt-2">
           {[
-            { labelKey: 'kollektGame.config.rounds', value: GAME_PRESETS[selectedPreset].config.maxRounds },
+            { labelKey: 'kollektGame.config.rounds', value: presets[selectedPreset].config.maxRounds },
             { labelKey: 'kollektGame.config.players', value: getActivePlayers(players).length },
-            { labelKey: 'kollektGame.config.statWeight', value: `${Math.round(GAME_PRESETS[selectedPreset].config.statInfluence * 100)}%` },
+            { labelKey: 'kollektGame.config.statWeight', value: `${Math.round(presets[selectedPreset].config.statInfluence * 100)}%` },
           ].map((stat) => (
             <div key={stat.labelKey} className="rounded-xl bg-background/40 p-2.5 text-center">
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{t(stat.labelKey)}</p>
@@ -488,7 +510,8 @@ export default function CollektGamePage() {
         </button>
       </div>
     </motion.div>
-  );
+    );
+  };
 
   const renderPlaying = () => {
     if (!currentRound || !sessionConfig) return null;
@@ -629,7 +652,7 @@ export default function CollektGamePage() {
                     <div className="h-full gradient-primary rounded-full" style={{ width: `${s.performanceScore}%` }} />
                   </div>
                   <span className="text-xs text-muted-foreground w-12 text-right">
-                    {t(`kollektGame.summary.tiers.${performanceTier(s.performanceScore)}`)}
+                    {t(`kollektGame.summary.tiers.${s.tier}`)}
                   </span>
                 </div>
               </div>

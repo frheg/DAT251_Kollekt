@@ -3,7 +3,6 @@ package com.kollekt.service
 import com.kollekt.api.dto.AchievementCatalogItemDto
 import com.kollekt.api.dto.AchievementDto
 import com.kollekt.api.dto.DashboardResponse
-import com.kollekt.api.dto.DrinkingQuestionDto
 import com.kollekt.api.dto.EventDto
 import com.kollekt.api.dto.ExpenseDto
 import com.kollekt.api.dto.LeaderboardPeriod
@@ -22,12 +21,10 @@ import com.kollekt.repository.EventRepository
 import com.kollekt.repository.ExpenseRepository
 import com.kollekt.repository.MemberRepository
 import com.kollekt.repository.TaskRepository
-import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.LocalDateTime
-import kotlin.random.Random
 
 private data class AchievementDefinition(
     val key: String,
@@ -94,8 +91,6 @@ class StatsService(
     private val taskRepository: TaskRepository,
     private val eventRepository: EventRepository,
     private val expenseRepository: ExpenseRepository,
-    private val redisTemplate: RedisTemplate<String, Any>,
-    private val statsCacheService: StatsCacheService,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val economyOperations: EconomyOperations,
     private val shoppingItemRepository: com.kollekt.repository.ShoppingItemRepository,
@@ -108,9 +103,6 @@ class StatsService(
         val collective =
             collectiveRepository.findByJoinCode(collectiveCode)
                 ?: throw IllegalArgumentException("Collective not found")
-        val leaderboardKey = "leaderboard:$collectiveCode:$period"
-        val cached = redisTemplate.opsForValue().get(leaderboardKey)
-        if (cached is LeaderboardResponse) return cached
 
         val allTasks = taskRepository.findAllByCollectiveCode(collectiveCode)
         val now = LocalDateTime.now()
@@ -157,7 +149,6 @@ class StatsService(
                 monthlyPrize = collective.monthlyPrize,
             )
 
-        redisTemplate.opsForValue().set(leaderboardKey, response)
         return response
     }
 
@@ -179,17 +170,9 @@ class StatsService(
             collectiveRepository.findByJoinCode(collectiveCode)
                 ?: throw IllegalArgumentException("Collective not found")
         collectiveRepository.save(collective.copy(monthlyPrize = prize))
-        statsCacheService.clearLeaderboardCache()
     }
 
     fun getAchievements(memberName: String): List<AchievementDto> {
-        val cacheKey = "achievements:$memberName"
-        val cached = redisTemplate.opsForValue().get(cacheKey)
-        if (cached is List<*> && cached.all { it is AchievementDto }) {
-            @Suppress("UNCHECKED_CAST")
-            return cached as List<AchievementDto>
-        }
-
         val member = collectiveAccessService.requireMember(memberName)
         val collectiveCode = collectiveAccessService.requireCollectiveCode(member)
         val collective =
@@ -217,7 +200,6 @@ class StatsService(
                     )
                 }
 
-        redisTemplate.opsForValue().set(cacheKey, result)
         return result
     }
 
@@ -249,7 +231,6 @@ class StatsService(
             collectiveRepository.findByJoinCode(collectiveCode)
                 ?: throw IllegalArgumentException("Collective not found")
         collectiveRepository.save(collective.copy(enabledAchievementKeys = enabledKeys))
-        statsCacheService.clearAchievementsCache()
         realtimeUpdateService.publish(collectiveCode, "ACHIEVEMENT_CONFIG_UPDATED")
     }
 
@@ -289,10 +270,6 @@ class StatsService(
     }
 
     fun getDashboard(memberName: String): DashboardResponse {
-        val key = "dashboard:$memberName"
-        val cached = redisTemplate.opsForValue().get(key)
-        if (cached is DashboardResponse) return cached
-
         val user = collectiveAccessService.requireMember(memberName)
         val collectiveCode = collectiveAccessService.requireCollectiveCode(user)
         val leaderboard = getLeaderboard(memberName)
@@ -343,16 +320,7 @@ class StatsService(
                         .map { ShoppingItemDto(it.id, it.item, it.addedBy, it.completed) },
             )
 
-        redisTemplate.opsForValue().set(key, response)
         return response
-    }
-
-    fun getDrinkingQuestion(memberName: String): DrinkingQuestionDto {
-        val leaderboard = getLeaderboard(memberName).players
-        val topPlayer = leaderboard.firstOrNull()?.name ?: "Emma"
-        val bottomPlayer = leaderboard.lastOrNull()?.name ?: "Kasper"
-        val questions = buildDrinkingQuestions(topPlayer, bottomPlayer)
-        return questions[Random.nextInt(questions.size)]
     }
 
     private fun buildPeriodStats(
@@ -438,18 +406,6 @@ class StatsService(
             if (level >= 5) add("PRO")
             if (tasksCompleted >= 25) add("HERO")
         }
-
-    private fun buildDrinkingQuestions(
-        topPlayer: String,
-        bottomPlayer: String,
-    ): List<DrinkingQuestionDto> =
-        listOf(
-            DrinkingQuestionDto("$topPlayer, som leaderboard-leder, del ut 3 slurker!", "distribute", topPlayer),
-            DrinkingQuestionDto("$bottomPlayer, du er sist på leaderboardet. Drikk 2!", "drink", bottomPlayer),
-            DrinkingQuestionDto("Alle som har glemt å tømme søppel denne uken drikker 2!", "everyone", null),
-            DrinkingQuestionDto("Pek på hvem som mest sannsynlig glemmer å handle. De drikker 1!", "vote", null),
-            DrinkingQuestionDto("Rock, paper, scissors mellom topp 2 på leaderboard. Taper drikker 3!", "challenge", null),
-        )
 
     private fun TaskItem.toDto() =
         TaskDto(

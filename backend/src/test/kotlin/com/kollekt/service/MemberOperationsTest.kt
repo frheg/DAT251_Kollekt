@@ -13,11 +13,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.check
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 
 class MemberOperationsTest {
@@ -25,10 +23,8 @@ class MemberOperationsTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var taskOperations: TaskOperations
-    private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var userProfileService: UserProfileService
     private lateinit var collectiveAccessService: CollectiveAccessService
-    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: MemberOperations
 
     @BeforeEach
@@ -37,12 +33,8 @@ class MemberOperationsTest {
         taskRepository = mock()
         collectiveRepository = mock()
         taskOperations = mock()
-        redisTemplate = mock()
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
         userProfileService = UserProfileService(memberRepository)
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             MemberOperations(
                 memberRepository,
@@ -50,7 +42,6 @@ class MemberOperationsTest {
                 taskOperations,
                 userProfileService,
                 collectiveAccessService,
-                statsCacheService,
             )
     }
 
@@ -72,8 +63,6 @@ class MemberOperationsTest {
         operations.leaveCollective("Kasper")
 
         verify(memberRepository).save(kasper.copy(collectiveCode = null))
-        verify(redisTemplate).keys("dashboard:*")
-        verify(redisTemplate).keys("leaderboard:*")
         verify(taskRepository).save(
             check {
                 assertEquals(1L, it.id)
