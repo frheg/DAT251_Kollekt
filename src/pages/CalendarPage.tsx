@@ -20,6 +20,12 @@ import {
   translateKey,
 } from "../i18n/helpers";
 import { connectCollectiveRealtime } from "../lib/realtime";
+import {
+  GOOGLE_CALENDAR_MOBILE_RETURN_URL,
+  isNativeGoogleCalendarOAuth,
+  listenForGoogleCalendarReturn,
+  openNativeGoogleCalendarOAuth,
+} from "../lib/googleCalendarOAuth";
 import type { CalendarEvent, EventType } from "../lib/types";
 
 const EVENT_TYPES: EventType[] = ["PARTY", "MOVIE", "DINNER", "OTHER"];
@@ -87,6 +93,11 @@ export default function CalendarPage() {
       .then((r) => setGoogleConnected(r.connected))
       .catch(() => {});
   }, [name]);
+
+  useEffect(
+    () => listenForGoogleCalendarReturn(() => setGoogleConnected(true)),
+    [],
+  );
 
   useEffect(() => {
     if (!name) return;
@@ -172,6 +183,14 @@ export default function CalendarPage() {
       );
       setGoogleConnected(false);
     } else {
+      if (isNativeGoogleCalendarOAuth()) {
+        const res = await api.get<{ url: string }>(
+          `/google-calendar/auth-url?memberName=${encodeURIComponent(name)}&returnUrl=${encodeURIComponent(GOOGLE_CALENDAR_MOBILE_RETURN_URL)}`,
+        );
+        await openNativeGoogleCalendarOAuth(res.url);
+        return;
+      }
+
       const authWindow = window.open("", "_blank");
       try {
         const res = await api.get<{ url: string }>(

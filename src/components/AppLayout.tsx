@@ -8,7 +8,7 @@ export default function AppLayout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="app-viewport bg-background flex items-center justify-center">
         <div className="h-8 w-8 rounded-full gradient-primary animate-pulse" />
       </div>
     );
@@ -18,9 +18,9 @@ export default function AppLayout() {
   if (!currentUser.collectiveCode) return <Navigate to="/create-household" replace />;
 
   return (
-    <div className="min-h-screen bg-background max-w-lg mx-auto relative">
+    <div className="app-viewport bg-background max-w-lg mx-auto relative">
       <AppHeader />
-      <main className="pb-20 px-4 pt-2">
+      <main className="safe-content-bottom px-4 pt-2">
         <Outlet />
       </main>
       <BottomNav />

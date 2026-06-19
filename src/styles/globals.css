@@ -161,6 +161,19 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-content-bottom {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app-viewport {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
 }
 
 /* ── Animations ──────────────────────────────────────── */
@@ -201,9 +214,11 @@ button:not(:disabled) {
   transition: filter 150ms ease, transform 150ms ease;
 }
 
-button:not(:disabled):hover {
-  filter: brightness(1.1) drop-shadow(0 0 8px rgba(0, 212, 240, 0.35));
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover {
+    filter: brightness(1.1) drop-shadow(0 0 8px rgba(0, 212, 240, 0.35));
+    transform: translateY(-1px);
+  }
 }
 
 button:not(:disabled):active {

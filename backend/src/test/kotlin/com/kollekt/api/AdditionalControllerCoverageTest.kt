@@ -22,12 +22,16 @@ import com.kollekt.api.dto.UserDto
 import com.kollekt.api.dto.VotePollRequest
 import com.kollekt.domain.EventType
 import com.kollekt.domain.Notification
+import com.kollekt.domain.PushDeviceToken
 import com.kollekt.domain.TaskCategory
+import com.kollekt.repository.PushDeviceTokenRepository
 import com.kollekt.service.AccountOperations
 import com.kollekt.service.ChatOperations
 import com.kollekt.service.CollectiveOperations
 import com.kollekt.service.EventOperations
 import com.kollekt.service.GoogleCalendarService
+import com.kollekt.service.GoogleOAuthState
+import com.kollekt.service.GoogleOAuthStateService
 import com.kollekt.service.NotificationService
 import com.kollekt.service.ShoppingOperations
 import com.kollekt.service.StatsService
@@ -38,6 +42,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -55,9 +60,11 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.util.Optional
 
 @WebMvcTest(
     properties = [
@@ -71,6 +78,7 @@ import java.time.LocalTime
             GoogleCalendarController::class,
             NotificationController::class,
             OnboardingController::class,
+            PushNotificationController::class,
             StatsController::class,
             TaskController::class,
         ],
@@ -88,7 +96,11 @@ class AdditionalControllerCoverageTest {
 
     @MockitoBean lateinit var googleCalendarService: GoogleCalendarService
 
+    @MockitoBean lateinit var googleOAuthStateService: GoogleOAuthStateService
+
     @MockitoBean lateinit var notificationService: NotificationService
+
+    @MockitoBean lateinit var pushDeviceTokenRepository: PushDeviceTokenRepository
 
     @MockitoBean lateinit var shoppingOperations: ShoppingOperations
 
@@ -349,7 +361,9 @@ class AdditionalControllerCoverageTest {
 
     @Test
     fun `google calendar auth url uses api google calendar auth url endpoint`() {
-        whenever(googleCalendarService.getAuthorizationUrl("Kasper"))
+        whenever(googleOAuthStateService.issueState("Kasper", "https://kollekt.test/settings"))
+            .thenReturn("oauth-state")
+        whenever(googleCalendarService.getAuthorizationUrl("oauth-state"))
             .thenReturn("https://accounts.google.com/o/oauth2/auth")
 
         mockMvc
@@ -360,21 +374,36 @@ class AdditionalControllerCoverageTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.url").value("https://accounts.google.com/o/oauth2/auth"))
 
-        verify(googleCalendarService).getAuthorizationUrl("Kasper")
+        verify(googleOAuthStateService).issueState("Kasper", "https://kollekt.test/settings")
+        verify(googleCalendarService).getAuthorizationUrl("oauth-state")
     }
 
     @Test
     fun `google calendar callback stores tokens and redirects to frontend`() {
+        whenever(googleOAuthStateService.consumeState("oauth-state"))
+            .thenReturn(GoogleOAuthState("Kasper", "https://kollekt.test/settings"))
+
         mockMvc
             .perform(
                 get("/api/google-calendar/callback")
                     .param("code", "auth-code")
-                    .param("state", "Kasper")
+                    .param("state", "oauth-state")
                     .with(jwt().jwt { it.subject("Kasper") }),
             ).andExpect(status().is3xxRedirection)
             .andExpect(redirectedUrl("https://kollekt.test/settings?googleCalendarConnected=true"))
 
         verify(collectiveOperations).saveGoogleCalendarTokens("Kasper", "auth-code")
+    }
+
+    @Test
+    fun `google calendar auth url rejects unapproved return url`() {
+        mockMvc
+            .perform(
+                get("/api/google-calendar/auth-url")
+                    .param("memberName", "Kasper")
+                    .param("returnUrl", "https://attacker.test")
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isBadRequest)
     }
 
     @Test
@@ -732,5 +761,68 @@ class AdditionalControllerCoverageTest {
             ).andExpect(status().isOk)
 
         verify(notificationService).markAllAsRead("Kasper")
+    }
+
+    @Test
+    fun `push device token register saves token for authenticated member`() {
+        val captor = argumentCaptor<PushDeviceToken>()
+
+        mockMvc
+            .perform(
+                post("/api/push/device-token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") })
+                    .content("""{"token":"device-1","platform":"ios"}"""),
+            ).andExpect(status().isNoContent)
+
+        verify(pushDeviceTokenRepository).save(captor.capture())
+        assertEquals("device-1", captor.firstValue.token)
+        assertEquals("Kasper", captor.firstValue.memberName)
+        assertEquals("ios", captor.firstValue.platform)
+    }
+
+    @Test
+    fun `push device token remove deletes token owned by the member`() {
+        val entry =
+            PushDeviceToken(
+                token = "device-1",
+                memberName = "Kasper",
+                platform = "ios",
+                updatedAt = Instant.now(),
+            )
+        whenever(pushDeviceTokenRepository.findById("device-1")).thenReturn(Optional.of(entry))
+
+        mockMvc
+            .perform(
+                delete("/api/push/device-token")
+                    .param("token", "device-1")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isNoContent)
+
+        verify(pushDeviceTokenRepository).delete(entry)
+    }
+
+    @Test
+    fun `push device token remove ignores token owned by another member`() {
+        val entry =
+            PushDeviceToken(
+                token = "device-2",
+                memberName = "Emma",
+                platform = "android",
+                updatedAt = Instant.now(),
+            )
+        whenever(pushDeviceTokenRepository.findById("device-2")).thenReturn(Optional.of(entry))
+
+        mockMvc
+            .perform(
+                delete("/api/push/device-token")
+                    .param("token", "device-2")
+                    .with(csrf())
+                    .with(jwt().jwt { it.subject("Kasper") }),
+            ).andExpect(status().isNoContent)
+
+        verify(pushDeviceTokenRepository, never()).delete(any<PushDeviceToken>())
     }
 }

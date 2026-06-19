@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
+import { tapFeedback } from '../lib/haptics';
 import { useUser } from '../context/UserContext';
 import {
   addPlayer,
@@ -216,6 +217,7 @@ export default function CollektGamePage() {
 
   const handleStartGame = useCallback(async () => {
     if (!presets) return;
+    void tapFeedback();
     const config = presets[selectedPreset].config;
     const active = getActivePlayers(players);
 
@@ -275,7 +277,10 @@ export default function CollektGamePage() {
     [currentRound, sessionConfig, sessionPlayers, roundIndex, maxRounds, gameLang, sessionPreset],
   );
 
-  const handleResolve = useCallback(() => advanceGame(false), [advanceGame]);
+  const handleResolve = useCallback(() => {
+    void tapFeedback();
+    return advanceGame(false);
+  }, [advanceGame]);
   const handleSkip = useCallback(() => advanceGame(true), [advanceGame]);
 
   const handleRestart = useCallback(() => {

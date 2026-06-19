@@ -1,138 +1,226 @@
-Ready for review
-Select text to add comments on the plan
-Plan: Extract games to a standalone service + remove Kafka/Redis
-Context
-The KOLLEKT_OVERVIEW.md describes a target architecture that the code has not yet reached. Today:
+# Kollekt iOS and Android conversion plan
 
-All drinking-game logic is client-side: src/lib/drinkingGameEngine/* (~2,400 lines, powers the dynamic "Kollekt" game) and src/lib/drinkingGames.ts + 3 JSON files (powers the prompt/deck games). drinkingGames.ts even imports the JSON via a relative path into backend/.../drinking-games/.
-The backend still ships Kafka (KafkaConfig, IntegrationEventPublisher/Consumer), Redis (RedisConfig, StatsCacheService, Redis-backed TokenStoreService, direct redisTemplate caching in StatsService), and a GET /api/drinking-game/question endpoint (hardcoded NO questions, unrelated to the JSON files).
-Goals (confirmed with user):
+## Status
 
-Extract all game logic into a new kollekt-games/ folder = a standalone Node + TypeScript REST service (will become its own GitHub repo), called by the frontend with an API key. Move everything algorithmic (RNG, round/event generation, scoring, content).
-Remove Kafka and Redis entirely. Move refresh/revoked tokens to PostgreSQL.
-Break nothing; delete/fix tests that no longer apply.
-Ensure the game works in the new repo when later connected via API key.
-Part A — New kollekt-games/ standalone service (Node + TypeScript)
-New folder at repo root, self-contained so it can be pushed to its own GitHub repo:
+**Approved and in progress.** Phases 0–5 are implemented. Google Calendar OAuth now opens through the native system browser and returns through the registered `no.kollekt.app` URL scheme; the backend binds each request to an allowlisted return URL using a database-backed, ten-minute, single-use state nonce. A real `.env.mobile`, deployed-service verification, public-client-safe Kollekt Games authentication, and device-level session/OAuth verification remain pending. Full simulator and physical-device verification also remains pending because Xcode and Android Studio toolchains are not available in the current environment.
 
-kollekt-games/package.json, tsconfig.json, Dockerfile, .gitignore, .env.example, README.md
-kollekt-games/src/engine/* ← move verbatim the 9 files from src/lib/drinkingGameEngine/
-kollekt-games/src/content/*.json ← move the 3 files from backend/src/main/resources/drinking-games/
-kollekt-games/src/content/index.ts ← the localization logic from src/lib/drinkingGames.ts (getDrinkingGames, getDrinkingGame, localizeDrinkingGame, types)
-kollekt-games/src/server.ts ← Express app: CORS (allowed origins from env), JSON body, API-key middleware (x-api-key checked against GAMES_API_KEY), routes, GET /health (no auth)
-REST contract (all under /api, all require x-api-key):
+This plan replaces the completed games-service extraction plan. It uses `KOLLEKT_OVERVIEW.md` and the current code as the source of truth.
 
-GET /api/games?lang= → DrinkingGameDefinition[] (localized) — for GamesPage
-GET /api/games/:id?lang= → one definition
-GET /api/kollekt/meta → { presets, minPlayers, defaultGuestStats } (from GAME_PRESETS, MIN_PLAYERS, DEFAULT_GUEST_STATS)
-POST /api/kollekt/round body { roundNumber, players, preset, usedIds, lang } → { round, usedIds } (calls generateRound; usedIds round-trips as an array ↔ Set)
-POST /api/kollekt/resolve body { players, round, ...outcome } → { players } (calls resolveRound)
-POST /api/kollekt/skip body { players, round } → { players } (calls skipRound)
-POST /api/kollekt/summary body { players } → { summaries } (calls buildSessionSummaries; tier label computed client-side via performanceTier mirror or returned here)
-The engine functions are pure, so the service stays stateless — the client keeps the players/usedIds/round-number state (as it already does) and calls the service for computation.
+## Objective and interpretation
 
-Part B — Frontend changes
-Delete: src/lib/drinkingGameEngine/ (all 9 files), src/lib/drinkingGames.ts.
+Convert the existing React/Vite Kollekt frontend into one mobile application that runs on both iPhone and Android by wrapping the existing web build with Capacitor. The Kotlin/Spring backend and the separately deployed Kollekt Games repository remain backend services; neither is embedded into the mobile application.
 
-New src/lib/gamesApi.ts (mirrors the src/lib/api.ts pattern):
+The intended architecture is:
 
-Reads VITE_GAMES_API_URL + VITE_GAMES_API_KEY; fetch wrapper attaching x-api-key.
-Async API calls: getDrinkingGames(lang), getDrinkingGame(id, lang), getKollektMeta(), generateRound(...), resolveRound(...), skipRound(...), buildSessionSummaries(players).
-Re-exports the TS types the pages need (Player, Round, RoundType, GameConfig, GameLang, GamePreset, SessionPlayerSummary, DrinkingGameDefinition, DrinkingGameId, DrinkingPromptKind, etc.) as a contract mirror (same approach as src/lib/types.ts). Types are not "logic".
-Boundary decision: trivial React-state plumbing on the players array — addPlayer, removePlayer, togglePlayerActive, getActivePlayers, createGuestPlayer, fromLeaderboardPlayer, canStartGame — stays client-side as ~1-line helpers in gamesApi.ts (using minPlayers/defaultGuestStats from getKollektMeta). Round-tripping per-keystroke array edits over HTTP would be absurd; all algorithmic game logic (RNG, round/event generation, scoring) lives in the service.
-Edit src/pages/GamesPage.tsx: swap the drinkingGames import for gamesApi; getDrinkingGames becomes async — fetch into state on mount / language change (replacing the useMemo at lines ~68), with a loading/empty fallback.
+```text
+Kollekt web source (React + Vite)
+          │
+          ├── Web deployment (existing nginx build)
+          ├── Capacitor iOS shell
+          └── Capacitor Android shell
+                    │
+                    ├── HTTPS/WSS → Kotlin backend
+                    └── HTTPS     → Kollekt Games API
+```
 
-Edit src/pages/CollektGamePage.tsx: swap engine imports for gamesApi; make the round handlers (startGame, advance-round, resolve, skip) async and await the API. Fetch getKollektMeta() into state to replace GAME_PRESETS/canStartGame/MIN_PLAYERS usage (lines ~208, ~283-284, ~411-412, ~462-464). Keep the players/usedIdsRef/summaries state.
+This is a single shared React codebase with three build targets, not a React Native rewrite. A separate Kollekt Games mobile app is explicitly out of scope for this conversion.
 
-Edit .env.example: add VITE_GAMES_API_URL=http://localhost:4000/api and VITE_GAMES_API_KEY=dev-key.
+## Current-state audit
 
-Part C — Backend: remove Kafka
-Delete: config/KafkaConfig.kt, service/IntegrationEventPublisher.kt, service/IntegrationEventConsumer.kt (the consumer only logged; realtime runs over WebSockets, so drop entirely rather than convert to Spring events — nothing consumes them meaningfully).
+The codebase is already a good Capacitor candidate:
 
-Edit call sites — remove the eventPublisher ctor param and every eventPublisher.*Event(...) call in: TaskOperations.kt, ChatOperations.kt, EconomyOperations.kt, ShoppingOperations.kt, EventOperations.kt.
+- Vite produces a self-contained `dist/` directory with a root `index.html`.
+- The layout is already mobile-first (`max-w-lg`, sticky header, fixed bottom navigation).
+- Safe-area support exists through `.safe-bottom` in `src/styles/globals.css`.
+- REST base URLs are environment-driven and WebSocket URLs derive from the API origin.
+- Kollekt Games has already been extracted; there is no `kollekt-games/` directory in this repository.
 
-Edit application.yml: remove the spring.kafka and app.topics blocks. build.gradle.kts: remove spring-kafka + spring-kafka-test (keep the junit-parallel block; simplify its kafka comment).
+Cleanup and release risks found during the audit:
 
-Part D — Backend: remove Redis
-Delete: config/RedisConfig.kt, service/StatsCacheService.kt.
+1. `.env.example` is empty even though `README.md` tells developers to copy it. Restore only documented variable names and safe placeholders; never copy secrets from `.env`.
+2. `index.html` refers to `public/favicon.png`; Vite public assets should be addressed as `/favicon.png`.
+3. The current games client embeds `VITE_GAMES_API_KEY`. Any value compiled into a Vite/Capacitor bundle is public and cannot be treated as a secret.
+4. Access and refresh tokens are stored directly in `localStorage`. Native release builds need a storage boundary that uses platform-protected storage for tokens while retaining a web fallback.
+5. Google Calendar OAuth currently redirects to a fixed web frontend URL and uses `window.open`; a native app needs an approved HTTPS callback/universal-link or app-link flow that can return to the installed app.
+6. Backend CORS is configured twice (`WebConfig` and `SecurityConfig`). This is existing duplication; consolidate only if mobile-origin testing proves it necessary, not as speculative refactoring.
+7. The overview currently says removed Kafka events run through Spring events, but the implementation dropped them entirely. Correct the documentation wording.
 
-Edit StatsService.kt: remove redisTemplate + statsCacheService ctor params (and the redis import); delete the 3 cached-read / 3 cache-write blocks (leaderboard ~112/160, achievements ~187/220, dashboard ~293/346) so values compute on demand; remove the 3 statsCacheService.clear*() calls.
+## Implementation phases
 
-Edit remaining statsCacheService users — remove ctor param + clear*() calls in: EventOperations.kt, CollectiveOperations.kt, AccountOperations.kt, EconomyOperations.kt, MemberOperations.kt, TaskOperations.kt.
+### Phase 0 — contained cleanup and baseline verification
 
-Edit application.yml: remove spring.data.redis. build.gradle.kts: remove spring-boot-starter-data-redis.
+Purpose: establish a clean baseline before adding native projects.
 
-TokenStore → PostgreSQL (keep public API identical)
-TokenStoreService keeps the same method signatures, so TokenService, RevokedTokenValidator, SecurityConfig are unchanged.
+Files:
 
-New domain/TokenEntry.kt — entity for table auth_tokens(jti PK, subject, type, expires_at) where type ∈ {REFRESH, REVOKED_ACCESS}.
-New repository/TokenEntryRepository.kt — JPA repo + queries.
-New resources/db/migration/V32__add_token_store.sql — create auth_tokens.
-Reimplement TokenStoreService on the repo:
-storeRefreshToken → upsert REFRESH row with expires_at.
-isRefreshTokenActive → exists jti + subject + REFRESH + expires_at > now.
-revokeRefreshToken → delete REFRESH jti.
-revokeAccessToken → insert REVOKED_ACCESS row with expires_at.
-isAccessTokenRevoked → exists jti + REVOKED_ACCESS + expires_at > now.
-Expiry is enforced at query time (Redis previously used TTL). No @Scheduled purge — the app has no @EnableScheduling, so adding one would change behavior; opportunistically delete the stale row for a jti on write to bound growth.
-Part E — Backend: remove the drinking-game endpoint
-StatsController.kt: remove getQuestion mapping + DrinkingQuestionDto import.
-StatsService.kt: remove getDrinkingQuestion + buildDrinkingQuestions (+ kotlin.random.Random import if now unused).
-api/dto/ApiModels.kt: remove DrinkingQuestionDto (line ~386).
-Delete backend/src/main/resources/drinking-games/*.json (moved to the games service in Part A).
-Part F — Infra & docs
-docker-compose.yml: remove redis, zookeeper, kafka services and the backend's depends_on + SPRING_DATA_REDIS_* / SPRING_KAFKA_* env. (Games service runs from its own repo — not added here.)
-README.md: drop the Kafka/Redis lines (11, 34-35) and the /api/drinking-game/question line (78); add a short "Games service" note + the two VITE_GAMES_* vars.
-KOLLEKT_OVERVIEW.md: resolve the "decision pending" notes to match what was built (Node games service, frontend calls it directly with an API key, V32 token migration, Kafka events dropped not converted).
-Part G — Tests (delete / fix)
-Delete: config/RedisConfigTest.kt, service/IntegrationEventPublisherTest.kt.
+- `.env.example`: restore safe placeholders for the existing backend, frontend, Google, and games variables referenced by the app and Compose.
+- `index.html` line 6: change the favicon path to `/favicon.png`.
+- `.gitignore`: add only native-generated secrets/build outputs if Capacitor does not already generate adequate platform ignores.
 
-Rewrite: service/TokenStoreServiceTest.kt → JPA/H2-backed instead of Redis (service still exists with the same API).
+Verification:
 
-Fix (remove mocks/refs to deleted ctor params, redis/kafka, and the drinking endpoint):
+- `npm run typecheck`
+- `npm run build`
+- `cd backend && ./gradlew build --no-daemon`
+- Confirm the working tree contains no generated build output or secrets.
 
-service/StatsServiceTest.kt (redis + statsCache mocks; getDrinkingQuestion test)
-service/TaskOperationsTest.kt, EconomyOperationsTest.kt, EventOperationsTest.kt, CollectiveOperationsTest.kt, MemberOperationsTest.kt, AccountOperationsTest.kt, ChatOperationsTest.kt, ShoppingOperationsTest.kt (eventPublisher / statsCache mocks)
-api/ControllerEndpointContractTest.kt (drinking-game endpoint assertion)
-acceptance/AcceptanceTestSupport.kt (redis/kafka test setup)
-resources/application-test.yml (remove redis/kafka/topics blocks)
-resources/user-story-test-mapping.md (doc touch-up if it references the endpoint)
-Verification
-Games service: cd kollekt-games && npm install && npm run build && npm run dev; curl -H "x-api-key: dev-key" localhost:4000/api/games; curl .../api/kollekt/meta; POST a /api/kollekt/round with a sample players payload; confirm 401 without the key.
+No application behavior changes in this phase.
 
-Backend: cd backend && ./gradlew build (compiles + runs full test suite). Confirm app boots with no Redis/Kafka on the classpath and Flyway applies V32. Manually exercise login → refresh → logout to confirm token store works against Postgres.
+### Phase 1 — add the minimal Capacitor shells
 
-Frontend: npm install && npm run build (tsc passes with engine deleted). npm run dev, set VITE_GAMES_*, open /games and /games/kollekt: game list loads, a Kollekt session generates rounds, resolve/skip work, end summary renders.
+Purpose: produce installable development builds for both platforms without changing product behavior.
 
-Full stack: docker compose up builds with no redis/kafka/zookeeper containers.
+Files and directories:
 
+- `package.json` and `package-lock.json`: add matching Capacitor core/CLI/iOS/Android packages and narrow scripts for build, sync, open, and run.
+- `capacitor.config.ts` (new): define the final application ID, app name `Kollekt`, and `webDir: "dist"`. Do not configure a remote production `server.url`; release builds package the local web assets.
+- `ios/` (generated by `npx cap add ios`): committed native Xcode project.
+- `android/` (generated by `npx cap add android`): committed native Android Studio project.
 
+The permanent reverse-domain application ID is `no.kollekt.app`. It should not be changed after store distribution begins.
 
+Verification:
 
+- `npm run build && npx cap sync`
+- Open and run the iOS project in Xcode on an iPhone simulator and one physical iPhone.
+- Open and run the Android project in Android Studio on an emulator and one physical Android device.
+- Confirm login, navigation, REST calls, games loading, and WebSocket reconnect behavior against public HTTPS/WSS services.
 
+### Phase 2 — mobile layout and operating-system behavior
 
+Purpose: make the existing UI reliable inside iOS and Android WebViews without redesigning pages.
 
+Exact insertion points:
 
+- `index.html` viewport metadata: enable viewport-fit behavior required for edge-to-edge safe areas.
+- `src/styles/globals.css` safe-area section: cover top and bottom insets, keyboard-friendly viewport height, non-hover touch behavior, and overscroll only where needed.
+- `src/components/AppLayout.tsx` lines 20–27: apply the shared safe-area/container classes.
+- `src/components/AppHeader.tsx` line 101: account for the top status-bar inset.
+- `src/components/BottomNav.tsx` lines 22–23: preserve the home-indicator inset without covering page content.
+- `src/App.tsx`: use Capacitor-compatible routing behavior only if device testing shows `BrowserRouter` history restoration is unreliable. Do not replace it pre-emptively.
 
+Pages will be tested at small iPhone width, large iPhone width, common Android widths, landscape, large text, and with the software keyboard open. Page-specific edits are permitted only for observed overflow or inaccessible controls and will be listed before implementation.
 
+### Phase 3 — environment, HTTPS, CORS, and realtime
 
+Purpose: make native builds communicate with deployed services instead of localhost or nginx-relative URLs.
 
+Files:
 
+- `.env.example`: document separate web/local and mobile build values for `VITE_API_URL`, `VITE_GAMES_API_URL`, and any non-secret client configuration.
+- `src/lib/api.ts` at `API_BASE`: require an absolute public HTTPS API URL for native release builds while preserving `/api` for the web deployment.
+- `src/lib/realtime.ts` lines 14–20: verify absolute HTTPS API URLs become WSS URLs; change only if device tests reveal a platform issue.
+- `src/lib/gamesApi.ts` configuration block: remove the development-key fallback and fail clearly when release configuration is absent.
+- `backend/src/main/resources/application.yml` CORS property and the deployment environment: allow the real web origin and the origin used by the Capacitor WebView.
+- `backend/src/main/kotlin/com/kollekt/config/SecurityConfig.kt` lines 78–89: keep one authoritative CORS policy if device tests expose the current duplicate configuration.
+- Kollekt Games repository, separately: configure HTTPS, its Capacitor origin policy, and public-client-appropriate authentication.
 
+Release gate: do not ship a reusable games-service secret in `VITE_GAMES_API_KEY`. Recommended boundary for Kollekt is for its authenticated Kotlin backend to proxy/sign games requests, or for Kollekt Games to issue short-lived user/device-scoped tokens. The games repository must choose and implement that contract before store release. This repository cannot safely solve a shared-secret design by obfuscating the key.
 
+Verification:
 
+- All release traffic is HTTPS/WSS; Android mixed-content support remains disabled.
+- Browser, iOS, and Android can call both services with the minimum allowed origins.
+- No API keys, signing passwords, or backend secrets appear in the compiled JavaScript bundle or committed native projects.
+- WebSocket reconnect works after app background/foreground and network loss/recovery.
 
+### Phase 4 — secure native session storage
 
+Purpose: preserve the existing JWT login/refresh contract while moving native tokens out of direct `localStorage` access.
 
+Files:
 
+- `src/lib/authStorage.ts` (new, narrow module): asynchronous token get/set/clear interface; platform-protected implementation on iOS/Android and `localStorage` fallback for the web build.
+- `src/lib/api.ts`: route access/refresh-token reads and writes through `authStorage`; preserve the existing retry and refresh behavior.
+- `src/context/UserContext.tsx` lines 21–53: initialize the session asynchronously and keep only non-sensitive cached user display data in web storage.
+- `package.json` and native projects: add only the selected maintained secure-storage plugin and its generated native configuration.
 
+Because this changes synchronous token access to asynchronous access, it is isolated to the API/session boundary rather than spread through pages.
 
+Verification:
 
+- Fresh login, relaunch, access-token expiry/refresh, logout, and revoked-token behavior on web/iOS/Android.
+- Tokens are absent from the native WebView local-storage database.
+- Existing backend auth tests remain unchanged and passing unless the HTTP contract deliberately changes.
 
+### Phase 5 — Google Calendar OAuth return path
 
+Purpose: make the existing Google connection flow return to the mobile app correctly.
 
+Files:
 
+- `src/pages/CalendarPage.tsx` lines 167–187: use a small platform-aware OAuth launcher and handle the app return event.
+- `src/lib/oauth.ts` (new only if needed): isolate browser versus native launch/return behavior.
+- `backend/src/main/kotlin/com/kollekt/api/GoogleCalendarController.kt` lines 33–41: replace the single fixed frontend redirect with an allowlisted, state-bound return target; never trust an arbitrary redirect from the request.
+- `backend/src/main/kotlin/com/kollekt/service/GoogleCalendarService.kt` lines 35–46: keep Google’s registered backend callback contract unless provider configuration requires separate platform clients.
+- `backend/src/main/resources/application.yml`: add explicit allowlisted web and mobile return URLs.
+- `ios/` associated-domain/URL handling and `android/` intent-filter handling: configure the same verified link contract.
 
+Verification:
 
+- Connect, cancel, reconnect, and disconnect flows on web/iOS/Android.
+- OAuth state cannot be reused or redirected outside the allowlist.
+- The callback opens the installed app and refreshes connection status.
 
+### Phase 6 — native polish after the core app is stable
 
+Purpose: add native value without blocking the initial conversion.
+
+Possible later tasks, each planned and approved separately:
+
+- Status bar, splash screen, and final app icons.
+- Haptics on a small set of meaningful game/task actions.
+- Push notifications, including device-token registration, backend persistence, APNs/FCM delivery, permission UX, and notification deep links.
+- Camera/photo-library integration for chat images if WebView file input is insufficient.
+
+Push notifications are not part of the initial wrapper because they require backend and platform delivery infrastructure, not just a frontend plugin.
+
+### Phase 7 — release preparation
+
+Files:
+
+- `.github/workflows/ci-cd.yml`: retain current web/backend jobs; add native validation/build jobs only after signing and store-account strategy is decided.
+- `README.md`: document prerequisites, build/sync/open commands, environment selection, and device testing.
+- `KOLLEKT_OVERVIEW.md`: mark implemented mobile phases and keep the architecture current.
+- Native store metadata/configuration under `ios/` and `android/`: versioning, permissions, privacy declarations, signing references, and release identifiers.
+
+Verification:
+
+- Clean-clone builds for web, backend, iOS, and Android.
+- iOS archive passes Xcode validation and TestFlight smoke testing.
+- Android signed AAB passes Play internal-testing checks.
+- Regression checklist covers authentication, household onboarding, tasks, calendar/OAuth, chat uploads/realtime, economy, leaderboard, games, language, background/resume, and offline failure states.
+
+## Scope boundaries
+
+- Do not rewrite the UI in React Native/Expo.
+- Do not copy the Kotlin backend or games engine into either native project.
+- Do not create a second games mobile app in this workstream.
+- Do not add push notifications, haptics, or broad native plugins before the core wrapper passes device testing.
+- Do not refactor page/business logic unless an observed WebView issue requires a contained edit.
+- Do not commit `.env`, signing keys, provisioning profiles, keystore files, or credentials.
+
+## Downstream impact
+
+- Web frontend: remains supported from the same React source and nginx deployment.
+- Kotlin backend: unchanged in the first native milestone; later receives limited CORS and OAuth-return changes.
+- Kollekt Games: remains a separately deployed repository; it needs an authentication/CORS release task coordinated with Phase 3.
+- CI/CD: existing frontend/backend builds remain intact; native builds are additive.
+- Data model/API contracts: no database migration is expected for the wrapper or secure local storage. Push notification work would require a later, separately approved device-token model.
+
+## Approval checkpoint
+
+Implementation should begin with **Phase 0 and Phase 1 only** after confirming:
+
+1. The permanent application ID/bundle ID.
+2. The public HTTPS URLs for the Kotlin API and Kollekt Games API, or that initial device testing will use a documented development environment.
+3. That committed `ios/` and `android/` projects are desired in this repository (recommended for reproducible native configuration).
+
+## References
+
+- [Capacitor: add to an existing web app](https://capacitorjs.com/docs/getting-started)
+- [Capacitor configuration reference](https://capacitorjs.com/docs/config)
+- [Capacitor iOS setup](https://capacitorjs.com/docs/ios)
+- [Capacitor Android setup](https://capacitorjs.com/docs/android)
+- [Capacitor deep links](https://capacitorjs.com/docs/guides/deep-links)
+- [Capacitor security guidance](https://capacitorjs.com/docs/guides/security)

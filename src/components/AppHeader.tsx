@@ -98,7 +98,7 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 glass-strong">
+    <header className="sticky top-0 z-40 glass-strong safe-top">
       <div className="flex items-center justify-between h-14 px-4 max-w-lg mx-auto">
         <h1 className="min-w-0 flex-1 truncate pr-3 font-display font-bold text-lg tracking-tight">
           {isHomePage ? (

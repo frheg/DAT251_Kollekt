@@ -6,10 +6,26 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:mobile": "vite build --mode mobile",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "mobile:sync": "npm run build:mobile && cap sync",
+    "mobile:open:ios": "cap open ios",
+    "mobile:open:android": "cap open android",
+    "mobile:run:ios": "npm run mobile:sync && cap run ios",
+    "mobile:run:android": "npm run mobile:sync && cap run android"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "^8.0.0",
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-aspect-ratio": "^1.1.2",
@@ -60,11 +76,13 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.1",
     "@tailwindcss/vite": "^4.1.11",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "vite": "^7.1.12"
   }
 }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { api, getAccessToken, logoutSession, deleteNotification, deleteAllNotifications } from '../lib/api';
 import { connectCollectiveRealtime } from '../lib/realtime';
+import { registerPushNotifications, unregisterPushNotifications } from '../lib/pushNotifications';
 import type { AppUser, Notification } from '../lib/types';
 
 interface UserContextValue {
@@ -20,35 +21,43 @@ const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUserState] = useState<AppUser | null>(() => {
-    if (!getAccessToken()) return null;
     const stored = localStorage.getItem('kollekt-user');
     if (!stored) return null;
     try { return JSON.parse(stored) as AppUser; } catch { return null; }
   });
-  const [isLoading, setIsLoading] = useState(!!getAccessToken());
+  const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      setIsLoading(false);
-      return;
-    }
     let cancelled = false;
-    api.get<AppUser>('/onboarding/me')
-      .then((user) => {
-        if (cancelled) return;
-        setCurrentUserState(user);
-        localStorage.setItem('kollekt-user', JSON.stringify(user));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        if (!getAccessToken()) {
+
+    const initializeSession = async () => {
+      try {
+        if (!await getAccessToken()) {
+          if (!cancelled) {
+            setCurrentUserState(null);
+            localStorage.removeItem('kollekt-user');
+          }
+          return;
+        }
+
+        const user = await api.get<AppUser>('/onboarding/me');
+        if (!cancelled) {
+          setCurrentUserState(user);
+          localStorage.setItem('kollekt-user', JSON.stringify(user));
+        }
+      } catch {
+        if (!cancelled && !await getAccessToken()) {
           setCurrentUserState(null);
           localStorage.removeItem('kollekt-user');
         }
-      })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    void initializeSession();
     return () => { cancelled = true; };
   }, []);
 
@@ -64,6 +73,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!currentUser?.name) { setNotifications([]); return; }
     fetchNotifications(currentUser.name);
   }, [currentUser?.name, fetchNotifications]);
+
+  useEffect(() => {
+    if (!currentUser?.name) return;
+    void registerPushNotifications();
+  }, [currentUser?.name]);
 
   useEffect(() => {
     if (!currentUser?.name) return;
@@ -83,6 +97,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const handleLogout = async () => {
+    await unregisterPushNotifications();
     await logoutSession();
     setCurrentUserState(null);
     setNotifications([]);

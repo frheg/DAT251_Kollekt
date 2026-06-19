@@ -28,6 +28,7 @@ import {
 import { api } from '../lib/api';
 import { useUser } from '../context/UserContext';
 import { connectCollectiveRealtime } from '../lib/realtime';
+import { tapFeedback } from '../lib/haptics';
 import { formatDate, formatDateTime, translateKey } from '../i18n/helpers';
 import type { Task, ShoppingItem, TaskCategory } from '../lib/types';
 
@@ -416,6 +417,8 @@ function TasksMain() {
       await toggleTask(task);
       return;
     }
+
+    void tapFeedback();
 
     if (isOverdueTask(task)) {
       if ((task.penaltyXp ?? 0) < 0) {

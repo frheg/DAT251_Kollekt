@@ -1,4 +1,6 @@
 import i18n from '../i18n';
+import { Capacitor } from '@capacitor/core';
+import { authStorage } from './authStorage';
 
 // Late approval (regret missed task)
 export async function regretTask(taskId: string, memberName: string) {
@@ -7,43 +9,45 @@ export async function regretTask(taskId: string, memberName: string) {
 export async function markAllNotificationsAsRead(userName: string): Promise<void> {
   await api.post(`/notifications/${userName}/read`, {});
 }
-export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const configuredApiBase = import.meta.env.VITE_API_URL?.trim();
 
-const TOKEN_KEY = 'kollekt-access-token';
-const REFRESH_TOKEN_KEY = 'kollekt-refresh-token';
-
-export function getAccessToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+if (Capacitor.isNativePlatform() && !configuredApiBase?.startsWith('https://')) {
+  throw new Error('VITE_API_URL must be an absolute HTTPS URL in the native app');
 }
 
-export function setAccessToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+export const API_BASE = (configuredApiBase || '/api').replace(/\/$/, '');
+
+export function getAccessToken(): Promise<string | null> {
+  return authStorage.getAccessToken();
 }
 
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+export function setAccessToken(token: string): Promise<void> {
+  return authStorage.setAccessToken(token);
 }
 
-export function setRefreshToken(token: string): void {
-  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+export function getRefreshToken(): Promise<string | null> {
+  return authStorage.getRefreshToken();
 }
 
-export function clearAccessToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+export function setRefreshToken(token: string): Promise<void> {
+  return authStorage.setRefreshToken(token);
 }
 
-export function clearRefreshToken(): void {
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+export function clearAccessToken(): Promise<void> {
+  return authStorage.clearAccessToken();
+}
+
+export function clearRefreshToken(): Promise<void> {
+  return authStorage.clearRefreshToken();
 }
 
 export async function logoutSession(): Promise<void> {
-  const token = getAccessToken();
+  const token = await getAccessToken();
   if (!token) {
-    clearAccessToken();
-    clearRefreshToken();
+    await Promise.all([clearAccessToken(), clearRefreshToken()]);
     return;
   }
-  const refreshToken = getRefreshToken();
+  const refreshToken = await getRefreshToken();
   try {
     await fetch(`${API_BASE}/onboarding/logout`, {
       method: 'POST',
@@ -54,8 +58,7 @@ export async function logoutSession(): Promise<void> {
       body: JSON.stringify({ refreshToken }),
     });
   } finally {
-    clearAccessToken();
-    clearRefreshToken();
+    await Promise.all([clearAccessToken(), clearRefreshToken()]);
   }
 }
 
@@ -142,7 +145,7 @@ interface AuthRefreshResponse {
 }
 
 async function tryRefreshTokens(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
+  const refreshToken = await getRefreshToken();
   if (!refreshToken) return false;
 
   const response = await fetch(`${API_BASE}/onboarding/refresh`, {
@@ -152,19 +155,20 @@ async function tryRefreshTokens(): Promise<boolean> {
   });
 
   if (!response.ok) {
-    clearAccessToken();
-    clearRefreshToken();
+    await Promise.all([clearAccessToken(), clearRefreshToken()]);
     return false;
   }
 
   const payload = (await response.json()) as AuthRefreshResponse;
-  setAccessToken(payload.accessToken);
-  setRefreshToken(payload.refreshToken);
+  await Promise.all([
+    setAccessToken(payload.accessToken),
+    setRefreshToken(payload.refreshToken),
+  ]);
   return true;
 }
 
 async function request<T>(path: string, init?: RequestInit, retryOnAuthFailure = true): Promise<T> {
-  const token = getAccessToken();
+  const token = await getAccessToken();
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
   let response: Response;
 

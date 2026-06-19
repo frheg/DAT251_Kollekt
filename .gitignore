@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.local
+.env.mobile
 
 backend/.gradle/
 backend/build/
@@ -10,6 +11,11 @@ backend/bin/
 .DS_Store
 .idea/
 .vscode/
+*.jks
+*.keystore
+*.mobileprovision
+*.p12
+android/key.properties
 
 Ideas.md
 Tasks.md
