@@ -34,11 +34,9 @@ class EconomyOperations(
     private val personalSettlementRepository: PersonalSettlementRepository,
     private val pantEntryRepository: PantEntryRepository,
     private val collectiveRepository: CollectiveRepository,
-    private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
-    private val statsCacheService: StatsCacheService,
 ) {
     fun getExpenses(memberName: String): List<ExpenseDto> {
         val collectiveCode = collectiveAccessService.requireCollectiveCodeByMemberName(memberName)
@@ -90,9 +88,7 @@ class EconomyOperations(
                 ),
             )
 
-        statsCacheService.clearAllCaches()
         val dto = saved.toDto()
-        eventPublisher.economyEvent("EXPENSE_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "EXPENSE_CREATED", dto)
 
         val perPerson = request.amount / participants.size
@@ -123,7 +119,6 @@ class EconomyOperations(
         if (expense.collectiveCode != collectiveCode) throw IllegalArgumentException("Not in your collective")
         if (expense.paidBy != actorName) throw IllegalArgumentException("Only the payer can delete this expense")
         expenseRepository.delete(expense)
-        statsCacheService.clearAllCaches()
         realtimeUpdateService.publish(collectiveCode, "EXPENSE_DELETED", mapOf("id" to id))
     }
 
@@ -141,7 +136,6 @@ class EconomyOperations(
             expenseRepository.save(
                 expense.copy(description = request.description, amount = request.amount, category = request.category),
             )
-        statsCacheService.clearAllCaches()
         val dto = updated.toDto()
         realtimeUpdateService.publish(collectiveCode, "EXPENSE_UPDATED", dto)
         return dto
@@ -249,7 +243,6 @@ class EconomyOperations(
             )
 
         val dto = saved.toDto()
-        eventPublisher.economyEvent("PANT_ADDED", dto)
         realtimeUpdateService.publish(collectiveCode, "PANT_ADDED", dto)
         return dto
     }
@@ -264,7 +257,6 @@ class EconomyOperations(
         if (entry.collectiveCode != collectiveCode) throw IllegalArgumentException("Not in your collective")
         if (entry.addedBy != actorName) throw IllegalArgumentException("Only the person who added this entry can delete it")
         pantEntryRepository.delete(entry)
-        statsCacheService.clearAllCaches()
         realtimeUpdateService.publish(collectiveCode, "PANT_DELETED", mapOf("id" to id))
     }
 
@@ -279,7 +271,6 @@ class EconomyOperations(
         if (entry.collectiveCode != collectiveCode) throw IllegalArgumentException("Not in your collective")
         if (entry.addedBy != actorName) throw IllegalArgumentException("Only the person who added this entry can edit it")
         val updated = pantEntryRepository.save(entry.copy(bottles = request.bottles, amount = request.amount))
-        statsCacheService.clearAllCaches()
         val dto = updated.toDto()
         realtimeUpdateService.publish(collectiveCode, "PANT_UPDATED", dto)
         return dto
@@ -317,7 +308,6 @@ class EconomyOperations(
                 "settledAt" to checkpoint.createdAt.toString(),
             )
 
-        eventPublisher.economyEvent("BALANCES_SETTLED", payload)
         realtimeUpdateService.publish(collectiveCode, "BALANCES_SETTLED", payload)
 
         return SettleUpResponse(

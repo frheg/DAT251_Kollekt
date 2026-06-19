@@ -31,7 +31,6 @@ class CollectiveOperations(
     private val roomRepository: RoomRepository,
     private val taskOperations: TaskOperations,
     private val userProfileService: UserProfileService,
-    private val statsCacheService: StatsCacheService,
     private val invitationRealtimeService: InvitationRealtimeService,
     private val googleCalendarService: GoogleCalendarService,
 ) {
@@ -93,7 +92,6 @@ class CollectiveOperations(
         }
 
         createOnboardingTasks(collective.joinCode, owner.name, residentNames, request)
-        statsCacheService.clearAllCaches()
         return collective.toDto()
     }
 
@@ -119,7 +117,6 @@ class CollectiveOperations(
         val updated = memberRepository.save(user.copy(collectiveCode = joinCode))
         acceptInvitationIfPresent(updated.email, joinCode)
         redistributeRecurringTasks(joinCode)
-        statsCacheService.clearAllCaches()
         return userProfileService.toUserDto(updated)
     }
 

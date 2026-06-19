@@ -8,7 +8,6 @@ import com.kollekt.api.dto.CreateEventRequest
 import com.kollekt.api.dto.CreateMessageRequest
 import com.kollekt.api.dto.CreatePantEntryRequest
 import com.kollekt.api.dto.CreateUserRequest
-import com.kollekt.api.dto.DrinkingQuestionDto
 import com.kollekt.api.dto.EconomySummaryDto
 import com.kollekt.api.dto.EventDto
 import com.kollekt.api.dto.ExpenseDto
@@ -595,28 +594,6 @@ class ControllerEndpointContractTest {
             .andExpect(jsonPath("$.pantSummary.currentAmount").value(54))
 
         verify(economyOperations).getEconomySummary("Kasper")
-    }
-
-    @Test
-    fun `stats question uses api drinking game endpoint`() {
-        whenever(statsService.getDrinkingQuestion("Kasper"))
-            .thenReturn(
-                DrinkingQuestionDto(
-                    text = "Hvem tar oppvasken?",
-                    type = "challenge",
-                    targetedPlayer = null,
-                ),
-            )
-
-        mockMvc
-            .perform(
-                get("/api/drinking-game/question")
-                    .param("memberName", "Kasper")
-                    .with(jwt().jwt { it.subject("Kasper") }),
-            ).andExpect(status().isOk)
-            .andExpect(jsonPath("$.type").value("challenge"))
-
-        verify(statsService).getDrinkingQuestion("Kasper")
     }
 
     @Test

@@ -17,7 +17,6 @@ class AccountOperations(
     private val passwordEncoder: PasswordEncoder,
     private val tokenService: TokenService,
     private val userProfileService: UserProfileService,
-    private val statsCacheService: StatsCacheService,
 ) {
     @Transactional
     fun createUser(request: CreateUserRequest): AuthResponse {
@@ -46,7 +45,6 @@ class AccountOperations(
                 ),
             )
 
-        statsCacheService.clearAllCaches()
         return toAuthResponse(saved)
     }
 

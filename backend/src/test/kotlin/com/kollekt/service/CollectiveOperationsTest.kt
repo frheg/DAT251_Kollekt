@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.check
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -29,7 +28,6 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.util.Optional
 
@@ -42,9 +40,7 @@ class CollectiveOperationsTest {
     private lateinit var taskOperations: TaskOperations
     private lateinit var invitationRealtimeService: InvitationRealtimeService
     private lateinit var googleCalendarService: GoogleCalendarService
-    private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var userProfileService: UserProfileService
-    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: CollectiveOperations
 
     @BeforeEach
@@ -57,11 +53,7 @@ class CollectiveOperationsTest {
         taskOperations = mock()
         invitationRealtimeService = mock()
         googleCalendarService = mock()
-        redisTemplate = mock()
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
         userProfileService = UserProfileService(memberRepository)
-        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             CollectiveOperations(
                 memberRepository = memberRepository,
@@ -71,7 +63,6 @@ class CollectiveOperationsTest {
                 roomRepository = roomRepository,
                 taskOperations = taskOperations,
                 userProfileService = userProfileService,
-                statsCacheService = statsCacheService,
                 invitationRealtimeService = invitationRealtimeService,
                 googleCalendarService = googleCalendarService,
             )
@@ -101,8 +92,6 @@ class CollectiveOperationsTest {
             )
 
         assertEquals("Villa", result.name)
-        verify(redisTemplate).keys("dashboard:*")
-        verify(redisTemplate).keys("leaderboard:*")
         verify(roomRepository).save(
             check {
                 assertEquals("Kitchen", it.name)
@@ -139,8 +128,6 @@ class CollectiveOperationsTest {
         val result = operations.joinCollective(JoinCollectiveRequest(userId = 7, joinCode = " abc123 "))
 
         assertEquals("ABC123", result.collectiveCode)
-        verify(redisTemplate).keys("dashboard:*")
-        verify(redisTemplate).keys("leaderboard:*")
         verify(invitationRepository).save(
             check {
                 assertTrue(it.accepted)

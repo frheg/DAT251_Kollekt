@@ -13,7 +13,6 @@ class MemberOperations(
     private val taskOperations: TaskOperations,
     private val userProfileService: UserProfileService,
     private val collectiveAccessService: CollectiveAccessService,
-    private val statsCacheService: StatsCacheService,
 ) {
     @Transactional
     fun deleteUser(memberName: String) {
@@ -26,7 +25,6 @@ class MemberOperations(
 
         if (collectiveCode != null) {
             redistributeOpenTasks(memberName, collectiveCode)
-            statsCacheService.clearTaskCaches()
         }
     }
 
@@ -39,7 +37,6 @@ class MemberOperations(
 
         memberRepository.save(member.copy(collectiveCode = null))
         redistributeOpenTasks(memberName, collectiveCode)
-        statsCacheService.clearTaskCaches()
     }
 
     @Transactional

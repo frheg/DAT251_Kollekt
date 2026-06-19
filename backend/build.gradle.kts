@@ -27,11 +27,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation("org.springframework.kafka:spring-kafka")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
@@ -43,7 +41,6 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
-    testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("com.h2database:h2")
 
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
@@ -61,7 +58,6 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
 
-    // Some dependencies (notably kafka test jars) include junit-platform.properties on the classpath.
     // Force deterministic, single-threaded execution to avoid CI-only flakiness.
     systemProperty("junit.jupiter.execution.parallel.enabled", "false")
     systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")

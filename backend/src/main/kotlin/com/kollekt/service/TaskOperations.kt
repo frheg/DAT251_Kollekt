@@ -20,11 +20,9 @@ class TaskOperations(
     private val taskRepository: TaskRepository,
     private val memberRepository: MemberRepository,
     private val taskFeedbackRepository: TaskFeedbackRepository,
-    private val eventPublisher: IntegrationEventPublisher,
     private val realtimeUpdateService: RealtimeUpdateService,
     private val notificationService: NotificationService,
     private val collectiveAccessService: CollectiveAccessService,
-    private val statsCacheService: StatsCacheService,
 ) {
     fun notifyUpcomingTaskDeadlines(reminderDaysBeforeDue: Long = 1L) {
         val reminderDate = LocalDate.now().plusDays(reminderDaysBeforeDue)
@@ -99,9 +97,7 @@ class TaskOperations(
             )
 
         notificationService.createTaskAssignedNotification(request.assignee, request.title)
-        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
-        eventPublisher.taskEvent("TASK_CREATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_CREATED", dto)
         return dto
     }
@@ -116,9 +112,7 @@ class TaskOperations(
             ?: throw IllegalArgumentException("Task $taskId not found")
 
         taskRepository.deleteById(taskId)
-        statsCacheService.clearTaskCaches()
         val payload = mapOf("id" to taskId)
-        eventPublisher.taskEvent("TASK_DELETED", payload)
         realtimeUpdateService.publish(collectiveCode, "TASK_DELETED", payload)
     }
 
@@ -157,7 +151,6 @@ class TaskOperations(
 
         val feedbacks = taskFeedbackRepository.findAllByTaskId(taskId)
         val dto = task.toDto(feedbacks)
-        eventPublisher.taskEvent("TASK_FEEDBACK_UPDATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_FEEDBACK_UPDATED", dto)
         return dto
     }
@@ -213,9 +206,7 @@ class TaskOperations(
                 ),
             )
 
-        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
-        eventPublisher.taskEvent("TASK_UPDATED", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_UPDATED", dto)
         return dto
     }
@@ -264,9 +255,7 @@ class TaskOperations(
                 )
             }
 
-        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
-        eventPublisher.taskEvent("TASK_TOGGLED", dto)
         realtimeUpdateService.publish(
             collectiveCode,
             "TASK_UPDATED",
@@ -335,9 +324,7 @@ class TaskOperations(
             params = mapOf("title" to task.title),
         )
 
-        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
-        eventPublisher.taskEvent("TASK_COMPLETED_LATE", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_COMPLETED_LATE", dto)
         return dto
     }
@@ -426,9 +413,7 @@ class TaskOperations(
                 ),
             )
 
-        statsCacheService.clearTaskCaches()
         val dto = saved.toDto()
-        eventPublisher.taskEvent("TASK_REGRET", dto)
         realtimeUpdateService.publish(collectiveCode, "TASK_REGRET", dto)
         return dto
     }
@@ -535,8 +520,6 @@ class TaskOperations(
                 ),
             )
         }
-
-        statsCacheService.clearTaskCaches()
     }
 
     private fun calculateCompletionAwardXp(task: TaskItem): Int =

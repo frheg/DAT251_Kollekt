@@ -13,11 +13,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Optional
@@ -26,12 +24,9 @@ class EventOperationsTest {
     private lateinit var memberRepository: MemberRepository
     private lateinit var collectiveRepository: CollectiveRepository
     private lateinit var eventRepository: EventRepository
-    private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var notificationService: NotificationService
-    private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var googleCalendarService: GoogleCalendarService
     private lateinit var collectiveAccessService: CollectiveAccessService
-    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: EventOperations
 
     @BeforeEach
@@ -39,21 +34,15 @@ class EventOperationsTest {
         memberRepository = mock()
         collectiveRepository = mock()
         eventRepository = mock()
-        eventPublisher = mock()
         notificationService = mock()
-        redisTemplate = mock()
         googleCalendarService = mock()
-        doReturn(setOf("dashboard:Kasper")).whenever(redisTemplate).keys("dashboard:*")
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             EventOperations(
                 memberRepository,
                 eventRepository,
-                eventPublisher,
                 notificationService,
                 collectiveAccessService,
-                statsCacheService,
                 googleCalendarService,
             )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
@@ -85,10 +74,8 @@ class EventOperationsTest {
                 actorName = "Kasper",
             )
 
-        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
         verify(googleCalendarService).createGoogleEvent(actor, result.toEntity("ABC123"))
         assertEquals("Kasper", result.organizer)
-        verify(eventPublisher).chatEvent("EVENT_CREATED", result)
     }
 
     @Test
@@ -111,10 +98,8 @@ class EventOperationsTest {
 
         operations.deleteEvent(eventId = 3, actorName = "Kasper")
 
-        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
         verify(googleCalendarService).deleteGoogleEvent(actor, "google-123")
         verify(eventRepository).delete(event)
-        verify(eventPublisher).chatEvent("EVENT_DELETED", mapOf("id" to 3L))
     }
 
     @Test
@@ -240,8 +225,6 @@ class EventOperationsTest {
 
         assertEquals("New Title", result.title)
         assertEquals(EventType.PARTY, result.type)
-        verify(eventPublisher).chatEvent("EVENT_UPDATED", result)
-        verify(redisTemplate).delete(setOf("dashboard:Kasper"))
     }
 
     private fun member(

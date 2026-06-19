@@ -6,13 +6,6 @@ spring:
     driverClassName: org.h2.Driver
     username: sa
     password: ""
-  data:
-    redis:
-      repositories:
-        enabled: false
-  kafka:
-    listener:
-      auto-startup: false
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -24,10 +17,6 @@ spring:
 
 # Minimal app properties so beans can resolve in the test context.
 app:
-  topics:
-    task-events: task-events
-    chat-events: chat-events
-    economy-events: economy-events
   security:
     jwt-secret: test-jwt-secret-that-is-at-least-32-characters-long
     token-validity-seconds: 3600

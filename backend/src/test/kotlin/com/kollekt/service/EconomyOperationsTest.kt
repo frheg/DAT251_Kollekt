@@ -23,14 +23,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -41,12 +39,9 @@ class EconomyOperationsTest {
     private lateinit var settlementCheckpointRepository: SettlementCheckpointRepository
     private lateinit var personalSettlementRepository: PersonalSettlementRepository
     private lateinit var pantEntryRepository: PantEntryRepository
-    private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var notificationService: NotificationService
-    private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var collectiveAccessService: CollectiveAccessService
-    private lateinit var statsCacheService: StatsCacheService
     private lateinit var operations: EconomyOperations
 
     @BeforeEach
@@ -57,14 +52,9 @@ class EconomyOperationsTest {
         settlementCheckpointRepository = mock()
         personalSettlementRepository = mock()
         pantEntryRepository = mock()
-        eventPublisher = mock()
         realtimeUpdateService = mock()
         notificationService = mock()
-        redisTemplate = mock()
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("dashboard:*")
-        doReturn(emptySet<String>()).whenever(redisTemplate).keys("leaderboard:*")
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             EconomyOperations(
                 memberRepository = memberRepository,
@@ -73,11 +63,9 @@ class EconomyOperationsTest {
                 personalSettlementRepository = personalSettlementRepository,
                 pantEntryRepository = pantEntryRepository,
                 collectiveRepository = collectiveRepository,
-                eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
                 notificationService = notificationService,
                 collectiveAccessService = collectiveAccessService,
-                statsCacheService = statsCacheService,
             )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
@@ -197,7 +185,6 @@ class EconomyOperationsTest {
             )
 
         assertEquals("Kasper", result.addedBy)
-        verify(eventPublisher).economyEvent("PANT_ADDED", result)
         verify(realtimeUpdateService).publish("ABC123", "PANT_ADDED", result)
     }
 
@@ -223,7 +210,6 @@ class EconomyOperationsTest {
 
         assertEquals(9L, result.lastExpenseId)
         verify(personalSettlementRepository).deleteAllByCollectiveCodeAndPaidBy("ABC123", "Kasper")
-        verify(eventPublisher).economyEvent(eq("BALANCES_SETTLED"), any<Map<String, Any>>())
         verify(realtimeUpdateService).publish(eq("ABC123"), eq("BALANCES_SETTLED"), any<Map<String, Any>>())
     }
 
@@ -585,7 +571,6 @@ class EconomyOperationsTest {
 
         assertEquals("Pizza", result.description)
         assertEquals(200, result.amount)
-        verify(eventPublisher).economyEvent("EXPENSE_CREATED", result)
         verify(realtimeUpdateService).publish("ABC123", "EXPENSE_CREATED", result)
         verify(notificationService, times(1)).createParameterizedNotification(eq("Emma"), any(), any())
     }

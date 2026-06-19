@@ -45,7 +45,7 @@ Legend:
 3) *"Receive notifications about changes to routines/shared plans"*
 - Status: **Not implemented**
 
-Note: The backend publishes integration events via `IntegrationEventPublisher` (Kafka), but there is no implemented user-facing reminder/notification scheduling feature.
+Note: There is no implemented user-facing reminder/notification scheduling feature.
 
 ## 3.2.3 Planning and Coordination
 
@@ -132,9 +132,8 @@ Note: The backend publishes integration events via `IntegrationEventPublisher` (
   - `KollektServiceTest` → `getLeaderboard computes ranks, badges, and caches`
   - `KollektServiceTest` → `getPantSummary sums entries`
 
-## Integration-event publishing (supporting automated updates)
+## Realtime WebSocket updates
 
-Even where user-facing notifications are not implemented, the backend emits events which can be used by the frontend for real-time updates.
+The backend publishes in-app updates over WebSockets for the frontend.
 - Tests:
-  - `com.kollekt.service.IntegrationEventPublisherTest`
-  - `KollektServiceTest` (verifies `taskEvent/chatEvent/economyEvent` calls)
+  - `com.kollekt.service.RealtimeUpdateServiceTest`

@@ -23,7 +23,6 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Optional
@@ -32,12 +31,9 @@ class TaskOperationsTest {
     private lateinit var taskRepository: TaskRepository
     private lateinit var memberRepository: MemberRepository
     private lateinit var collectiveRepository: CollectiveRepository
-    private lateinit var eventPublisher: IntegrationEventPublisher
     private lateinit var realtimeUpdateService: RealtimeUpdateService
     private lateinit var notificationService: NotificationService
-    private lateinit var redisTemplate: RedisTemplate<String, Any>
     private lateinit var collectiveAccessService: CollectiveAccessService
-    private lateinit var statsCacheService: StatsCacheService
     private lateinit var taskFeedbackRepository: TaskFeedbackRepository
     private lateinit var operations: TaskOperations
 
@@ -46,25 +42,18 @@ class TaskOperationsTest {
         taskRepository = mock()
         memberRepository = mock()
         collectiveRepository = mock()
-        eventPublisher = mock()
         realtimeUpdateService = mock()
         notificationService = mock()
         taskFeedbackRepository = mock()
-        redisTemplate = mock()
-        whenever(redisTemplate.keys("dashboard:*")).thenReturn(emptySet())
-        whenever(redisTemplate.keys("leaderboard:*")).thenReturn(emptySet())
         collectiveAccessService = CollectiveAccessService(memberRepository, collectiveRepository)
-        statsCacheService = StatsCacheService(redisTemplate)
         operations =
             TaskOperations(
                 taskRepository = taskRepository,
                 memberRepository = memberRepository,
                 taskFeedbackRepository = taskFeedbackRepository,
-                eventPublisher = eventPublisher,
                 realtimeUpdateService = realtimeUpdateService,
                 notificationService = notificationService,
                 collectiveAccessService = collectiveAccessService,
-                statsCacheService = statsCacheService,
             )
         whenever(memberRepository.findByName("Kasper")).thenReturn(member("Kasper", "kasper@example.com"))
     }
@@ -125,13 +114,10 @@ class TaskOperationsTest {
                 actorName = "Kasper",
             )
 
-        verify(redisTemplate).keys("dashboard:*")
-        verify(redisTemplate).keys("leaderboard:*")
         assertEquals("ABC123", taskCaptor.firstValue.collectiveCode)
         assertEquals("WEEKLY", taskCaptor.firstValue.recurrenceRule)
         assertTrue(taskCaptor.firstValue.recurring)
         verify(notificationService).createTaskAssignedNotification("Emma", "Vask")
-        verify(eventPublisher).taskEvent("TASK_CREATED", result)
         verify(realtimeUpdateService).publish("ABC123", "TASK_CREATED", result)
     }
 
@@ -386,10 +372,7 @@ class TaskOperationsTest {
         operations.deleteTask(5, "Kasper")
 
         verify(taskRepository).deleteById(5)
-        verify(eventPublisher).taskEvent("TASK_DELETED", mapOf("id" to 5L))
         verify(realtimeUpdateService).publish("ABC123", "TASK_DELETED", mapOf("id" to 5L))
-        verify(redisTemplate).keys("dashboard:*")
-        verify(redisTemplate).keys("leaderboard:*")
     }
 
     @Test
@@ -421,7 +404,6 @@ class TaskOperationsTest {
                 assertEquals(false, it.anonymous)
             },
         )
-        verify(eventPublisher).taskEvent("TASK_FEEDBACK_UPDATED", result)
         verify(realtimeUpdateService).publish("ABC123", "TASK_FEEDBACK_UPDATED", result)
     }
 
@@ -584,7 +566,6 @@ class TaskOperationsTest {
             type = "TASK_COMPLETED_LATE",
             params = mapOf("title" to "Bathroom"),
         )
-        verify(eventPublisher).taskEvent("TASK_COMPLETED_LATE", result)
         verify(realtimeUpdateService).publish("ABC123", "TASK_COMPLETED_LATE", result)
     }
 
@@ -674,8 +655,6 @@ class TaskOperationsTest {
                     it.dueDate == LocalDate.parse("2026-04-08")
             },
         )
-        verify(redisTemplate).keys("dashboard:*")
-        verify(redisTemplate).keys("leaderboard:*")
     }
 
     @Test

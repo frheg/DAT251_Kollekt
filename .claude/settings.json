@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const p=JSON.parse\\(d\\);console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)}\\)\")",
+      "Bash(./gradlew compileKotlin -q)",
+      "Bash(grep -n -E 'valueOperations|redisTemplate|statsCacheService|fun `|getDrinkingQuestion|DrinkingQuestion' backend/src/test/kotlin/com/kollekt/service/StatsServiceTest.kt)"
+    ]
+  }
+}

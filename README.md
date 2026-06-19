@@ -8,8 +8,8 @@ Fullstack kollektiv-app basert på eksisterende Figma-export.
 
 - Frontend: React + TypeScript (Vite)
 - Backend: Spring Boot (Kotlin)
-- Messaging + cache: Kafka + Redis
 - Database: PostgreSQL
+- Games: separat Kollekt Games-tjeneste (Node + TypeScript REST API, eget repo)
 - DevOps: Docker, Docker Compose, GitHub Actions, Docker Hub
 
 ## Prosjektstruktur
@@ -31,10 +31,10 @@ Dette starter:
 
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8080/api`
-- Redis: `localhost:6379`
-- Kafka: `localhost:9092`
 
 Database kjøres ikke lokalt i Compose. Backend kobler til Supabase via verdiene i `./.env`.
+
+Drikkespillene leveres av den separate **Kollekt Games**-tjenesten (eget repo). Frontend kaller den via `VITE_GAMES_API_URL` med `VITE_GAMES_API_KEY` (se `.env.example`).
 
 ### 2) Kjør frontend lokalt uten container
 
@@ -75,7 +75,6 @@ Hvis direktekoblingen mot Supabase feiler lokalt eller i Docker, bruk pooler-con
 - `GET /api/economy/summary?memberName=<name>`
 - `GET /api/leaderboard?memberName=<name>`
 - `GET /api/achievements`
-- `GET /api/drinking-game/question?memberName=<name>`
 
 ## CI/CD
 

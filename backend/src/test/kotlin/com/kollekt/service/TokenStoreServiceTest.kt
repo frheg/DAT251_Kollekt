@@ -1,79 +1,62 @@
 package com.kollekt.service
 
+import com.kollekt.domain.TokenEntry
+import com.kollekt.repository.TokenEntryRepository
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.Mock
-import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
-import org.springframework.data.redis.core.StringRedisTemplate
-import org.springframework.data.redis.core.ValueOperations
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.context.annotation.Import
+import org.springframework.test.context.ActiveProfiles
 import java.time.Duration
+import java.time.Instant
 
-@ExtendWith(MockitoExtension::class)
+@DataJpaTest
+@Import(TokenStoreService::class)
+@ActiveProfiles("test")
 class TokenStoreServiceTest {
-    @Mock lateinit var redisTemplate: StringRedisTemplate
+    @Autowired lateinit var service: TokenStoreService
 
-    @Mock lateinit var valueOperations: ValueOperations<String, String>
+    @Autowired lateinit var tokenEntryRepository: TokenEntryRepository
 
     @Test
-    fun `storeRefreshToken writes refresh key with ttl`() {
-        whenever(redisTemplate.opsForValue()).thenReturn(valueOperations)
-        val service = TokenStoreService(redisTemplate)
-
+    fun `refresh token lifecycle is persisted in JPA`() {
         service.storeRefreshToken("jti-1", "Kasper", Duration.ofMinutes(30))
-
-        verify(valueOperations).set("auth:refresh:jti-1", "Kasper", Duration.ofMinutes(30))
-    }
-
-    @Test
-    fun `isRefreshTokenActive returns true only for matching subject`() {
-        whenever(redisTemplate.opsForValue()).thenReturn(valueOperations)
-        whenever(valueOperations.get("auth:refresh:jti-1")).thenReturn("Kasper")
-        val service = TokenStoreService(redisTemplate)
 
         assertTrue(service.isRefreshTokenActive("jti-1", "Kasper"))
         assertFalse(service.isRefreshTokenActive("jti-1", "Emma"))
+
+        service.revokeRefreshToken("jti-1")
+
+        assertFalse(service.isRefreshTokenActive("jti-1", "Kasper"))
     }
 
     @Test
-    fun `revokeRefreshToken deletes refresh key`() {
-        val service = TokenStoreService(redisTemplate)
+    fun `access token revocation is persisted only while active`() {
+        service.revokeAccessToken("jti-2", Duration.ofMinutes(5))
+        service.revokeAccessToken("ignored-zero", Duration.ZERO)
 
-        service.revokeRefreshToken("jti-2")
-
-        verify(redisTemplate).delete("auth:refresh:jti-2")
+        assertTrue(service.isAccessTokenRevoked("jti-2"))
+        assertFalse(service.isAccessTokenRevoked("ignored-zero"))
     }
 
     @Test
-    fun `revokeAccessToken stores revoked key only for positive ttl`() {
-        whenever(redisTemplate.opsForValue()).thenReturn(valueOperations)
-        val service = TokenStoreService(redisTemplate)
-
-        service.revokeAccessToken("jti-3", Duration.ofMinutes(5))
-        service.revokeAccessToken("jti-4", Duration.ZERO)
-        service.revokeAccessToken("jti-5", Duration.ofSeconds(-1))
-
-        verify(valueOperations).set("auth:revoked-access:jti-3", "1", Duration.ofMinutes(5))
-        verify(valueOperations, never()).set(eq("auth:revoked-access:jti-4"), eq("1"), eq(Duration.ZERO))
-        verify(valueOperations, never()).set(
-            eq("auth:revoked-access:jti-5"),
-            eq("1"),
-            eq(Duration.ofSeconds(-1)),
+    fun `expired entries are inactive and purged on write`() {
+        tokenEntryRepository.saveAndFlush(
+            TokenEntry(
+                jti = "expired",
+                subject = "Kasper",
+                tokenType = "REFRESH",
+                expiresAt = Instant.now().minusSeconds(60),
+            ),
         )
-    }
 
-    @Test
-    fun `isAccessTokenRevoked mirrors redis hasKey`() {
-        whenever(redisTemplate.hasKey("auth:revoked-access:jti-6")).thenReturn(true)
-        whenever(redisTemplate.hasKey("auth:revoked-access:jti-7")).thenReturn(false)
-        val service = TokenStoreService(redisTemplate)
+        assertFalse(service.isRefreshTokenActive("expired", "Kasper"))
 
-        assertTrue(service.isAccessTokenRevoked("jti-6"))
-        assertFalse(service.isAccessTokenRevoked("jti-7"))
+        service.storeRefreshToken("active", "Kasper", Duration.ofMinutes(30))
+
+        assertFalse(tokenEntryRepository.existsById("expired"))
+        assertTrue(tokenEntryRepository.existsById("active"))
     }
 }

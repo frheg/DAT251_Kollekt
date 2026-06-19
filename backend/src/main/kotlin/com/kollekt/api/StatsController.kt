@@ -3,7 +3,6 @@ package com.kollekt.api
 import com.kollekt.api.dto.AchievementCatalogItemDto
 import com.kollekt.api.dto.AchievementDto
 import com.kollekt.api.dto.DashboardResponse
-import com.kollekt.api.dto.DrinkingQuestionDto
 import com.kollekt.api.dto.LeaderboardPeriod
 import com.kollekt.api.dto.LeaderboardResponse
 import com.kollekt.api.dto.MemberStatsDto
@@ -99,14 +98,5 @@ class StatsController(
     ): MemberStatsDto {
         requireTokenSubject(jwt, viewerName)
         return statsService.getMemberStats(viewerName, targetName)
-    }
-
-    @GetMapping("/drinking-game/question")
-    fun getQuestion(
-        @RequestParam memberName: String,
-        @AuthenticationPrincipal jwt: Jwt,
-    ): DrinkingQuestionDto {
-        requireTokenSubject(jwt, memberName)
-        return statsService.getDrinkingQuestion(memberName)
     }
 }
