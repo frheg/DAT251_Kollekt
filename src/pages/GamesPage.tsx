@@ -503,7 +503,6 @@ export default function GamesPage() {
         <div className="glass rounded-2xl p-3">
           <div className="grid grid-cols-7 gap-1.5">
             {selectedGame.prompts.map((prompt) => {
-              const isUsed = usedPromptIds.includes(prompt.id);
               const isActive = activePromptId === prompt.id;
               return (
                 <button
@@ -512,9 +511,7 @@ export default function GamesPage() {
                   className={`aspect-square rounded-lg border text-xs font-display font-bold transition-colors ${
                     isActive
                       ? 'border-secondary bg-secondary/20 text-secondary'
-                      : isUsed
-                        ? 'border-primary/30 bg-primary/15 text-primary'
-                        : 'border-border bg-background/35 text-foreground'
+                      : 'border-border bg-background/35 text-foreground'
                   }`}
                   aria-label={t('games.pickNumber', { number: prompt.id })}
                 >
