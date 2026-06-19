@@ -8,13 +8,20 @@
 //      UI needs locally (these are React state plumbing, not game logic).
 //
 // Configure via env:
-//   VITE_GAMES_API_URL  e.g. http://localhost:4000/api
-//   VITE_GAMES_API_KEY  the x-api-key shared secret
+//   VITE_GAMES_API_URL  absolute HTTPS URL for native builds
+//   VITE_GAMES_API_KEY  development-only until public-client auth is implemented
 
+import { Capacitor } from '@capacitor/core';
 import type { LeaderboardPlayer, MemberStats } from './types';
 
-const GAMES_API_BASE = import.meta.env.VITE_GAMES_API_URL || 'http://localhost:4000/api';
-const GAMES_API_KEY = import.meta.env.VITE_GAMES_API_KEY || '';
+const configuredGamesApiBase = import.meta.env.VITE_GAMES_API_URL?.trim();
+
+if (Capacitor.isNativePlatform() && !configuredGamesApiBase?.startsWith('https://')) {
+  throw new Error('VITE_GAMES_API_URL must be an absolute HTTPS URL in the native app');
+}
+
+const GAMES_API_BASE = configuredGamesApiBase?.replace(/\/$/, '');
+const GAMES_API_KEY = import.meta.env.VITE_GAMES_API_KEY?.trim();
 
 // ─── Contract types (mirror of the Kollekt Games service) ──────────────────────
 
@@ -147,6 +154,13 @@ export const DEFAULT_GUEST_STATS: PlayerStats = {
 // ─── HTTP helpers ──────────────────────────────────────────────────────────────
 
 async function gamesFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!GAMES_API_BASE) {
+    throw new Error('VITE_GAMES_API_URL is not configured');
+  }
+  if (!GAMES_API_KEY) {
+    throw new Error('VITE_GAMES_API_KEY is not configured');
+  }
+
   const response = await fetch(`${GAMES_API_BASE}${path}`, {
     ...init,
     headers: {

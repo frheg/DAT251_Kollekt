@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kollekt</string>
+    <string name="title_activity_main">Kollekt</string>
+    <string name="package_name">no.kollekt.app</string>
+    <string name="custom_url_scheme">no.kollekt.app</string>
+</resources>

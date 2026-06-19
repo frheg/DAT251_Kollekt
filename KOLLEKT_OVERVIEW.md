@@ -4,7 +4,7 @@
 
 **What it is:** A student project (DAT251) — a mobile-first web app for shared households / collectives ("kollektiv"). Roommates manage chores, money, shopping, a shared calendar, group chat, and gamification (XP, levels, leaderboards, achievements), plus a party drinking-game mode. The drinking-game/party features are now provided by a **separate games service** (its own GitHub repo) that Kollekt consumes over a REST API rather than running the game logic in-app. Originally based on a Figma export.
 
-**Stack:** React + TypeScript (Vite) frontend · Spring Boot (Kotlin) backend · PostgreSQL (Supabase) · WebSockets (realtime) · Docker / Docker Compose / GitHub Actions CI-CD.
+**Stack:** React + TypeScript (Vite) frontend · Capacitor iOS/Android shells · Spring Boot (Kotlin) backend · PostgreSQL (Supabase) · WebSockets (realtime) · Docker / Docker Compose / GitHub Actions CI-CD.
 
 > **Removed in recent cleanup:** Redis (cache + token store) and Kafka (messaging). See [Recent architecture changes](#recent-architecture-changes) for what replaced them.
 
@@ -27,7 +27,10 @@ These are the in-flight structural changes this doc was updated to reflect. Item
 ## High-level architecture
 
 ```
-React SPA (Vite, :5173)
+React SPA source (Vite)
+ ├── Web build (:5173/nginx)
+ ├── iOS shell (Capacitor)
+ └── Android shell (Capacitor)
  │  REST /api/*  (JWT Bearer access + refresh tokens)
  │  WS  /ws/collective?memberName=...  (live updates)
  │  REST  → Kollekt Games API  (drinking-game rounds + questions)
@@ -61,7 +64,7 @@ A user logs in → belongs to a **Collective** (household, identified by a `join
 - `AppLayout` wraps all main pages (with header + bottom nav)
 - Catch-all redirects to `/`
 
-**Auth/session state** — `src/context/UserContext.tsx`: holds `currentUser`, loads `/onboarding/me` on boot, manages notifications, and opens the realtime WS connection. Persists user + tokens in `localStorage`.
+**Auth/session state** — `src/context/UserContext.tsx`: holds `currentUser`, asynchronously restores the token-backed session, loads `/onboarding/me` on boot, manages notifications, and opens the realtime WS connection. `src/lib/authStorage.ts` stores native access/refresh tokens in iOS Keychain or Android Keystore-backed encrypted storage and uses `localStorage` only for the web build. Non-sensitive cached user display data remains in `localStorage`.
 
 **API client** — `src/lib/api.ts`: central `fetch` wrapper. Attaches `Bearer` token, auto-refreshes on 401 via `/onboarding/refresh`, sanitizes error messages through i18n. Exposes `api.get/post/patch/delete/postForm`.
 
@@ -154,7 +157,7 @@ Flyway migrations, **V1 baseline → V32**. Baseline (`V1`) defines the core tab
 
 - **Identity by name:** `memberName` is the de-facto key across the API; member names are globally unique.
 - **Games are an external service:** drinking-game logic and questions live in the separate Kollekt Games repo and are consumed over its REST API. Kollekt only ships the games *UI*.
-- **No Redis, no Kafka:** tokens and (any) caching live in PostgreSQL / in-process; integration events run in-process via Spring events. WebSockets remain the realtime transport.
+- **No Redis, no Kafka:** tokens live in PostgreSQL and stats are computed on demand; the former Kafka integration events were dropped rather than replaced. WebSockets remain the realtime transport.
 - **Smart task assignment is scaffolding, not yet active.** DB columns and the `assignmentReason` field exist (V4–V9), but there's **no live assignment algorithm** consuming chemistry/preferences/fairness scores yet — tasks are created with an explicit assignee. `ideas.md` flags this ("empty feature") and lists intended fairness/preference/ML directions. **Prime area for future work.**
 - **Realtime is push-notify-then-refetch:** WS events tell the client *what changed*; the client refetches via REST.
 - **Two settlement models:** collective-wide `SettlementCheckpoint` and per-pair `PersonalSettlement`.
@@ -162,6 +165,13 @@ Flyway migrations, **V1 baseline → V32**. Baseline (`V1`) defines the core tab
 ## Infra & ops
 - `docker-compose.yml` — backend, frontend (DB is external Supabase via `.env`). Redis, Zookeeper, and Kafka containers have been removed.
 - The **Kollekt Games** service is deployed/run independently (its own repo, image, and compose/CI); Kollekt reaches it via a configured base URL.
+- **Mobile packaging:** the existing Vite output is packaged in committed Capacitor `ios/` and `android/` projects using application ID `no.kollekt.app`. Both native apps continue calling the deployed Kotlin and games services over HTTPS/WSS; no backend code is embedded in the app.
+- **Mobile layout:** the shared shell accounts for iOS/Android safe-area insets, dynamic viewport height, the fixed bottom navigation, and touch devices without hover capability.
+- **Mobile environment:** `npm run mobile:sync` builds in Vite's `mobile` mode and requires `.env.mobile` to provide absolute HTTPS URLs for both deployed services. Local web development continues using `.env` and the `/api` proxy.
+- **Google Calendar on mobile:** OAuth opens in the native browser and returns through `no.kollekt.app://google-calendar-connected`. The backend accepts only configured web/native return URLs and stores each OAuth state as a short-lived, single-use nonce; no Google or Kollekt tokens are placed in the app return link.
+- **Mobile native polish:** status bar and splash screen are configured in `capacitor.config.ts` and initialised in `src/lib/nativeBootstrap.ts`; app icons/splash are generated from `assets/` via `@capacitor/assets`; light haptics fire on key task/game actions through `src/lib/haptics.ts`.
+- **Push notifications:** the client foundation (permission, device-token registration after login, and notification-tap deep links) lives in `src/lib/pushNotifications.ts`; tokens are persisted via `POST /api/push/device-token` (`PushNotificationController` + `push_device_tokens` table). Actual APNs/FCM delivery is configured separately and is not yet wired.
+- **Mobile release security gate:** the current `VITE_GAMES_API_KEY` is bundled client configuration, not a protectable secret. The games-service authentication contract must be changed to a public-client-safe design before store release. Native JWTs already use platform-protected storage.
 - `Dockerfile` + `nginx/` — frontend container served by nginx.
 - `.github/workflows/ci-cd.yml` — builds frontend + backend on push/PR to `main`, publishes `kollekt-frontend`/`kollekt-backend` images to Docker Hub.
 - Tests: backend has broad coverage under `backend/src/test` — `service/*Test`, `api/*ContractTest`, and `acceptance/*` (user-story acceptance tests, mapped in `user-story-test-mapping.md`). The Redis/Kafka and drinking-endpoint tests have been removed; `TokenStoreServiceTest` now exercises the PostgreSQL-backed store.

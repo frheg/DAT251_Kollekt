@@ -32,11 +32,11 @@ class GoogleCalendarService(
 
     fun isConnected(member: Member) = !member.googleAccessToken.isNullOrBlank()
 
-    fun getAuthorizationUrl(memberName: String): String =
+    fun getAuthorizationUrl(state: String): String =
         buildFlow()
             .newAuthorizationUrl()
             .setRedirectUri(redirectUri)
-            .setState(memberName)
+            .setState(state)
             .set("access_type", "offline")
             .set("prompt", "consent")
             .build()

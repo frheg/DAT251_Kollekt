@@ -44,16 +44,20 @@ export default function LoginPage() {
     try {
       if (mode === 'login') {
         const res = await api.post<AuthResponse>('/onboarding/login', { name: loginName, password });
-        setAccessToken(res.accessToken);
-        setRefreshToken(res.refreshToken);
+        await Promise.all([
+          setAccessToken(res.accessToken),
+          setRefreshToken(res.refreshToken),
+        ]);
         const userWithInvite = await tryJoinFromInvitation(res.user);
         setCurrentUser(userWithInvite);
         navigate(userWithInvite.collectiveCode ? '/' : '/create-household', { replace: true });
 
       } else if (mode === 'register') {
         const res = await api.post<AuthResponse>('/onboarding/users', { name, email, password });
-        setAccessToken(res.accessToken);
-        setRefreshToken(res.refreshToken);
+        await Promise.all([
+          setAccessToken(res.accessToken),
+          setRefreshToken(res.refreshToken),
+        ]);
         const userWithInvite = await tryJoinFromInvitation(res.user);
         setCurrentUser(userWithInvite);
         navigate(userWithInvite.collectiveCode ? '/' : '/create-household', { replace: true });
