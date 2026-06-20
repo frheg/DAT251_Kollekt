@@ -16,7 +16,7 @@
 
 These are the in-flight structural changes this doc was updated to reflect. Items marked _(decision pending)_ are reasonable defaults that can still change.
 
-1. **Games extracted to a separate repo + API.** The client-side drinking-game engine (was `src/lib/drinkingGameEngine`) and its question content (was `backend/src/main/resources/drinking-games/` + `GET /api/drinking-game/question`) now live in a standalone **Kollekt Games** service (Node + TypeScript REST API; in this repo under `kollekt-games/` until it is split into its own GitHub repo). The Kollekt frontend keeps the `GamesPage` / `CollektGamePage` UI and calls that external API **directly** with an API key (`VITE_GAMES_API_URL` + `VITE_GAMES_API_KEY`) — no backend proxy.
+1. **Games extracted to a separate repo + API.** The client-side drinking-game engine (was `src/lib/drinkingGameEngine`) and its question content (was `backend/src/main/resources/drinking-games/` + `GET /api/drinking-game/question`) now live in a standalone **Kollekt Games** service (Node + TypeScript REST API) in its own GitHub repository — there is no `kollekt-games/` directory in this repo. The Kollekt frontend keeps the `GamesPage` / `CollektGamePage` UI and calls that external API **directly** with an API key (`VITE_GAMES_API_URL` + `VITE_GAMES_API_KEY`) — no backend proxy.
 2. **Redis removed.** The two consumers were token storage and the stats/leaderboard cache:
    - **Token store** (refresh + revoked tokens) → moved to **PostgreSQL** (`TokenEntry` entity + `TokenEntryRepository`, table `auth_tokens` via migration **V32**). Expiry is enforced at query time; expired rows are purged on write.
    - **Stats/leaderboard cache** → **computed on demand** (no cache; `StatsCacheService` and the direct `RedisTemplate` reads/writes in `StatsService` are gone).
@@ -121,6 +121,7 @@ Entry: `KollektApplication.kt`. Layered: **api → service → repository → do
 | `MemberController` | `/api/members` | collective members, status |
 | `InvitationController` | `/api/invitations` | email invites |
 | `NotificationController` | `/api/notifications` | list/read/delete, preferences |
+| `PushNotificationController` | `/api/push` | mobile push device-token register/remove |
 | `InvitationRealtimeController`, `AuthVerification`, `ApiExceptionHandler` | — | realtime invites, auth helper, global error → JSON `{error}` |
 
 > The former `GET /api/drinking-game/question` endpoint (served by `StatsController`) has been removed from the Kollekt backend; that responsibility now belongs to the Kollekt Games service.
@@ -132,13 +133,13 @@ DTOs live in `api/dto/ApiModels.kt`.
 - **Domain ops:** `CollectiveOperations`, `MemberOperations`, `TaskOperations`, `TaskMaintenanceService` (deadline reminders, expiring overdue tasks), `ShoppingOperations`, `EventOperations`, `EconomyOperations`, `ChatOperations`
 - **Gamification/stats:** `StatsService` (XP, levels, streaks, leaderboard periods, achievement definitions). The former `StatsCacheService` (Redis cache invalidation) is removed — stats/leaderboard/dashboard are computed on demand.
 - **Notifications/realtime:** `NotificationService`, `RealtimeUpdateService`, `InvitationRealtimeService`
-- **Integration/messaging:** integration events previously published/consumed via Kafka (`IntegrationEventPublisher` / `IntegrationEventConsumer`) now use in-process Spring application events (or are dropped where unused). `GoogleCalendarService` is unchanged.
+- **Integration/messaging:** the former Kafka integration events (`IntegrationEventPublisher` / `IntegrationEventConsumer`) were **dropped entirely** — there is no replacement event bus; realtime runs over WebSockets. `GoogleCalendarService` is unchanged.
 
 ### Repositories (`/repository`)
-Spring Data JPA interfaces, one per aggregate (Member, Collective, Task, TaskFeedback, ShoppingItem, Event, Expense, PantEntry, PersonalSettlement, SettlementCheckpoint, ChatMessage, Notification, Achievement, Invitation, Room). _A token repository is added to back the now-DB-resident refresh/revoked tokens._
+Spring Data JPA interfaces, one per aggregate (Member, Collective, Task, TaskFeedback, ShoppingItem, Event, Expense, PantEntry, PersonalSettlement, SettlementCheckpoint, ChatMessage, Notification, Achievement, Invitation, Room). _A token repository backs the now-DB-resident refresh/revoked tokens, and `PushDeviceTokenRepository` backs mobile push device tokens._
 
 ### Domain entities (`/domain`)
-Member, Collective, Room, TaskItem, TaskFeedback, ShoppingItem, CalendarEvent, Expense, PersonalSettlement, SettlementCheckpoint, PantEntry, ChatMessage, Notification, Achievement, Invitation.
+Member, Collective, Room, TaskItem, TaskFeedback, ShoppingItem, CalendarEvent, Expense, PersonalSettlement, SettlementCheckpoint, PantEntry, ChatMessage, Notification, Achievement, Invitation, TokenEntry (`auth_tokens`), PushDeviceToken (`push_device_tokens`).
 
 ### Config (`/config`)
 - `SecurityConfig` + `RevokedTokenValidator` — JWT auth, token revocation (revocation list now read from PostgreSQL)
@@ -147,7 +148,7 @@ Member, Collective, Room, TaskItem, TaskFeedback, ShoppingItem, CalendarEvent, E
 - _Removed:_ `KafkaConfig`, `RedisConfig`.
 
 ### Database (`/resources/db/migration`)
-Flyway migrations, **V1 baseline → V32**. Baseline (`V1`) defines the core tables. Later migrations layer on features: task recurrence (V10), penalty XP (V11), notifications (V12–13), chat reactions/polls/images/replies (V14, V15, V18, V31), Google Calendar (V19), monthly prize (V20), task feedback (V21), shopping completion timestamps (V22), notification prefs (V23), event end-time (V24), pant goal (V25), expense deadlines (V26), personal settlements (V27), task category normalization (V28–29), achievement config (V30), token store (V32 — `auth_tokens`, replaces Redis). Migrations V4–V9 added "smart assignment" scaffolding (assignment history, member chemistry, preferences, scores, assignment reason).
+Flyway migrations, **V1 baseline → V33**. Baseline (`V1`) defines the core tables. Later migrations layer on features: task recurrence (V10), penalty XP (V11), notifications (V12–13), chat reactions/polls/images/replies (V14, V15, V18, V31), Google Calendar (V19), monthly prize (V20), task feedback (V21), shopping completion timestamps (V22), notification prefs (V23), event end-time (V24), pant goal (V25), expense deadlines (V26), personal settlements (V27), task category normalization (V28–29), achievement config (V30), token store (V32 — `auth_tokens`, replaces Redis), push device tokens (V33 — `push_device_tokens`). Migrations V4–V9 added "smart assignment" scaffolding (assignment history, member chemistry, preferences, scores, assignment reason).
 
 > **Migration V32 (Redis removal):** `V32__add_token_store.sql` creates the `auth_tokens` table that backs the now DB-resident refresh/revoked tokens (the data previously held in Redis).
 

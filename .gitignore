@@ -3,7 +3,8 @@ dist/
 .env
 .env.local
 .env.mobile
-
+.claude/
+.claude/settings.json
 backend/.gradle/
 backend/build/
 backend/bin/
