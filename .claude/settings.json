@@ -38,7 +38,11 @@
       "Bash(echo \"EXIT=$?\")",
       "Bash(git ls-remote *)",
       "Bash(echo \"LSREMOTE_EXIT=$?\")",
-      "Bash(echo \"PUSH_EXIT=$?\")"
+      "Bash(echo \"PUSH_EXIT=$?\")",
+      "Bash(grep -c '```')",
+      "Bash(pkill -9 -f \"git fetch\")",
+      "Bash(pkill -9 -f \"git-remote-https.*DAT251_Kollekt\")",
+      "Bash(pkill -9 -f \"git remote-https origin\")"
     ]
   }
 }

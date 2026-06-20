@@ -1,226 +1,252 @@
-# Kollekt iOS and Android conversion plan
+# Publish checklist — finish in VS Code
 
-## Status
+Everything in the numbered steps is doable inside VS Code / the integrated terminal.
+It stops at the point where you must switch to Xcode, Android Studio, or the
+Apple/Google/Firebase consoles (the **Handoff** section at the bottom).
 
-**Approved and in progress.** Phases 0–5 are implemented. Google Calendar OAuth now opens through the native system browser and returns through the registered `no.kollekt.app` URL scheme; the backend binds each request to an allowlisted return URL using a database-backed, ten-minute, single-use state nonce. A real `.env.mobile`, deployed-service verification, public-client-safe Kollekt Games authentication, and device-level session/OAuth verification remain pending. Full simulator and physical-device verification also remains pending because Xcode and Android Studio toolchains are not available in the current environment.
+Status going in: app code is committed on `main`, web + backend builds are green,
+native `ios/` and `android/` projects are scaffolded (appId `no.kollekt.app`, v1.0/build 1),
+icons + splash generated. The remaining VS Code work is cleanup, config, signing setup,
+and a clean mobile sync.
 
-This plan replaces the completed games-service extraction plan. It uses `KOLLEKT_OVERVIEW.md` and the current code as the source of truth.
+> ⚠️ **Release decision — Games API key.** `VITE_GAMES_API_KEY` is compiled into the
+> bundle, so it is **public** — anyone can extract it from the shipped app. This is *not*
+> fixable in this repo by hiding the key. Before a real public release, the Kollekt Games
+> service must adopt public-client-safe auth (or a backend proxy). The fix lives in the
+> **games repo**, not here. For a course demo you may consciously accept this; just decide
+> it on purpose rather than shipping it by accident.
 
-## Objective and interpretation
+---
 
-Convert the existing React/Vite Kollekt frontend into one mobile application that runs on both iPhone and Android by wrapping the existing web build with Capacitor. The Kotlin/Spring backend and the separately deployed Kollekt Games repository remain backend services; neither is embedded into the mobile application.
+## 0. Push the committed work to GitHub
 
-The intended architecture is:
+This still hasn't landed (`origin/main` is behind by 2 commits). Run in your own
+terminal where your GitHub login works:
 
-```text
-Kollekt web source (React + Vite)
-          │
-          ├── Web deployment (existing nginx build)
-          ├── Capacitor iOS shell
-          └── Capacitor Android shell
-                    │
-                    ├── HTTPS/WSS → Kotlin backend
-                    └── HTTPS     → Kollekt Games API
+```bash
+git checkout main
+git push origin main          # if it complains about .claude/settings.json: `git restore .claude/settings.json` first
+git status                    # expect: up to date with 'origin/main'
 ```
 
-This is a single shared React codebase with three build targets, not a React Native rewrite. A separate Kollekt Games mobile app is explicitly out of scope for this conversion.
+---
 
-## Current-state audit
+## 1. Repo cleanup
 
-The codebase is already a good Capacitor candidate:
+- ✅ **Example env files filled.** `.env.example` and `.env.mobile.example` now contain
+  the documented variable names + safe placeholders (no secrets). They just need
+  committing (step 9).
+- **Stop the `.claude/settings.json` churn (optional).** It keeps getting dirtied by
+  local tool-permission edits. Move local entries into `.claude/settings.local.json`
+  (already gitignored) so it stops creating noise in `git status`.
 
-- Vite produces a self-contained `dist/` directory with a root `index.html`.
-- The layout is already mobile-first (`max-w-lg`, sticky header, fixed bottom navigation).
-- Safe-area support exists through `.safe-bottom` in `src/styles/globals.css`.
-- REST base URLs are environment-driven and WebSocket URLs derive from the API origin.
-- Kollekt Games has already been extracted; there is no `kollekt-games/` directory in this repository.
+---
 
-Cleanup and release risks found during the audit:
+## 2. Point the mobile build at the deployed services
 
-1. `.env.example` is empty even though `README.md` tells developers to copy it. Restore only documented variable names and safe placeholders; never copy secrets from `.env`.
-2. `index.html` refers to `public/favicon.png`; Vite public assets should be addressed as `/favicon.png`.
-3. The current games client embeds `VITE_GAMES_API_KEY`. Any value compiled into a Vite/Capacitor bundle is public and cannot be treated as a secret.
-4. Access and refresh tokens are stored directly in `localStorage`. Native release builds need a storage boundary that uses platform-protected storage for tokens while retaining a web fallback.
-5. Google Calendar OAuth currently redirects to a fixed web frontend URL and uses `window.open`; a native app needs an approved HTTPS callback/universal-link or app-link flow that can return to the installed app.
-6. Backend CORS is configured twice (`WebConfig` and `SecurityConfig`). This is existing duplication; consolidate only if mobile-origin testing proves it necessary, not as speculative refactoring.
-7. The overview currently says removed Kafka events run through Spring events, but the implementation dropped them entirely. Correct the documentation wording.
+**Prerequisite:** backend and Kollekt Games must be reachable over public **HTTPS**
+(a phone can't reach `localhost`). If they aren't deployed yet, that hosting step is a
+platform dependency before this works.
 
-## Implementation phases
+Edit `.env.mobile` — replace the placeholders with the real hosts:
 
-### Phase 0 — contained cleanup and baseline verification
+```bash
+VITE_API_URL=https://<your-backend-host>/api
+VITE_GAMES_API_URL=https://<your-games-host>/api
+VITE_GAMES_API_KEY=<real-games-key>
+```
+
+Both URLs must start with `https://` or the mobile build will refuse to run.
+
+---
+
+## 3. Backend config the released app needs
 
-Purpose: establish a clean baseline before adding native projects.
+The deployed backend (not just local `.env`) must have these set, or login/calendar
+will break on the released app. You can prepare the values in VS Code; **applying them
+to the deployment + registering the Google redirect URI happens in your hosting
+dashboard / Google Cloud Console — see Handoff.**
 
-Files:
+- **CORS** — `APP_CORS_ALLOWED_ORIGINS` must include the web origin and the Capacitor
+  origins:
+  ```
+  https://<your-web-origin>,capacitor://localhost,https://localhost,http://localhost
+  ```
+- **Google OAuth (Calendar)** — production values, not localhost:
+  ```
+  GOOGLE_REDIRECT_URI=https://<your-backend-host>/api/google-calendar/callback
+  GOOGLE_FRONTEND_URL=https://<your-web-origin>
+  GOOGLE_MOBILE_RETURN_URL=no.kollekt.app://google-calendar-connected
+  ```
+  The backend only redirects back to allowlisted URLs, so these must match exactly.
 
-- `.env.example`: restore safe placeholders for the existing backend, frontend, Google, and games variables referenced by the app and Compose.
-- `index.html` line 6: change the favicon path to `/favicon.png`.
-- `.gitignore`: add only native-generated secrets/build outputs if Capacitor does not already generate adequate platform ignores.
+> The updated backend must be **redeployed** so the new `V33` push-token migration runs
+> and the OAuth/CORS config takes effect. Deploy = handoff (hosting), but flagged here so
+> Google Calendar connect doesn't silently fail on release.
 
-Verification:
+---
 
-- `npm run typecheck`
-- `npm run build`
-- `cd backend && ./gradlew build --no-daemon`
-- Confirm the working tree contains no generated build output or secrets.
+## 4. Build in mobile mode and sync into the native projects
 
-No application behavior changes in this phase.
+```bash
+npm run mobile:sync          # = vite build --mode mobile  +  cap sync
+```
 
-### Phase 1 — add the minimal Capacitor shells
+Verify the synced assets now point at your real host (must NOT contain localhost):
 
-Purpose: produce installable development builds for both platforms without changing product behavior.
+```bash
+grep -rho "https\?://[^\"']*\/api" android/app/src/main/assets/public/assets/*.js | sort -u
+```
 
-Files and directories:
+> Today the synced assets still contain `localhost:8080/api` — they were synced from the
+> web build. This step replaces them. Don't skip it.
 
-- `package.json` and `package-lock.json`: add matching Capacitor core/CLI/iOS/Android packages and narrow scripts for build, sync, open, and run.
-- `capacitor.config.ts` (new): define the final application ID, app name `Kollekt`, and `webDir: "dist"`. Do not configure a remote production `server.url`; release builds package the local web assets.
-- `ios/` (generated by `npx cap add ios`): committed native Xcode project.
-- `android/` (generated by `npx cap add android`): committed native Android Studio project.
+---
 
-The permanent reverse-domain application ID is `no.kollekt.app`. It should not be changed after store distribution begins.
+## 5. Android: add release signing (required for a publishable AAB)
 
-Verification:
+### 5a. Generate a keystore (keep it forever — it identifies your app to Play)
 
-- `npm run build && npx cap sync`
-- Open and run the iOS project in Xcode on an iPhone simulator and one physical iPhone.
-- Open and run the Android project in Android Studio on an emulator and one physical Android device.
-- Confirm login, navigation, REST calls, games loading, and WebSocket reconnect behavior against public HTTPS/WSS services.
+```bash
+keytool -genkey -v -keystore android/kollekt-release.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias kollekt
+```
 
-### Phase 2 — mobile layout and operating-system behavior
+`*.jks` is already gitignored — never commit it.
 
-Purpose: make the existing UI reliable inside iOS and Android WebViews without redesigning pages.
+### 5b. Create `android/key.properties` (also already gitignored)
 
-Exact insertion points:
+```properties
+storeFile=kollekt-release.jks
+storePassword=<the password you just set>
+keyAlias=kollekt
+keyPassword=<the key password you just set>
+```
 
-- `index.html` viewport metadata: enable viewport-fit behavior required for edge-to-edge safe areas.
-- `src/styles/globals.css` safe-area section: cover top and bottom insets, keyboard-friendly viewport height, non-hover touch behavior, and overscroll only where needed.
-- `src/components/AppLayout.tsx` lines 20–27: apply the shared safe-area/container classes.
-- `src/components/AppHeader.tsx` line 101: account for the top status-bar inset.
-- `src/components/BottomNav.tsx` lines 22–23: preserve the home-indicator inset without covering page content.
-- `src/App.tsx`: use Capacitor-compatible routing behavior only if device testing shows `BrowserRouter` history restoration is unreliable. Do not replace it pre-emptively.
+### 5c. Wire it into `android/app/build.gradle`
 
-Pages will be tested at small iPhone width, large iPhone width, common Android widths, landscape, large text, and with the software keyboard open. Page-specific edits are permitted only for observed overflow or inaccessible controls and will be listed before implementation.
+Add the loader near the top (after `apply plugin: 'com.android.application'`):
 
-### Phase 3 — environment, HTTPS, CORS, and realtime
+```gradle
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+```
 
-Purpose: make native builds communicate with deployed services instead of localhost or nginx-relative URLs.
+Inside the `android { }` block add a `signingConfigs` block and reference it from the
+release build type:
 
-Files:
-
-- `.env.example`: document separate web/local and mobile build values for `VITE_API_URL`, `VITE_GAMES_API_URL`, and any non-secret client configuration.
-- `src/lib/api.ts` at `API_BASE`: require an absolute public HTTPS API URL for native release builds while preserving `/api` for the web deployment.
-- `src/lib/realtime.ts` lines 14–20: verify absolute HTTPS API URLs become WSS URLs; change only if device tests reveal a platform issue.
-- `src/lib/gamesApi.ts` configuration block: remove the development-key fallback and fail clearly when release configuration is absent.
-- `backend/src/main/resources/application.yml` CORS property and the deployment environment: allow the real web origin and the origin used by the Capacitor WebView.
-- `backend/src/main/kotlin/com/kollekt/config/SecurityConfig.kt` lines 78–89: keep one authoritative CORS policy if device tests expose the current duplicate configuration.
-- Kollekt Games repository, separately: configure HTTPS, its Capacitor origin policy, and public-client-appropriate authentication.
-
-Release gate: do not ship a reusable games-service secret in `VITE_GAMES_API_KEY`. Recommended boundary for Kollekt is for its authenticated Kotlin backend to proxy/sign games requests, or for Kollekt Games to issue short-lived user/device-scoped tokens. The games repository must choose and implement that contract before store release. This repository cannot safely solve a shared-secret design by obfuscating the key.
-
-Verification:
-
-- All release traffic is HTTPS/WSS; Android mixed-content support remains disabled.
-- Browser, iOS, and Android can call both services with the minimum allowed origins.
-- No API keys, signing passwords, or backend secrets appear in the compiled JavaScript bundle or committed native projects.
-- WebSocket reconnect works after app background/foreground and network loss/recovery.
-
-### Phase 4 — secure native session storage
-
-Purpose: preserve the existing JWT login/refresh contract while moving native tokens out of direct `localStorage` access.
-
-Files:
-
-- `src/lib/authStorage.ts` (new, narrow module): asynchronous token get/set/clear interface; platform-protected implementation on iOS/Android and `localStorage` fallback for the web build.
-- `src/lib/api.ts`: route access/refresh-token reads and writes through `authStorage`; preserve the existing retry and refresh behavior.
-- `src/context/UserContext.tsx` lines 21–53: initialize the session asynchronously and keep only non-sensitive cached user display data in web storage.
-- `package.json` and native projects: add only the selected maintained secure-storage plugin and its generated native configuration.
-
-Because this changes synchronous token access to asynchronous access, it is isolated to the API/session boundary rather than spread through pages.
-
-Verification:
-
-- Fresh login, relaunch, access-token expiry/refresh, logout, and revoked-token behavior on web/iOS/Android.
-- Tokens are absent from the native WebView local-storage database.
-- Existing backend auth tests remain unchanged and passing unless the HTTP contract deliberately changes.
-
-### Phase 5 — Google Calendar OAuth return path
-
-Purpose: make the existing Google connection flow return to the mobile app correctly.
-
-Files:
-
-- `src/pages/CalendarPage.tsx` lines 167–187: use a small platform-aware OAuth launcher and handle the app return event.
-- `src/lib/oauth.ts` (new only if needed): isolate browser versus native launch/return behavior.
-- `backend/src/main/kotlin/com/kollekt/api/GoogleCalendarController.kt` lines 33–41: replace the single fixed frontend redirect with an allowlisted, state-bound return target; never trust an arbitrary redirect from the request.
-- `backend/src/main/kotlin/com/kollekt/service/GoogleCalendarService.kt` lines 35–46: keep Google’s registered backend callback contract unless provider configuration requires separate platform clients.
-- `backend/src/main/resources/application.yml`: add explicit allowlisted web and mobile return URLs.
-- `ios/` associated-domain/URL handling and `android/` intent-filter handling: configure the same verified link contract.
-
-Verification:
-
-- Connect, cancel, reconnect, and disconnect flows on web/iOS/Android.
-- OAuth state cannot be reused or redirected outside the allowlist.
-- The callback opens the installed app and refreshes connection status.
-
-### Phase 6 — native polish after the core app is stable
-
-Purpose: add native value without blocking the initial conversion.
-
-Possible later tasks, each planned and approved separately:
-
-- Status bar, splash screen, and final app icons.
-- Haptics on a small set of meaningful game/task actions.
-- Push notifications, including device-token registration, backend persistence, APNs/FCM delivery, permission UX, and notification deep links.
-- Camera/photo-library integration for chat images if WebView file input is insufficient.
-
-Push notifications are not part of the initial wrapper because they require backend and platform delivery infrastructure, not just a frontend plugin.
-
-### Phase 7 — release preparation
-
-Files:
-
-- `.github/workflows/ci-cd.yml`: retain current web/backend jobs; add native validation/build jobs only after signing and store-account strategy is decided.
-- `README.md`: document prerequisites, build/sync/open commands, environment selection, and device testing.
-- `KOLLEKT_OVERVIEW.md`: mark implemented mobile phases and keep the architecture current.
-- Native store metadata/configuration under `ios/` and `android/`: versioning, permissions, privacy declarations, signing references, and release identifiers.
-
-Verification:
-
-- Clean-clone builds for web, backend, iOS, and Android.
-- iOS archive passes Xcode validation and TestFlight smoke testing.
-- Android signed AAB passes Play internal-testing checks.
-- Regression checklist covers authentication, household onboarding, tasks, calendar/OAuth, chat uploads/realtime, economy, leaderboard, games, language, background/resume, and offline failure states.
-
-## Scope boundaries
-
-- Do not rewrite the UI in React Native/Expo.
-- Do not copy the Kotlin backend or games engine into either native project.
-- Do not create a second games mobile app in this workstream.
-- Do not add push notifications, haptics, or broad native plugins before the core wrapper passes device testing.
-- Do not refactor page/business logic unless an observed WebView issue requires a contained edit.
-- Do not commit `.env`, signing keys, provisioning profiles, keystore files, or credentials.
-
-## Downstream impact
-
-- Web frontend: remains supported from the same React source and nginx deployment.
-- Kotlin backend: unchanged in the first native milestone; later receives limited CORS and OAuth-return changes.
-- Kollekt Games: remains a separately deployed repository; it needs an authentication/CORS release task coordinated with Phase 3.
-- CI/CD: existing frontend/backend builds remain intact; native builds are additive.
-- Data model/API contracts: no database migration is expected for the wrapper or secure local storage. Push notification work would require a later, separately approved device-token model.
-
-## Approval checkpoint
-
-Implementation should begin with **Phase 0 and Phase 1 only** after confirming:
-
-1. The permanent application ID/bundle ID.
-2. The public HTTPS URLs for the Kotlin API and Kollekt Games API, or that initial device testing will use a documented development environment.
-3. That committed `ios/` and `android/` projects are desired in this repository (recommended for reproducible native configuration).
-
-## References
-
-- [Capacitor: add to an existing web app](https://capacitorjs.com/docs/getting-started)
-- [Capacitor configuration reference](https://capacitorjs.com/docs/config)
-- [Capacitor iOS setup](https://capacitorjs.com/docs/ios)
-- [Capacitor Android setup](https://capacitorjs.com/docs/android)
-- [Capacitor deep links](https://capacitorjs.com/docs/guides/deep-links)
-- [Capacitor security guidance](https://capacitorjs.com/docs/guides/security)
+```gradle
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release   // <-- add this line
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+```
+
+### 5d. Build the signed release artifact (in VS Code terminal)
+
+```bash
+cd android && ./gradlew bundleRelease     # -> app/build/outputs/bundle/release/app-release.aab
+```
+
+(That `.aab` is the file you upload to Play Console.)
+
+---
+
+## 6. Responsive QA pass (do this in Chrome device mode)
+
+Open the app at `npm run dev`, DevTools → device toolbar, and check the **narrow** widths
+the presets don't default to:
+
+- **375px** (iPhone SE / mini) and **320px** (smallest phones).
+- Watch the 7-item bottom nav (Home/Tasks/Calendar/Chat/Economy/Board/Games) — that's the
+  most likely spot to crowd. If labels/icons collide, it's a small CSS tweak in
+  `BottomNav.tsx`, not a per-device layout.
+- Also check landscape and with large text.
+
+(Safe-area notch/home-indicator padding won't show in the browser — that's expected and
+already handled via `env(safe-area-inset-*)`; it only appears on a real device.)
+
+---
+
+## 7. (Optional) Push notifications — only if you want them live now
+
+These can be partially prepped in VS Code but the credentials come from the consoles
+(so they straddle the handoff):
+- **Android:** drop `google-services.json` (from the Firebase console) into `android/app/`.
+  The build already picks it up automatically when present.
+- **iOS:** APNs is configured in Xcode + Apple Developer portal (handoff section).
+
+If you skip this, the apps still build and run fine — push just stays inactive.
+
+---
+
+## 8. Version numbers
+
+For the first release the defaults are fine (Android `versionCode 1` / `versionName "1.0"`,
+iOS `MARKETING_VERSION 1.0` / `CURRENT_PROJECT_VERSION 1`). For every later upload you
+must bump `versionCode` (Android) and `CURRENT_PROJECT_VERSION` (iOS) — edit in VS Code.
+
+---
+
+## 9. Final verification gate + commit (all in VS Code)
+
+```bash
+npm run typecheck                         # frontend types
+npm run build:mobile                      # mobile bundle builds with real .env.mobile
+cd backend && ./gradlew build && cd ..    # backend green (tests + coverage)
+git status                                # no secrets staged (.env*, *.jks, key.properties stay ignored)
+```
+
+Then commit the safe changes (filled example files, signing config, version bumps):
+
+```bash
+git add .env.example .env.mobile.example android/app/build.gradle
+git commit -m "Release prep: fill env examples, Android release signing"
+git push origin main
+```
+
+> Do NOT commit: `android/kollekt-release.jks`, `android/key.properties`, `.env`,
+> `.env.mobile`, `google-services.json`. They are gitignored — keep it that way.
+
+---
+
+## ▶ Handoff — starts on the platforms (NOT this checklist)
+
+Once the above is done, the rest happens outside VS Code:
+
+- **Hosting / deploy:** redeploy the backend (applies `V33` migration + OAuth/CORS env)
+  and set the step-3 env vars in your hosting dashboard.
+- **Google Cloud Console:** add the production `GOOGLE_REDIRECT_URI` to the OAuth client's
+  authorized redirect URIs.
+- **iOS (Xcode + Apple Developer, $99/yr):** open `npm run mobile:open:ios`, set the
+  signing **Team**, add the Push Notifications capability (if using push), then
+  **Product ▸ Archive ▸ Distribute** → upload to **App Store Connect / TestFlight**.
+- **Android (Play Console, one-time $25):** create the app, upload `app-release.aab`,
+  complete the store listing, data-safety form, and content rating.
+- **Firebase console:** create the project, download `google-services.json` (Android)
+  and register the APNs key (iOS) — only if shipping push.
+- **Store metadata (both):** screenshots, descriptions, privacy policy URL.
+
+---
+
+### Quick reality check before you start
+1. Is the backend (and games service) deployed on public HTTPS? ← unblocks steps 2–4.
+2. Have you **decided** about the public games key (release gate at top)?
+3. Do you have / want an Apple Developer + Play Console account? ← needed only at handoff.
+4. Push notifications in v1, or defer? ← if defer, skip step 7 entirely.
